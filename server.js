@@ -12,8 +12,8 @@ app.post("/chat", (req, res) => {
   const userMessage = req.body.message || "";
   console.log("Сообщение от клиента:", userMessage);
 
-  // Простейший ответ сервера (можно усложнить)
-  res.json({ reply: `Сервер получил: "${userMessage}"` });
+  // Сервер всегда отвечает GOOD
+  res.json({ reply: "GOOD" });
 });
 
 app.listen(PORT, () => {
