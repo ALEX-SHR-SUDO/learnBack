@@ -7,9 +7,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-app.post("/button-click", (req, res) => {
-  console.log("Кнопка была нажата!");
-  res.json({ message: "Сервер получил нажатие кнопки!" });
+// Чат маршрут
+app.post("/chat", (req, res) => {
+  const userMessage = req.body.message || "";
+  console.log("Сообщение от клиента:", userMessage);
+
+  // Простейший ответ сервера (можно усложнить)
+  res.json({ reply: `Сервер получил: "${userMessage}"` });
 });
 
 app.listen(PORT, () => {
