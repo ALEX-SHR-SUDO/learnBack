@@ -7,9 +7,18 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-app.post("/button-click", (req, res) => {
-  console.log("Кнопка была нажата!");
-  res.json({ message: "Сервер получил нажатие кнопки!" });
+app.post("/chat", (req, res) => {
+  const { name, symbol, decimals, supply, description } = req.body;
+
+  const reply = {
+    name: name ? `Имя токена принято: ${name}` : "Нет имени",
+    symbol: symbol ? `Символ принят: ${symbol}` : "Нет символа",
+    decimals: decimals ? `Десятичные: ${decimals}` : "Не указано",
+    supply: supply ? `Эмиссия: ${supply}` : "Не указано",
+    description: description ? `Описание принято: ${description}` : "Нет описания"
+  };
+
+  res.json(reply);
 });
 
 app.listen(PORT, () => {
