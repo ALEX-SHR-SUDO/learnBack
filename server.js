@@ -7,13 +7,18 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Чат маршрут
 app.post("/chat", (req, res) => {
-  const userMessage = req.body.message || "";
-  console.log("Сообщение от клиента:", userMessage);
+  const { name, symbol, decimals, supply, description } = req.body;
 
-  // Сервер всегда отвечает GOOD
-  res.json({ reply: "GOOD" });
+  const reply = {
+    name: name ? `Имя токена принято: ${name}` : "Нет имени",
+    symbol: symbol ? `Символ принят: ${symbol}` : "Нет символа",
+    decimals: decimals ? `Десятичные: ${decimals}` : "Не указано",
+    supply: supply ? `Эмиссия: ${supply}` : "Не указано",
+    description: description ? `Описание принято: ${description}` : "Нет описания"
+  };
+
+  res.json(reply);
 });
 
 app.listen(PORT, () => {
