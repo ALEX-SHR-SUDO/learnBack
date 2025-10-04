@@ -6,10 +6,19 @@ const { Connection, Keypair, clusterApiUrl, LAMPORTS_PER_SOL } = require("@solan
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// ✅ Настройка CORS — разрешаем фронт с Vercel
+app.use(cors({
+  origin: [
+    "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app", // твой фронтенд
+    "http://localhost:3000" // для локальной разработки
+  ],
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 app.use(express.json());
 
-// Загружаем сервисный кошелёк
+// ✅ Загружаем сервисный кошелёк
 let serviceWallet;
 try {
   const secretKey = JSON.parse(fs.readFileSync("service_wallet.json"));
@@ -21,10 +30,10 @@ try {
   process.exit(1);
 }
 
-// Подключаемся к Devnet
+// ✅ Подключаемся к Devnet
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-// 💬 Чат эндпоинт
+// 💬 Эндпоинт чата
 app.post("/chat", (req, res) => {
   const { name, symbol, decimals, supply, description } = req.body;
 
@@ -58,7 +67,7 @@ app.get("/balance", async (req, res) => {
 app.get("/airdrop", async (req, res) => {
   try {
     const signature = await connection.requestAirdrop(serviceWallet.publicKey, 1 * LAMPORTS_PER_SOL);
-    await connection.confirmTransaction(signature);
+    await connection.confirmTransaction(signature, "confirmed");
     const newBalance = await connection.getBalance(serviceWallet.publicKey);
 
     res.json({
