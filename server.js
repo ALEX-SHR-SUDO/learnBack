@@ -16,8 +16,21 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// ✅ Разрешённые источники
+const allowedOrigins = [
+  "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app",
+  "http://localhost:3000"
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Not allowed by CORS"));
+  }
+}));
 app.use(express.json());
+
 
 // === Загружаем сервисный кошелёк ===
 let serviceWallet;
