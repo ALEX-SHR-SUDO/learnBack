@@ -21,7 +21,7 @@ try {
   process.exit(1);
 }
 
-// Подключаемся к сети Devnet
+// Подключаемся к Devnet
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
 // 💬 Чат эндпоинт
@@ -40,13 +40,36 @@ app.post("/chat", (req, res) => {
   res.json(reply);
 });
 
-// 🔹 Проверка баланса сервисного кошелька
+// 🔹 Проверка баланса
 app.get("/balance", async (req, res) => {
-  const balance = await connection.getBalance(serviceWallet.publicKey);
-  res.json({
-    wallet: serviceWallet.publicKey.toBase58(),
-    balance: balance / LAMPORTS_PER_SOL
-  });
+  try {
+    const balance = await connection.getBalance(serviceWallet.publicKey);
+    res.json({
+      wallet: serviceWallet.publicKey.toBase58(),
+      balance: balance / LAMPORTS_PER_SOL
+    });
+  } catch (err) {
+    console.error("Ошибка при получении баланса:", err);
+    res.status(500).json({ error: "Ошибка при получении баланса" });
+  }
+});
+
+// 🔹 Airdrop (получить 1 SOL)
+app.get("/airdrop", async (req, res) => {
+  try {
+    const signature = await connection.requestAirdrop(serviceWallet.publicKey, 1 * LAMPORTS_PER_SOL);
+    await connection.confirmTransaction(signature);
+    const newBalance = await connection.getBalance(serviceWallet.publicKey);
+
+    res.json({
+      message: "✅ Airdrop успешен!",
+      wallet: serviceWallet.publicKey.toBase58(),
+      balance: newBalance / LAMPORTS_PER_SOL
+    });
+  } catch (err) {
+    console.error("Ошибка при airdrop:", err);
+    res.status(500).json({ error: "❌ Ошибка при выполнении airdrop" });
+  }
 });
 
 app.listen(PORT, () => {
