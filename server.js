@@ -6,6 +6,7 @@ const {
   Keypair,
   clusterApiUrl,
   LAMPORTS_PER_SOL,
+  PublicKey,
 } = require("@solana/web3.js");
 const {
   createMint,
@@ -13,48 +14,49 @@ const {
   mintTo,
 } = require("@solana/spl-token");
 
+const {
+  createCreateMetadataAccountV3Instruction,
+  PROGRAM_ID: TOKEN_METADATA_PROGRAM_ID,
+} = require("@metaplex-foundation/mpl-token-metadata");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-// === Загружаем сервисный кошелёк ===
+// === Загрузка сервисного кошелька ===
 let serviceWallet;
 try {
   const secretKey = JSON.parse(fs.readFileSync("service_wallet.json"));
   serviceWallet = Keypair.fromSecretKey(Uint8Array.from(secretKey));
-  console.log("✅ Сервисный кошелёк загружен:", serviceWallet.publicKey.toBase58());
+  console.log("✅ Сервисный кошелёк:", serviceWallet.publicKey.toBase58());
 } catch (err) {
-  console.error("❌ Ошибка: не найден service_wallet.json. Сначала создай кошелёк командой:");
-  console.error("   node create_wallet.js");
+  console.error("❌ Нет service_wallet.json, создай через node create_wallet.js");
   process.exit(1);
 }
 
-// === Подключаемся к Devnet ===
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-// === 💬 CHAT endpoint ===
+// === Создание токена с метаданными ===
 app.post("/chat", async (req, res) => {
-  const { name, symbol, decimals, supply, description } = req.body;
+  const { name, symbol, decimals, supply, description, logo } = req.body;
 
-  if (!name || !symbol || !decimals || !supply) {
-    return res.json({
-      message: "❗ Заполни все поля (name, symbol, decimals, supply, description)",
-    });
+  if (!name || !symbol || !supply) {
+    return res.json({ error: "❗ Заполни name, symbol и supply" });
   }
 
   try {
-    // 1️⃣ Создаём токен
+    // 1️⃣ Создание mint
     const mint = await createMint(
       connection,
       serviceWallet,
       serviceWallet.publicKey,
       null,
-      parseInt(decimals)
+      parseInt(decimals || 9)
     );
 
-    // 2️⃣ Создаём токен-аккаунт
+    // 2️⃣ Создание токен-аккаунта
     const tokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
       serviceWallet,
@@ -62,72 +64,78 @@ app.post("/chat", async (req, res) => {
       serviceWallet.publicKey
     );
 
-    // 3️⃣ Выпускаем токены
+    // 3️⃣ Выпуск токенов
     await mintTo(
       connection,
       serviceWallet,
       mint,
       tokenAccount.address,
       serviceWallet.publicKey,
-      parseFloat(supply) * 10 ** parseInt(decimals)
+      parseFloat(supply) * 10 ** parseInt(decimals || 9)
     );
 
-    // 4️⃣ Формируем ссылку на Solscan
-    const solscanUrl = `https://solscan.io/token/${mint.toBase58()}?cluster=devnet`;
+    // 4️⃣ Создание метаданных токена
+    const metadataPDA = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("metadata"),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        mint.toBuffer(),
+      ],
+      TOKEN_METADATA_PROGRAM_ID
+    )[0];
 
-    // 5️⃣ Формируем ответ
-    const reply = {
-      message: "✅ Токен успешно создан!",
-      name: `Имя: ${name}`,
-      symbol: `Символ: ${symbol}`,
-      mint: `Mint адрес: ${mint.toBase58()}`,
-      decimals: `Десятичные: ${decimals}`,
-      supply: `Выпущено: ${supply}`,
-      description: `Описание: ${description}`,
-      link: `🔗 Ссылка: ${solscanUrl}`,
+    const metadataData = {
+      name,
+      symbol,
+      uri: logo || "https://bafybeihfakeipfsurl/ipfs/meta.json", // можешь подставить IPFS URL
+      sellerFeeBasisPoints: 0,
+      creators: null,
+      collection: null,
+      uses: null,
     };
 
-    res.json(reply);
-  } catch (err) {
-    console.error("❌ Ошибка при создании токена:", err);
-    res.status(500).json({ error: "Ошибка при создании токена" });
-  }
-});
-
-
-// === Проверка баланса ===
-app.get("/balance", async (req, res) => {
-  try {
-    const balance = await connection.getBalance(serviceWallet.publicKey);
-    res.json({
-      wallet: serviceWallet.publicKey.toBase58(),
-      balance: balance / LAMPORTS_PER_SOL,
-    });
-  } catch (err) {
-    res.status(500).json({ error: "Ошибка при получении баланса" });
-  }
-});
-
-// === Airdrop ===
-app.get("/airdrop", async (req, res) => {
-  try {
-    const signature = await connection.requestAirdrop(
-      serviceWallet.publicKey,
-      1 * LAMPORTS_PER_SOL
+    const metadataInstruction = createCreateMetadataAccountV3Instruction(
+      {
+        metadata: metadataPDA,
+        mint: mint,
+        mintAuthority: serviceWallet.publicKey,
+        payer: serviceWallet.publicKey,
+        updateAuthority: serviceWallet.publicKey,
+      },
+      {
+        createMetadataAccountArgsV3: {
+          data: metadataData,
+          isMutable: true,
+          collectionDetails: null,
+        },
+      }
     );
-    await connection.confirmTransaction(signature);
-    const newBalance = await connection.getBalance(serviceWallet.publicKey);
+
+    const transaction = new (require("@solana/web3.js").Transaction)().add(
+      metadataInstruction
+    );
+
+    await require("@solana/web3.js").sendAndConfirmTransaction(
+      connection,
+      transaction,
+      [serviceWallet]
+    );
+
+    const solscanUrl = `https://solscan.io/token/${mint.toBase58()}?cluster=devnet`;
+
     res.json({
-      message: "✅ Airdrop успешен!",
-      wallet: serviceWallet.publicKey.toBase58(),
-      balance: newBalance / LAMPORTS_PER_SOL,
+      message: "✅ Токен создан с метаданными!",
+      mint: mint.toBase58(),
+      metadata: metadataData,
+      link: solscanUrl,
     });
   } catch (err) {
-    console.error("Ошибка при airdrop:", err);
-    res.status(500).json({ error: "Ошибка при airdrop" });
+    console.error("Ошибка при создании токена:", err);
+    res.status(500).json({ error: "Ошибка при создании токена" });
   }
 });
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
