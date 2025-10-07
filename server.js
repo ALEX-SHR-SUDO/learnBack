@@ -1,4 +1,4 @@
-const express = require("express");
+ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 
@@ -25,18 +25,9 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// === CORS — разрешаем все фронты для теста ===
+app.use(cors());
 app.use(express.json());
-
-// === Настройка CORS ===
-const allowedOrigins = [
-  "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app",
-  "http://localhost:3000"
-];
-
-app.use(cors({
-  origin: true
-}));
-
 
 // === Сервисный кошелёк ===
 let serviceWallet;
@@ -51,7 +42,7 @@ try {
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-// === Эндпоинт создания токена без логотипа ===
+// === Эндпоинт для создания токена ===
 app.post("/chat", async (req, res) => {
   const { name, symbol, decimals, supply, description } = req.body;
 
@@ -60,7 +51,7 @@ app.post("/chat", async (req, res) => {
   }
 
   try {
-    // 1️⃣ Создание mint
+    // 1️⃣ Создаём mint
     const mint = await createMint(
       connection,
       serviceWallet,
@@ -69,7 +60,7 @@ app.post("/chat", async (req, res) => {
       parseInt(decimals || 9)
     );
 
-    // 2️⃣ Создание токен-аккаунта
+    // 2️⃣ Создаём токен-аккаунт
     const tokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
       serviceWallet,
@@ -77,7 +68,7 @@ app.post("/chat", async (req, res) => {
       serviceWallet.publicKey
     );
 
-    // 3️⃣ Минт токенов
+    // 3️⃣ Минтим токены
     await mintTo(
       connection,
       serviceWallet,
@@ -87,18 +78,18 @@ app.post("/chat", async (req, res) => {
       parseFloat(supply) * 10 ** parseInt(decimals || 9)
     );
 
-    // 4️⃣ PDA метаданных
+    // 4️⃣ Создаём метаданные (без логотипа)
     const metadataPDA = PublicKey.findProgramAddressSync(
       [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
       TOKEN_METADATA_PROGRAM_ID
     )[0];
 
-    const metadataUrl = "https://example.com/meta.json"; // можно заменить на свой JSON
+    const metadataUrl = "https://example.com/meta.json"; // можно позже свой JSON
 
     const metadataInstruction = createCreateMetadataAccountV3Instruction(
       {
         metadata: metadataPDA,
-        mint: mint,
+        mint,
         mintAuthority: serviceWallet.publicKey,
         payer: serviceWallet.publicKey,
         updateAuthority: serviceWallet.publicKey
@@ -123,13 +114,11 @@ app.post("/chat", async (req, res) => {
     const transaction = new Transaction().add(metadataInstruction);
     await sendAndConfirmTransaction(connection, transaction, [serviceWallet]);
 
-    const solscanUrl = `https://solscan.io/token/${mint.toBase58()}?cluster=devnet`;
-
     res.json({
       message: "✅ Токен успешно создан!",
       mint: mint.toBase58(),
       metadataUrl,
-      solscan: solscanUrl
+      solscan: `https://solscan.io/token/${mint.toBase58()}?cluster=devnet`
     });
 
   } catch (err) {
@@ -138,6 +127,4 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
