@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const multer = require("multer");
+const upload = multer();
+
 const { Connection, Keypair, clusterApiUrl, LAMPORTS_PER_SOL, PublicKey, Transaction, sendAndConfirmTransaction } = require("@solana/web3.js");
 const { createMint, getOrCreateAssociatedTokenAccount, mintTo } = require("@solana/spl-token");
 const { createCreateMetadataAccountV3Instruction, PROGRAM_ID: TOKEN_METADATA_PROGRAM_ID } = require("@metaplex-foundation/mpl-token-metadata");
