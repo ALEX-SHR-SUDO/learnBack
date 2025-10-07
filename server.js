@@ -1,17 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
-const path = require("path");
 const multer = require("multer");
-const {
-  Connection,
-  Keypair,
-  clusterApiUrl,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  Transaction,
-  sendAndConfirmTransaction
-} = require("@solana/web3.js");
+const { Connection, Keypair, clusterApiUrl, PublicKey, Transaction, sendAndConfirmTransaction } = require("@solana/web3.js");
 const { createMint, getOrCreateAssociatedTokenAccount, mintTo } = require("@solana/spl-token");
 const { createCreateMetadataAccountV3Instruction, PROGRAM_ID: TOKEN_METADATA_PROGRAM_ID } = require("@metaplex-foundation/mpl-token-metadata");
 const { PinataSDK } = require("pinata-web3");
@@ -22,17 +13,20 @@ const upload = multer({ dest: "uploads/" });
 
 // === CORS ===
 const allowedOrigins = [
-  "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app",
-  "http://localhost:3000",
+  "http://localhost:5173", // фронтенд локально
+  "https://learn-front-eqz8pl1i1-alex-shr-sudos-projects.vercel.app",
 ];
+
 app.use(cors({
-  origin: function (origin, callback) {
+  origin: function(origin, callback) {
     console.log("Запрос с origin:", origin);
-    if (!origin) return callback(null, true); // Postman / cURL
+    if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error("Not allowed by CORS"));
-  }
+    return callback(null, false);
+  },
+  optionsSuccessStatus: 200
 }));
+
 app.use(express.json());
 
 // === Pinata ===
@@ -54,7 +48,7 @@ try {
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-// === Эндпоинт создания токена ===
+// === Эндпоинт для создания токена ===
 app.post("/chat", upload.single("logo"), async (req, res) => {
   const { name, symbol, decimals, supply, description } = req.body;
   const logoFile = req.file;
@@ -64,18 +58,16 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
   }
 
   try {
-    // 1️⃣ Загружаем логотип на Pinata (если есть)
+    // 1️⃣ Загружаем логотип на IPFS
     let logoUrl = null;
     if (logoFile) {
       const fileBuffer = fs.readFileSync(logoFile.path);
-      const fileName = path.basename(logoFile.originalname);
-
-      const uploadLogo = await pinata.upload.file({ file: fileBuffer, fileName });
+      const uploadLogo = await pinata.upload.file(fileBuffer, { filename: logoFile.originalname });
       logoUrl = `${pinata.config.pinataGateway}/ipfs/${uploadLogo.IpfsHash}`;
-      fs.unlinkSync(logoFile.path); // удаляем временный файл
+      fs.unlinkSync(logoFile.path);
     }
 
-    // 2️⃣ Создаем JSON метаданных и загружаем на Pinata
+    // 2️⃣ JSON метаданных
     const metadata = {
       name,
       symbol,
@@ -88,43 +80,25 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
     const metadataUrl = `${pinata.config.pinataGateway}/ipfs/${uploadMeta.IpfsHash}`;
 
     // 3️⃣ Создание mint
-    const mint = await createMint(
-      connection,
-      serviceWallet,
-      serviceWallet.publicKey,
-      null,
-      parseInt(decimals || 9)
-    );
+    const mint = await createMint(connection, serviceWallet, serviceWallet.publicKey, null, parseInt(decimals || 9));
 
-    // 4️⃣ Создание токен-аккаунта
-    const tokenAccount = await getOrCreateAssociatedTokenAccount(
-      connection,
-      serviceWallet,
-      mint,
-      serviceWallet.publicKey
-    );
+    // 4️⃣ Токен-аккаунт
+    const tokenAccount = await getOrCreateAssociatedTokenAccount(connection, serviceWallet, mint, serviceWallet.publicKey);
 
-    // 5️⃣ Минтим токены
-    await mintTo(
-      connection,
-      serviceWallet,
-      mint,
-      tokenAccount.address,
-      serviceWallet.publicKey,
-      parseFloat(supply) * 10 ** parseInt(decimals || 9)
-    );
+    // 5️⃣ Минт токенов
+    await mintTo(connection, serviceWallet, mint, tokenAccount.address, serviceWallet.publicKey, parseFloat(supply) * 10 ** parseInt(decimals || 9));
 
-    // 6️⃣ PDA для метаданных
+    // 6️⃣ PDA метаданных
     const metadataPDA = PublicKey.findProgramAddressSync(
       [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
       TOKEN_METADATA_PROGRAM_ID
     )[0];
 
-    // 7️⃣ Инструкция создания метаданных
+    // 7️⃣ Инструкция метаданных
     const metadataInstruction = createCreateMetadataAccountV3Instruction(
       {
         metadata: metadataPDA,
-        mint: mint,
+        mint,
         mintAuthority: serviceWallet.publicKey,
         payer: serviceWallet.publicKey,
         updateAuthority: serviceWallet.publicKey,
@@ -152,18 +126,18 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
     const solscanUrl = `https://solscan.io/token/${mint.toBase58()}?cluster=devnet`;
 
     res.json({
-      message: "✅ Токен успешно создан и загружен в IPFS!",
+      message: "✅ Токен успешно создан!",
       mint: mint.toBase58(),
       metadataUrl,
       logoUrl,
-      solscan: solscanUrl,
+      solscan: solscanUrl
     });
   } catch (err) {
     console.error("❌ Ошибка при создании токена:", err);
-    res.status(500).json({ error: "Ошибка при создании токена", details: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🚀 Backend запущен на порту ${PORT}`);
 });
