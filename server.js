@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
+const path = require("path");
 const multer = require("multer");
 const {
   Connection,
@@ -9,7 +10,7 @@ const {
   LAMPORTS_PER_SOL,
   PublicKey,
   Transaction,
-  sendAndConfirmTransaction,
+  sendAndConfirmTransaction
 } = require("@solana/web3.js");
 const { createMint, getOrCreateAssociatedTokenAccount, mintTo } = require("@solana/spl-token");
 const { createCreateMetadataAccountV3Instruction, PROGRAM_ID: TOKEN_METADATA_PROGRAM_ID } = require("@metaplex-foundation/mpl-token-metadata");
@@ -21,32 +22,17 @@ const upload = multer({ dest: "uploads/" });
 
 // === CORS ===
 const allowedOrigins = [
-  "http://localhost:3000",
   "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app",
-  "https://learn-front-eqz8pl1i1-alex-shr-sudos-projects.vercel.app",
+  "http://localhost:3000",
 ];
-
 app.use(cors({
   origin: function (origin, callback) {
-    console.log("Запрос с origin:", origin); // логируем origin
-    if (!origin) return callback(null, true); // Postman, curl
-    // разрешаем все поддомены Vercel (preview deployments)
-    if (origin.startsWith("https://learn-front-") && origin.endsWith(".vercel.app")) {
-      return callback(null, true);
-    }
+    console.log("Запрос с origin:", origin);
+    if (!origin) return callback(null, true); // Postman / cURL
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error("Not allowed by CORS"));
   }
 }));
-
-// Обработка ошибок CORS
-app.use((err, req, res, next) => {
-  if (err.message === "Not allowed by CORS") {
-    return res.status(403).json({ error: "CORS ошибка: origin запрещён" });
-  }
-  next(err);
-});
-
 app.use(express.json());
 
 // === Pinata ===
@@ -68,7 +54,7 @@ try {
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-// === Эндпоинт: создание токена ===
+// === Эндпоинт создания токена ===
 app.post("/chat", upload.single("logo"), async (req, res) => {
   const { name, symbol, decimals, supply, description } = req.body;
   const logoFile = req.file;
@@ -78,16 +64,18 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
   }
 
   try {
-    // 1️⃣ Загрузка логотипа на IPFS
+    // 1️⃣ Загружаем логотип на Pinata (если есть)
     let logoUrl = null;
     if (logoFile) {
       const fileBuffer = fs.readFileSync(logoFile.path);
-      const uploadLogo = await pinata.upload.file(fileBuffer, { name: logoFile.originalname });
+      const fileName = path.basename(logoFile.originalname);
+
+      const uploadLogo = await pinata.upload.file({ file: fileBuffer, fileName });
       logoUrl = `${pinata.config.pinataGateway}/ipfs/${uploadLogo.IpfsHash}`;
-      fs.unlinkSync(logoFile.path);
+      fs.unlinkSync(logoFile.path); // удаляем временный файл
     }
 
-    // 2️⃣ JSON метаданные
+    // 2️⃣ Создаем JSON метаданных и загружаем на Pinata
     const metadata = {
       name,
       symbol,
@@ -108,7 +96,7 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       parseInt(decimals || 9)
     );
 
-    // 4️⃣ Токен-аккаунт
+    // 4️⃣ Создание токен-аккаунта
     const tokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
       serviceWallet,
@@ -116,7 +104,7 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       serviceWallet.publicKey
     );
 
-    // 5️⃣ Минт токенов
+    // 5️⃣ Минтим токены
     await mintTo(
       connection,
       serviceWallet,
@@ -126,7 +114,7 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       parseFloat(supply) * 10 ** parseInt(decimals || 9)
     );
 
-    // 6️⃣ PDA метаданных
+    // 6️⃣ PDA для метаданных
     const metadataPDA = PublicKey.findProgramAddressSync(
       [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
       TOKEN_METADATA_PROGRAM_ID
@@ -170,7 +158,6 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       logoUrl,
       solscan: solscanUrl,
     });
-
   } catch (err) {
     console.error("❌ Ошибка при создании токена:", err);
     res.status(500).json({ error: "Ошибка при создании токена", details: err.message });
