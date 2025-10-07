@@ -18,14 +18,10 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: function(origin, callback) {
-    console.log("Запрос с origin:", origin);
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(null, false);
-  },
-  optionsSuccessStatus: 200
+  origin: true,  // разрешает все источники
+  credentials: true
 }));
+
 
 app.use(express.json());
 
