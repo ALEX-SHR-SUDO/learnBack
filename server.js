@@ -17,12 +17,23 @@ const allowedOrigins = [
   "http://localhost:3000",
 ];
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error("Not allowed by CORS"));
-  }
+  origin: (origin, callback) => {
+    const allowed = [
+      "https://learn-front-ltcpdcp8c-alex-shr-sudos-projects.vercel.app",
+      "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app",
+      "http://localhost:3000"
+    ];
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn("⛔ Блокирован CORS:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
 }));
+
 app.use(express.json());
 
 // === Подключение Pinata ===
