@@ -21,22 +21,38 @@ const upload = multer({ dest: "uploads/" });
 
 // === CORS ===
 const allowedOrigins = [
-  "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app",
   "http://localhost:3000",
+  "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app",
+  "https://learn-front-eqz8pl1i1-alex-shr-sudos-projects.vercel.app",
 ];
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
+    console.log("Запрос с origin:", origin); // логируем origin
+    if (!origin) return callback(null, true); // Postman, curl
+    // разрешаем все поддомены Vercel (preview deployments)
+    if (origin.startsWith("https://learn-front-") && origin.endsWith(".vercel.app")) {
+      return callback(null, true);
+    }
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error("Not allowed by CORS"));
   }
 }));
+
+// Обработка ошибок CORS
+app.use((err, req, res, next) => {
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({ error: "CORS ошибка: origin запрещён" });
+  }
+  next(err);
+});
+
 app.use(express.json());
 
-// === Pinata SDK ===
+// === Pinata ===
 const pinata = new PinataSDK({
   pinataJwt: process.env.PINATA_JWT,
-  pinataGateway: process.env.PINATA_GATEWAY_URL || "https://gateway.pinata.cloud",
+  pinataGateway: process.env.PINATA_GATEWAY_URL || "https://gateway.pinata.cloud"
 });
 
 // === Сервисный кошелёк ===
@@ -62,16 +78,16 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
   }
 
   try {
-    // 1️⃣ Загрузка логотипа на IPFS через Buffer
+    // 1️⃣ Загрузка логотипа на IPFS
     let logoUrl = null;
     if (logoFile) {
       const fileBuffer = fs.readFileSync(logoFile.path);
-      const uploadLogo = await pinata.upload.file(fileBuffer, { fileName: logoFile.originalname });
+      const uploadLogo = await pinata.upload.file(fileBuffer, { name: logoFile.originalname });
       logoUrl = `${pinata.config.pinataGateway}/ipfs/${uploadLogo.IpfsHash}`;
       fs.unlinkSync(logoFile.path);
     }
 
-    // 2️⃣ Создание JSON метаданных
+    // 2️⃣ JSON метаданные
     const metadata = {
       name,
       symbol,
@@ -79,6 +95,7 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       image: logoUrl,
       attributes: [{ trait_type: "Creator", value: "ChatGPT Solana App" }],
     };
+
     const uploadMeta = await pinata.upload.json(metadata);
     const metadataUrl = `${pinata.config.pinataGateway}/ipfs/${uploadMeta.IpfsHash}`;
 
@@ -91,7 +108,7 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       parseInt(decimals || 9)
     );
 
-    // 4️⃣ Создание токен-аккаунта
+    // 4️⃣ Токен-аккаунт
     const tokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
       serviceWallet,
