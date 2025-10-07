@@ -28,20 +28,40 @@ const PORT = process.env.PORT || 3000;
 // === Multer ===
 const upload = multer({ dest: "uploads/" });
 
-// === CORS ===
+// === Настройки CORS ===
 const allowedOrigins = [
-  "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app",
+  "https://learn-front-ltcpdcp8c-alex-shr-sudos-projects.vercel.app",
   "http://localhost:3000",
+  "http://127.0.0.1:3000",
 ];
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error("Not allowed by CORS"));
-    },
-  })
-);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) {
+      // Запрос без origin (Postman, curl)
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) {
+      // Разрешённые источники
+      return callback(null, true);
+    }
+    console.warn(`❌ Блокирован origin: ${origin}`);
+    // Отклоняем, но не выбрасываем ошибку
+    return callback(new Error("Not allowed by CORS"));
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+}));
+
+// Отлавливаем ошибки CORS, чтобы сервер не падал
+app.use((err, req, res, next) => {
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({ error: "❌ CORS ошибка: доступ запрещён для этого origin" });
+  }
+  next(err);
+});
+
 app.use(express.json());
 
 // === Pinata ===
