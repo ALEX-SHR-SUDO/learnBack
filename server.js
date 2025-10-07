@@ -96,12 +96,15 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
   try {
     // 1️⃣ Загрузка логотипа на IPFS
     let logoUrl = null;
-    if (logoFile) {
-      const file = fs.createReadStream(logoFile.path);
-      const uploadLogo = await pinata.upload.file(file);
-      logoUrl = `${pinata.config.pinataGateway}/ipfs/${uploadLogo.IpfsHash}`;
-      fs.unlinkSync(logoFile.path);
-    }
+   if (logoFile) {
+  const fileBuffer = fs.readFileSync(logoFile.path);
+  const uploadLogo = await pinata.upload.file(fileBuffer, {
+    fileName: logoFile.originalname,
+  });
+  logoUrl = `${pinata.config.pinataGateway}/ipfs/${uploadLogo.IpfsHash}`;
+  fs.unlinkSync(logoFile.path);
+}
+
 
     // 2️⃣ JSON метаданных
     const metadata = {
