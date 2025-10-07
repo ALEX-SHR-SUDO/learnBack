@@ -11,61 +11,29 @@ const {
   Transaction,
   sendAndConfirmTransaction,
 } = require("@solana/web3.js");
-const {
-  createMint,
-  getOrCreateAssociatedTokenAccount,
-  mintTo,
-} = require("@solana/spl-token");
-const {
-  createCreateMetadataAccountV3Instruction,
-  PROGRAM_ID: TOKEN_METADATA_PROGRAM_ID,
-} = require("@metaplex-foundation/mpl-token-metadata");
+const { createMint, getOrCreateAssociatedTokenAccount, mintTo } = require("@solana/spl-token");
+const { createCreateMetadataAccountV3Instruction, PROGRAM_ID: TOKEN_METADATA_PROGRAM_ID } = require("@metaplex-foundation/mpl-token-metadata");
 const { PinataSDK } = require("pinata-web3");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// === Multer ===
 const upload = multer({ dest: "uploads/" });
 
-// === Настройки CORS ===
+// === CORS ===
 const allowedOrigins = [
-  "https://learn-front-ltcpdcp8c-alex-shr-sudos-projects.vercel.app",
+  "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app",
   "http://localhost:3000",
-  "http://127.0.0.1:3000",
 ];
-
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) {
-      // Запрос без origin (Postman, curl)
-      return callback(null, true);
-    }
-    if (allowedOrigins.includes(origin)) {
-      // Разрешённые источники
-      return callback(null, true);
-    }
-    console.warn(`❌ Блокирован origin: ${origin}`);
-    // Отклоняем, но не выбрасываем ошибку
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error("Not allowed by CORS"));
-  },
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true,
-}));
-
-// Отлавливаем ошибки CORS, чтобы сервер не падал
-app.use((err, req, res, next) => {
-  if (err.message === "Not allowed by CORS") {
-    return res.status(403).json({ error: "❌ CORS ошибка: доступ запрещён для этого origin" });
   }
-  next(err);
-});
-
+}));
 app.use(express.json());
 
-// === Pinata ===
-// PINATA_JWT и PINATA_GATEWAY_URL через env
+// === Pinata SDK ===
 const pinata = new PinataSDK({
   pinataJwt: process.env.PINATA_JWT,
   pinataGateway: process.env.PINATA_GATEWAY_URL || "https://gateway.pinata.cloud",
@@ -94,19 +62,16 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
   }
 
   try {
-    // 1️⃣ Загрузка логотипа на IPFS
+    // 1️⃣ Загрузка логотипа на IPFS через Buffer
     let logoUrl = null;
-   if (logoFile) {
-  const fileBuffer = fs.readFileSync(logoFile.path);
-  const uploadLogo = await pinata.upload.file(fileBuffer, {
-    fileName: logoFile.originalname,
-  });
-  logoUrl = `${pinata.config.pinataGateway}/ipfs/${uploadLogo.IpfsHash}`;
-  fs.unlinkSync(logoFile.path);
-}
+    if (logoFile) {
+      const fileBuffer = fs.readFileSync(logoFile.path);
+      const uploadLogo = await pinata.upload.file(fileBuffer, { fileName: logoFile.originalname });
+      logoUrl = `${pinata.config.pinataGateway}/ipfs/${uploadLogo.IpfsHash}`;
+      fs.unlinkSync(logoFile.path);
+    }
 
-
-    // 2️⃣ JSON метаданных
+    // 2️⃣ Создание JSON метаданных
     const metadata = {
       name,
       symbol,
@@ -114,7 +79,6 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       image: logoUrl,
       attributes: [{ trait_type: "Creator", value: "ChatGPT Solana App" }],
     };
-
     const uploadMeta = await pinata.upload.json(metadata);
     const metadataUrl = `${pinata.config.pinataGateway}/ipfs/${uploadMeta.IpfsHash}`;
 
@@ -151,7 +115,7 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       TOKEN_METADATA_PROGRAM_ID
     )[0];
 
-    // 7️⃣ Инструкция метаданных
+    // 7️⃣ Инструкция создания метаданных
     const metadataInstruction = createCreateMetadataAccountV3Instruction(
       {
         metadata: metadataPDA,
@@ -189,6 +153,7 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       logoUrl,
       solscan: solscanUrl,
     });
+
   } catch (err) {
     console.error("❌ Ошибка при создании токена:", err);
     res.status(500).json({ error: "Ошибка при создании токена", details: err.message });
