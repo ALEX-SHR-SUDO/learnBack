@@ -2,47 +2,53 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const multer = require("multer");
-const upload = multer();
-
-const { Connection, Keypair, clusterApiUrl, LAMPORTS_PER_SOL, PublicKey, Transaction, sendAndConfirmTransaction } = require("@solana/web3.js");
-const { createMint, getOrCreateAssociatedTokenAccount, mintTo } = require("@solana/spl-token");
-const { createCreateMetadataAccountV3Instruction, PROGRAM_ID: TOKEN_METADATA_PROGRAM_ID } = require("@metaplex-foundation/mpl-token-metadata");
+const {
+  Connection,
+  Keypair,
+  clusterApiUrl,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  Transaction,
+  sendAndConfirmTransaction,
+} = require("@solana/web3.js");
+const {
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+} = require("@solana/spl-token");
+const {
+  createCreateMetadataAccountV3Instruction,
+  PROGRAM_ID: TOKEN_METADATA_PROGRAM_ID,
+} = require("@metaplex-foundation/mpl-token-metadata");
 const { PinataSDK } = require("pinata-web3");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// === Multer ===
 const upload = multer({ dest: "uploads/" });
 
-// === Настройки CORS ===
+// === CORS ===
 const allowedOrigins = [
   "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app",
   "http://localhost:3000",
 ];
-app.use(cors({
-  origin: (origin, callback) => {
-    const allowed = [
-      "https://learn-front-ltcpdcp8c-alex-shr-sudos-projects.vercel.app",
-      "https://learn-front-c6vb0e3vv-alex-shr-sudos-projects.vercel.app",
-      "http://localhost:3000"
-    ];
-    if (!origin || allowed.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn("⛔ Блокирован CORS:", origin);
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"],
-}));
-
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
+    },
+  })
+);
 app.use(express.json());
 
-// === Подключение Pinata ===
-// создай переменные окружения PINATA_JWT и PINATA_GATEWAY_URL
+// === Pinata ===
+// PINATA_JWT и PINATA_GATEWAY_URL через env
 const pinata = new PinataSDK({
   pinataJwt: process.env.PINATA_JWT,
-  pinataGateway: process.env.PINATA_GATEWAY_URL || "https://gateway.pinata.cloud"
+  pinataGateway: process.env.PINATA_GATEWAY_URL || "https://gateway.pinata.cloud",
 });
 
 // === Сервисный кошелёк ===
@@ -59,7 +65,6 @@ try {
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
 // === Эндпоинт: создание токена ===
-// multipart/form-data, т.к. может содержать файл (логотип)
 app.post("/chat", upload.single("logo"), async (req, res) => {
   const { name, symbol, decimals, supply, description } = req.body;
   const logoFile = req.file;
@@ -78,7 +83,7 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       fs.unlinkSync(logoFile.path);
     }
 
-    // 2️⃣ Создание JSON метаданных
+    // 2️⃣ JSON метаданных
     const metadata = {
       name,
       symbol,
@@ -107,7 +112,7 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       serviceWallet.publicKey
     );
 
-    // 5️⃣ Минтим токены
+    // 5️⃣ Минт токенов
     await mintTo(
       connection,
       serviceWallet,
@@ -117,13 +122,13 @@ app.post("/chat", upload.single("logo"), async (req, res) => {
       parseFloat(supply) * 10 ** parseInt(decimals || 9)
     );
 
-    // 6️⃣ Создание PDA метаданных
+    // 6️⃣ PDA метаданных
     const metadataPDA = PublicKey.findProgramAddressSync(
       [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
       TOKEN_METADATA_PROGRAM_ID
     )[0];
 
-    // 7️⃣ Инструкция для создания метаданных
+    // 7️⃣ Инструкция метаданных
     const metadataInstruction = createCreateMetadataAccountV3Instruction(
       {
         metadata: metadataPDA,
