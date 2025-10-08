@@ -5,23 +5,15 @@ const {
   Connection,
   Keypair,
   clusterApiUrl,
-  PublicKey,
-  sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL,
-  Transaction
+  LAMPORTS_PER_SOL
 } = require("@solana/web3.js");
 
-const {
-  createMint,
-  getOrCreateAssociatedTokenAccount,
-  mintTo,
-  TOKEN_PROGRAM_ID
-} = require("@solana/spl-token");
+const splToken = require("@solana/spl-token"); // <== все функции через splToken
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// === Разрешаем все фронты ===
+// === Разрешаем все фронтенды ===
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
@@ -56,7 +48,7 @@ app.post("/api/create-token", async (req, res) => {
 
   try {
     // 1️⃣ Создаём mint
-    const mint = await createMint(
+    const mint = await splToken.createMint(
       connection,
       serviceWallet,           // payer
       serviceWallet.publicKey, // mint authority
@@ -65,7 +57,7 @@ app.post("/api/create-token", async (req, res) => {
     );
 
     // 2️⃣ Создаём token account для сервисного кошелька
-    const tokenAccount = await getOrCreateAssociatedTokenAccount(
+    const tokenAccount = await splToken.getOrCreateAssociatedTokenAccount(
       connection,
       serviceWallet,
       mint,
@@ -73,7 +65,7 @@ app.post("/api/create-token", async (req, res) => {
     );
 
     // 3️⃣ Минтим токены
-    await mintTo(
+    await splToken.mintTo(
       connection,
       serviceWallet,
       mint,
@@ -93,7 +85,7 @@ app.post("/api/create-token", async (req, res) => {
   }
 });
 
-// === Баланс сервисного кошелька ===
+// === Баланс сервисного кошелька + токены ===
 app.get("/api/balance", async (req, res) => {
   try {
     const pubKey = serviceWallet.publicKey;
@@ -101,7 +93,7 @@ app.get("/api/balance", async (req, res) => {
     const solBalance = solBalanceLamports / LAMPORTS_PER_SOL;
 
     const tokenAccounts = await connection.getParsedTokenAccountsByOwner(pubKey, {
-      programId: TOKEN_PROGRAM_ID
+      programId: splToken.TOKEN_PROGRAM_ID
     });
 
     const tokens = tokenAccounts.value.map(acc => {
