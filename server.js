@@ -8,7 +8,7 @@ const {
   LAMPORTS_PER_SOL
 } = require("@solana/web3.js");
 
-const splToken = require("@solana/spl-token"); // <== все функции через splToken
+const splToken = require("@solana/spl-token");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
