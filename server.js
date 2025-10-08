@@ -14,7 +14,8 @@ const {
 const {
   createMint,
   getOrCreateAssociatedTokenAccount,
-  mintTo
+  mintTo,
+  TOKEN_PROGRAM_ID
 } = require("@solana/spl-token");
 
 const {
@@ -25,7 +26,7 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// === Разрешаем все фронтенды (для теста) ===
+// === Разрешаем все фронтенды (CORS *) ===
 app.use(cors());
 app.use(express.json());
 
@@ -90,7 +91,7 @@ app.post("/api/create-token", async (req, res) => {
   }
 });
 
-// === Баланс кошелька ===
+// === Баланс SOL ===
 app.get("/api/balance", async (req, res) => {
   try {
     const lamports = await connection.getBalance(serviceWallet.publicKey);
@@ -98,6 +99,32 @@ app.get("/api/balance", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Не удалось получить баланс" });
+  }
+});
+
+// === Все токены сервиса ===
+app.get("/api/tokens", async (req, res) => {
+  try {
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+      serviceWallet.publicKey,
+      { programId: TOKEN_PROGRAM_ID }
+    );
+
+    const tokens = tokenAccounts.value
+      .filter(acc => acc.account.data.parsed.info.tokenAmount.uiAmount > 0)
+      .map(acc => {
+        const info = acc.account.data.parsed.info;
+        return {
+          mint: info.mint,
+          amount: info.tokenAmount.uiAmount,
+          decimals: info.tokenAmount.decimals
+        };
+      });
+
+    res.json({ tokens });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Не удалось получить токены" });
   }
 });
 
