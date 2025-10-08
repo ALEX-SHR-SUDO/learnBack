@@ -25,9 +25,11 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// === Разрешаем все фронтенды (для теста) ===
 app.use(cors());
 app.use(express.json());
 
+// === Сервисный кошелёк ===
 let serviceWallet;
 try {
   const secretKey = JSON.parse(fs.readFileSync("service_wallet.json"));
@@ -88,7 +90,7 @@ app.post("/api/create-token", async (req, res) => {
   }
 });
 
-// === Баланс ===
+// === Баланс кошелька ===
 app.get("/api/balance", async (req, res) => {
   try {
     const lamports = await connection.getBalance(serviceWallet.publicKey);
