@@ -11,12 +11,15 @@ import {
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 
-import {
+import splToken from "@solana/spl-token";
+const {
   MINT_SIZE,
   TOKEN_2022_PROGRAM_ID,
   createInitializeMint2Instruction,
-  getMinimumBalanceForRentExemptMint
-} from "@solana/spl-token";
+  getMinimumBalanceForRentExemptMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo
+} = splToken;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
