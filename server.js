@@ -6,23 +6,23 @@ const {
   Keypair,
   clusterApiUrl,
   PublicKey,
-  Transaction,
   sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL
+  LAMPORTS_PER_SOL,
+  Transaction
 } = require("@solana/web3.js");
 
 const {
-  MINT_SIZE,
-  createInitializeMintInstruction,
+  createMint,
   getOrCreateAssociatedTokenAccount,
-  createMintToInstruction,
+  mintTo,
   TOKEN_PROGRAM_ID
 } = require("@solana/spl-token");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: "*" })); // разрешаем все фронты
+// === Разрешаем все фронты ===
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 // === Сервисный кошелёк ===
@@ -36,10 +36,20 @@ try {
   process.exit(1);
 }
 
-// Подключение к devnet
-const { createMint, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } = require("@solana/spl-token");
+// === Подключение к devnet ===
+const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-// Создание токена (без метаданных)
+// === Проверка соединения ===
+app.get("/api/ping", async (req, res) => {
+  try {
+    const version = await connection.getVersion();
+    res.json({ ok: true, solana: version });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.toString() });
+  }
+});
+
+// === Создание токена без метаданных ===
 app.post("/api/create-token", async (req, res) => {
   const { decimals, supply } = req.body;
   if (!supply) return res.status(400).json({ error: "❗ Заполни supply" });
@@ -82,3 +92,29 @@ app.post("/api/create-token", async (req, res) => {
     res.status(500).json({ error: err.toString() });
   }
 });
+
+// === Баланс сервисного кошелька ===
+app.get("/api/balance", async (req, res) => {
+  try {
+    const pubKey = serviceWallet.publicKey;
+    const solBalanceLamports = await connection.getBalance(pubKey);
+    const solBalance = solBalanceLamports / LAMPORTS_PER_SOL;
+
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(pubKey, {
+      programId: TOKEN_PROGRAM_ID
+    });
+
+    const tokens = tokenAccounts.value.map(acc => {
+      const info = acc.account.data.parsed.info;
+      return { mint: info.mint, amount: info.tokenAmount.uiAmount };
+    });
+
+    res.json({ sol: solBalance, tokens });
+  } catch (err) {
+    console.error("❌ Ошибка при получении баланса:", err);
+    res.status(500).json({ error: err.toString() });
+  }
+});
+
+// === Запуск сервера ===
+app.listen(PORT, () => console.log(`🚀 Backend запущен на порту ${PORT}`));
