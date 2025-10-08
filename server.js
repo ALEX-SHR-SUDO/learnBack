@@ -8,7 +8,12 @@ const {
   LAMPORTS_PER_SOL
 } = require("@solana/web3.js");
 
-const splToken = require("@solana/spl-token");
+const {
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  TOKEN_PROGRAM_ID
+} = require("@solana/spl-token"); // <== совместимо с CommonJS и v0.2.0
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,7 +53,7 @@ app.post("/api/create-token", async (req, res) => {
 
   try {
     // 1️⃣ Создаём mint
-    const mint = await splToken.createMint(
+    const mint = await createMint(
       connection,
       serviceWallet,           // payer
       serviceWallet.publicKey, // mint authority
@@ -57,7 +62,7 @@ app.post("/api/create-token", async (req, res) => {
     );
 
     // 2️⃣ Создаём token account для сервисного кошелька
-    const tokenAccount = await splToken.getOrCreateAssociatedTokenAccount(
+    const tokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
       serviceWallet,
       mint,
@@ -65,7 +70,7 @@ app.post("/api/create-token", async (req, res) => {
     );
 
     // 3️⃣ Минтим токены
-    await splToken.mintTo(
+    await mintTo(
       connection,
       serviceWallet,
       mint,
@@ -93,7 +98,7 @@ app.get("/api/balance", async (req, res) => {
     const solBalance = solBalanceLamports / LAMPORTS_PER_SOL;
 
     const tokenAccounts = await connection.getParsedTokenAccountsByOwner(pubKey, {
-      programId: splToken.TOKEN_PROGRAM_ID
+      programId: TOKEN_PROGRAM_ID
     });
 
     const tokens = tokenAccounts.value.map(acc => {
