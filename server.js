@@ -1,23 +1,17 @@
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
-
 const {
   Connection,
   Keypair,
   clusterApiUrl,
   PublicKey,
   Transaction,
-  sendAndConfirmTransaction
+  sendAndConfirmTransaction,
+  LAMPORTS_PER_SOL
 } = require("@solana/web3.js");
 
-const {
-  createMint,
-  getOrCreateAssociatedTokenAccount,
-  mintTo,
-  TOKEN_PROGRAM_ID
-} = require("@solana/spl-token");
-
+const splToken = require("@solana/spl-token");
 const {
   createCreateMetadataAccountV3Instruction,
   PROGRAM_ID: TOKEN_METADATA_PROGRAM_ID
@@ -26,36 +20,71 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// === Разрешаем все фронтенды (CORS *) ===
-app.use(cors());
+// === Разрешаем все фронтенды ===
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-// === Сервисный кошелёк ===
+// === Загружаем сервисный кошелёк ===
 let serviceWallet;
 try {
   const secretKey = JSON.parse(fs.readFileSync("service_wallet.json"));
   serviceWallet = Keypair.fromSecretKey(Uint8Array.from(secretKey));
   console.log("✅ Сервисный кошелёк:", serviceWallet.publicKey.toBase58());
 } catch (err) {
-  console.error("❌ Нет service_wallet.json");
+  console.error("❌ Нет service_wallet.json. Создай через node create_wallet.js");
   process.exit(1);
 }
 
+// === Подключаемся к devnet ===
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+
+// === Проверка соединения ===
+app.get("/api/ping", async (req, res) => {
+  try {
+    const version = await connection.getVersion();
+    res.json({ ok: true, solana: version });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.toString() });
+  }
+});
 
 // === Создание токена ===
 app.post("/api/create-token", async (req, res) => {
   const { name, symbol, decimals, supply, description } = req.body;
-  if (!name || !symbol || !supply)
+
+  if (!name || !symbol || !supply) {
     return res.status(400).json({ error: "❗ Заполни name, symbol и supply" });
+  }
 
   try {
-    const mint = await createMint(connection, serviceWallet, serviceWallet.publicKey, null, parseInt(decimals || 9));
+    // 1️⃣ Создаём mint
+    const mint = await splToken.createMint(
+      connection,
+      serviceWallet,
+      serviceWallet.publicKey,
+      null,
+      parseInt(decimals || 9)
+    );
 
-    const tokenAccount = await getOrCreateAssociatedTokenAccount(connection, serviceWallet, mint, serviceWallet.publicKey);
+    // 2️⃣ Создаём токен-аккаунт
+    const tokenAccount = await splToken.getOrCreateAssociatedTokenAccount(
+      connection,
+      serviceWallet,
+      mint,
+      serviceWallet.publicKey
+    );
 
-    await mintTo(connection, serviceWallet, mint, tokenAccount.address, serviceWallet.publicKey, parseFloat(supply) * 10 ** parseInt(decimals || 9));
+    // 3️⃣ Минтим токены
+    await splToken.mintTo(
+      connection,
+      serviceWallet,
+      mint,
+      tokenAccount.address,
+      serviceWallet.publicKey,
+      parseFloat(supply) * 10 ** parseInt(decimals || 9)
+    );
 
+    // 4️⃣ Создаём метаданные (без логотипа)
     const metadataPDA = PublicKey.findProgramAddressSync(
       [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
       TOKEN_METADATA_PROGRAM_ID
@@ -73,7 +102,15 @@ app.post("/api/create-token", async (req, res) => {
       },
       {
         createMetadataAccountArgsV3: {
-          data: { name, symbol, uri: metadataUrl, sellerFeeBasisPoints: 0, creators: null, collection: null, uses: null },
+          data: {
+            name,
+            symbol,
+            uri: metadataUrl,
+            sellerFeeBasisPoints: 0,
+            creators: null,
+            collection: null,
+            uses: null
+          },
           isMutable: true,
           collectionDetails: null
         }
@@ -83,52 +120,50 @@ app.post("/api/create-token", async (req, res) => {
     const transaction = new Transaction().add(metadataInstruction);
     await sendAndConfirmTransaction(connection, transaction, [serviceWallet]);
 
-    res.json({ message: "✅ Токен создан!", mint: mint.toBase58(), metadataUrl, solscan: `https://solscan.io/token/${mint.toBase58()}?cluster=devnet` });
+    res.json({
+      message: "✅ Токен успешно создан!",
+      mint: mint.toBase58(),
+      metadataUrl,
+      solscan: `https://solscan.io/token/${mint.toBase58()}?cluster=devnet`
+    });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Ошибка при создании токена", details: err.message });
+    console.error("❌ Ошибка при создании токена:", err);
+    res.status(500).json({ error: "Ошибка при создании токена", details: err.toString() });
   }
 });
 
-// === Баланс SOL ===
-app.get("/api/balance", async (req, res) => {
+// === Получение баланса кошелька ===
+app.get("/api/balance/:address", async (req, res) => {
   try {
-    const lamports = await connection.getBalance(serviceWallet.publicKey);
-    res.json({ balance: lamports / 1e9 });
+    const { address } = req.params;
+    const publicKey = new PublicKey(address);
+
+    const solBalanceLamports = await connection.getBalance(publicKey);
+    const solBalance = solBalanceLamports / LAMPORTS_PER_SOL;
+
+    // Получаем токены
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+      programId: splToken.TOKEN_PROGRAM_ID
+    });
+
+    const tokens = tokenAccounts.value.map(acc => {
+      const info = acc.account.data.parsed.info;
+      return {
+        mint: info.mint,
+        amount: info.tokenAmount.uiAmount
+      };
+    });
+
+    res.json({
+      sol: solBalance,
+      tokens
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Не удалось получить баланс" });
+    console.error("❌ Ошибка при получении баланса:", err);
+    res.status(500).json({ error: "Ошибка при получении баланса", details: err.toString() });
   }
 });
 
-// === Все токены сервиса ===
-app.get("/api/tokens", async (req, res) => {
-  try {
-    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-      serviceWallet.publicKey,
-      { programId: TOKEN_PROGRAM_ID }
-    );
-
-    const tokens = tokenAccounts.value
-      .filter(acc => acc.account.data.parsed.info.tokenAmount.uiAmount > 0)
-      .map(acc => {
-        const info = acc.account.data.parsed.info;
-        return {
-          mint: info.mint,
-          amount: info.tokenAmount.uiAmount,
-          decimals: info.tokenAmount.decimals
-        };
-      });
-
-    res.json({ tokens });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Не удалось получить токены" });
-  }
-});
-
-// === Ping для проверки соединения ===
-app.get("/api/ping", (req, res) => res.send("Pong ✅"));
-
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// === Запуск ===
+app.listen(PORT, () => console.log(`🚀 Backend запущен на порту ${PORT}`));
