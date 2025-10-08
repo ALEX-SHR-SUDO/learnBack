@@ -14,7 +14,7 @@ import {
 import * as splToken from "@solana/spl-token";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const bs58 = require("bs58");
+const bs58 = require("bs58").default || require("bs58");
 
 dotenv.config();
 const app = express();
