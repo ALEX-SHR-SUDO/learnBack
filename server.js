@@ -37,7 +37,7 @@ try {
 }
 
 // Подключение к devnet
-const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+const { createMint, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } = require("@solana/spl-token");
 
 // Создание токена (без метаданных)
 app.post("/api/create-token", async (req, res) => {
@@ -45,71 +45,40 @@ app.post("/api/create-token", async (req, res) => {
   if (!supply) return res.status(400).json({ error: "❗ Заполни supply" });
 
   try {
-    const mintKeypair = Keypair.generate();
-
-    // Создаем mint
-    const lamports = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
-    const tx = new Transaction().add(
-      createInitializeMintInstruction(
-        mintKeypair.publicKey,
-        parseInt(decimals || 9),
-        serviceWallet.publicKey,
-        null,
-        TOKEN_PROGRAM_ID
-      )
+    // 1️⃣ Создаём mint
+    const mint = await createMint(
+      connection,
+      serviceWallet,           // payer
+      serviceWallet.publicKey, // mint authority
+      null,                    // freeze authority
+      parseInt(decimals || 9)  // decimals
     );
 
-    // Создаем Associated Token Account
+    // 2️⃣ Создаём token account для сервисного кошелька
     const tokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
       serviceWallet,
-      mintKeypair.publicKey,
+      mint,
       serviceWallet.publicKey
     );
 
-    // Минтим токены
-    tx.add(
-      createMintToInstruction(
-        mintKeypair.publicKey,
-        tokenAccount.address,
-        serviceWallet.publicKey,
-        parseFloat(supply) * 10 ** parseInt(decimals || 9)
-      )
+    // 3️⃣ Минтим токены
+    await mintTo(
+      connection,
+      serviceWallet,
+      mint,
+      tokenAccount.address,
+      serviceWallet.publicKey,
+      parseFloat(supply) * 10 ** parseInt(decimals || 9)
     );
 
-    await sendAndConfirmTransaction(connection, tx, [serviceWallet, mintKeypair]);
-
     res.json({
-      mint: mintKeypair.publicKey.toBase58(),
-      solscan: `https://solscan.io/token/${mintKeypair.publicKey.toBase58()}?cluster=devnet`
+      mint: mint.toBase58(),
+      solscan: `https://solscan.io/token/${mint.toBase58()}?cluster=devnet`
     });
+
   } catch (err) {
     console.error("❌ Ошибка при создании токена:", err);
     res.status(500).json({ error: err.toString() });
   }
 });
-
-// Баланс сервисного кошелька
-app.get("/api/balance", async (req, res) => {
-  try {
-    const pubKey = serviceWallet.publicKey;
-    const solBalanceLamports = await connection.getBalance(pubKey);
-    const solBalance = solBalanceLamports / LAMPORTS_PER_SOL;
-
-    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(pubKey, {
-      programId: TOKEN_PROGRAM_ID
-    });
-
-    const tokens = tokenAccounts.value.map(acc => {
-      const info = acc.account.data.parsed.info;
-      return { mint: info.mint, amount: info.tokenAmount.uiAmount };
-    });
-
-    res.json({ sol: solBalance, tokens });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.toString() });
-  }
-});
-
-app.listen(PORT, () => console.log(`🚀 Backend running on port ${PORT}`));
