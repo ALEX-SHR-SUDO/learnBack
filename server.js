@@ -12,13 +12,11 @@ const {
 } = require("@solana/web3.js");
 
 const {
-  getMintLen,
+  MINT_SIZE,
   createInitializeMintInstruction,
   getOrCreateAssociatedTokenAccount,
-  createAssociatedTokenAccountInstruction,
   createMintToInstruction,
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID
+  TOKEN_PROGRAM_ID
 } = require("@solana/spl-token");
 
 const {
@@ -32,7 +30,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-// === Загружаем сервисный кошелёк ===
+// === Сервисный кошелёк ===
 let serviceWallet;
 try {
   const secretKey = JSON.parse(fs.readFileSync("service_wallet.json"));
@@ -43,9 +41,10 @@ try {
   process.exit(1);
 }
 
+// === Подключение к devnet ===
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-// === Проверка соединения ===
+// === Пинг backend ===
 app.get("/api/ping", async (req, res) => {
   try {
     const version = await connection.getVersion();
@@ -58,37 +57,27 @@ app.get("/api/ping", async (req, res) => {
 // === Создание токена ===
 app.post("/api/create-token", async (req, res) => {
   const { name, symbol, decimals, supply, description } = req.body;
-
   if (!name || !symbol || !supply) {
     return res.status(400).json({ error: "❗ Заполни name, symbol и supply" });
   }
 
   try {
-    // 1️⃣ Создаём аккаунт под mint
+    // 🔹 Создаём mint
     const mintKeypair = Keypair.generate();
+    const lamportsForMint = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
 
-    const lamportsForMint = await connection.getMinimumBalanceForRentExemption(getMintLen());
-
-    const transaction = new Transaction().add(
-      // Создаём аккаунт
-      {
-        keys: [
-          { pubkey: serviceWallet.publicKey, isSigner: true, isWritable: true },
-          { pubkey: mintKeypair.publicKey, isSigner: true, isWritable: true }
-        ],
-        programId: TOKEN_PROGRAM_ID
-      }
+    // Создаём аккаунт mint
+    const createMintTx = new Transaction().add(
+      createInitializeMintInstruction(
+        mintKeypair.publicKey,
+        parseInt(decimals || 9),
+        serviceWallet.publicKey,
+        null,
+        TOKEN_PROGRAM_ID
+      )
     );
 
-    // Создаём mint вручную
-    const createMintIx = createInitializeMintInstruction(
-      mintKeypair.publicKey,
-      parseInt(decimals || 9),
-      serviceWallet.publicKey,
-      null,
-      TOKEN_PROGRAM_ID
-    );
-
+    // Создаём Associated Token Account для сервисного кошелька
     const associatedTokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
       serviceWallet,
@@ -96,6 +85,7 @@ app.post("/api/create-token", async (req, res) => {
       serviceWallet.publicKey
     );
 
+    // Минтим токены на сервисный кошелёк
     const mintToIx = createMintToInstruction(
       mintKeypair.publicKey,
       associatedTokenAccount.address,
@@ -103,11 +93,11 @@ app.post("/api/create-token", async (req, res) => {
       parseFloat(supply) * 10 ** parseInt(decimals || 9)
     );
 
-    transaction.add(createMintIx, mintToIx);
+    createMintTx.add(mintToIx);
 
-    await sendAndConfirmTransaction(connection, transaction, [serviceWallet, mintKeypair]);
+    await sendAndConfirmTransaction(connection, createMintTx, [serviceWallet, mintKeypair]);
 
-    // === Создаём метаданные
+    // 🔹 Создаём метаданные
     const metadataPDA = PublicKey.findProgramAddressSync(
       [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mintKeypair.publicKey.toBuffer()],
       TOKEN_METADATA_PROGRAM_ID
@@ -146,13 +136,14 @@ app.post("/api/create-token", async (req, res) => {
       mint: mintKeypair.publicKey.toBase58(),
       solscan: `https://solscan.io/token/${mintKeypair.publicKey.toBase58()}?cluster=devnet`
     });
+
   } catch (err) {
     console.error("❌ Ошибка при создании токена:", err);
     res.status(500).json({ error: err.toString() });
   }
 });
 
-// === Получение баланса и токенов ===
+// === Баланс и токены кошелька ===
 app.get("/api/balance/:address", async (req, res) => {
   try {
     const { address } = req.params;
@@ -165,7 +156,7 @@ app.get("/api/balance/:address", async (req, res) => {
       programId: TOKEN_PROGRAM_ID
     });
 
-    const tokens = tokenAccounts.value.map((acc) => {
+    const tokens = tokenAccounts.value.map(acc => {
       const info = acc.account.data.parsed.info;
       return {
         mint: info.mint,
