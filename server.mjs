@@ -1,111 +1,114 @@
 import express from "express";
 import cors from "cors";
-import fs from "fs";
+import dotenv from "dotenv";
 import {
   Connection,
   Keypair,
+  PublicKey,
+  clusterApiUrl,
   SystemProgram,
   Transaction,
   sendAndConfirmTransaction,
-  clusterApiUrl,
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
+import * as splToken from "@solana/spl-token";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const bs58 = require("bs58");
 
-import splToken from "@solana/spl-token";
-const {
-  MINT_SIZE,
-  TOKEN_2022_PROGRAM_ID,
-  createInitializeMint2Instruction,
-  getMinimumBalanceForRentExemptMint,
-  getOrCreateAssociatedTokenAccount,
-  mintTo
-} = splToken;
-
+dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-// === Разрешаем все фронтенды ===
-app.use(cors({ origin: "*" }));
+app.use(cors());
 app.use(express.json());
 
-// === Загружаем сервисный кошелёк ===
-let serviceWallet;
-try {
-  const secretKey = JSON.parse(fs.readFileSync("service_wallet.json"));
-  serviceWallet = Keypair.fromSecretKey(Uint8Array.from(secretKey));
-  console.log("✅ Сервисный кошелёк:", serviceWallet.publicKey.toBase58());
-} catch (err) {
-  console.error("❌ Нет service_wallet.json. Создай через node create_wallet.js");
-  process.exit(1);
-}
+// 🔑 Загружаем сервисный кошелёк из .env
+const secretKey = bs58.decode(process.env.SERVICE_WALLET_PRIVATE_KEY);
+const serviceWallet = Keypair.fromSecretKey(secretKey);
 
-// === Подключение к devnet ===
+// 🔗 Подключаемся к сети
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-// === Проверка соединения ===
-app.get("/api/ping", async (req, res) => {
-  try {
-    const version = await connection.getVersion();
-    res.json({ ok: true, solana: version });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.toString() });
-  }
-});
+console.log(`✅ Сервисный кошелёк: ${serviceWallet.publicKey.toBase58()}`);
 
-// === Создание токена SPL Token 2022 ===
+// ===============================
+// 📌 1. Создание нового токена
+// ===============================
 app.post("/api/create-token", async (req, res) => {
   try {
-    const { decimals = 2, supply = 1000 } = req.body;
+    const { name, symbol, decimals, amount } = req.body;
 
-    // 1️⃣ Создаём Keypair для mint
+    // Создаём новый аккаунт для токена
     const mint = Keypair.generate();
 
-    // 2️⃣ Получаем минимальный баланс для rent-exempt
-    const rentExemptionLamports = await getMinimumBalanceForRentExemptMint(connection);
+    const rentExemptionLamports = await connection.getMinimumBalanceForRentExemption(splToken.MINT_SIZE);
 
-    // 3️⃣ Создаём аккаунт под mint
     const createAccountIx = SystemProgram.createAccount({
       fromPubkey: serviceWallet.publicKey,
       newAccountPubkey: mint.publicKey,
-      space: MINT_SIZE,
+      space: splToken.MINT_SIZE,
       lamports: rentExemptionLamports,
-      programId: TOKEN_2022_PROGRAM_ID
+      programId: splToken.TOKEN_PROGRAM_ID
     });
 
-    // 4️⃣ Инициализация mint
-    const initMintIx = createInitializeMint2Instruction(
+    const initializeMintIx = splToken.createInitializeMint2Instruction(
       mint.publicKey,
       decimals,
-      serviceWallet.publicKey, // mint authority
-      serviceWallet.publicKey, // freeze authority
-      TOKEN_2022_PROGRAM_ID
+      serviceWallet.publicKey,
+      serviceWallet.publicKey,
+      splToken.TOKEN_PROGRAM_ID
     );
 
-    // 5️⃣ Отправка транзакции
-    const tx = new Transaction().add(createAccountIx, initMintIx);
+    const ata = await splToken.getAssociatedTokenAddress(
+      mint.publicKey,
+      serviceWallet.publicKey
+    );
+
+    const createAtaIx = splToken.createAssociatedTokenAccountInstruction(
+      serviceWallet.publicKey,
+      ata,
+      serviceWallet.publicKey,
+      mint.publicKey
+    );
+
+    const mintToIx = splToken.createMintToInstruction(
+      mint.publicKey,
+      ata,
+      serviceWallet.publicKey,
+      amount * Math.pow(10, decimals)
+    );
+
+    const tx = new Transaction().add(createAccountIx, initializeMintIx, createAtaIx, mintToIx);
+
     await sendAndConfirmTransaction(connection, tx, [serviceWallet, mint]);
+
+    console.log(`✅ Токен создан: ${mint.publicKey.toBase58()}`);
 
     res.json({
       mint: mint.publicKey.toBase58(),
-      solscan: `https://solscan.io/token/${mint.publicKey.toBase58()}?cluster=devnet`
+      name,
+      symbol,
+      decimals,
+      amount
     });
-
   } catch (err) {
     console.error("❌ Ошибка при создании токена:", err);
-    res.status(500).json({ error: err.toString() });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// === Баланс сервисного кошелька + токены ===
-app.get("/api/balance", async (req, res) => {
+// ===============================
+// 📌 2. Получение баланса
+// ===============================
+app.get("/api/balance/:address", async (req, res) => {
   try {
-    const pubKey = serviceWallet.publicKey;
+    const { address } = req.params;
+    const publicKey = new PublicKey(address);
 
-    const solBalanceLamports = await connection.getBalance(pubKey);
-    const solBalance = solBalanceLamports / LAMPORTS_PER_SOL;
+    const solLamports = await connection.getBalance(publicKey);
+    const sol = solLamports / LAMPORTS_PER_SOL;
 
-    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(pubKey, {
-      programId: TOKEN_2022_PROGRAM_ID
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+      programId: splToken.TOKEN_PROGRAM_ID
     });
 
     const tokens = tokenAccounts.value.map(acc => {
@@ -116,13 +119,19 @@ app.get("/api/balance", async (req, res) => {
       };
     });
 
-    res.json({ sol: solBalance, tokens });
-
+    res.json({ sol, tokens });
   } catch (err) {
     console.error("❌ Ошибка при получении баланса:", err);
-    res.status(500).json({ error: err.toString() });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// === Запуск сервера ===
-app.listen(PORT, () => console.log(`🚀 Backend запущен на порту ${PORT}`));
+// ===============================
+// 📌 3. Проверка работы сервера
+// ===============================
+app.get("/", (req, res) => {
+  res.send("✅ Solana Backend работает!");
+});
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`🚀 Сервер запущен на порту ${PORT}`));
