@@ -15,9 +15,9 @@ const { TOKEN_PROGRAM_ID } = require("@solana/spl-token");
 const {
   createMint,
   getOrCreateAssociatedTokenAccount,
-  mintTo
-} = require("@solana/spl-token/lib/cjs/actions"); 
-
+  mintTo,
+  TOKEN_PROGRAM_ID
+} = require("@solana/spl-token");
 
 const app = express();
 const PORT = process.env.PORT || 3000; 
