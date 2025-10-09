@@ -5,18 +5,22 @@ const {
   Connection,
   Keypair,
   clusterApiUrl,
-  LAMPORTS_PER_SOL
+  LAMPORTS_PER_SOL,
+  PublicKey
 } = require("@solana/web3.js");
+
+// 🚨 ИСПРАВЛЕНИЕ: Импортируем функции действий из CJS-совместимого подмодуля
+const { TOKEN_PROGRAM_ID } = require("@solana/spl-token");
 
 const {
   createMint,
   getOrCreateAssociatedTokenAccount,
-  mintTo,
-  TOKEN_PROGRAM_ID
-} = require("@solana/spl-token"); // <== совместимо с CommonJS и v0.2.0
+  mintTo
+} = require("@solana/spl-token/lib/cjs/actions"); 
+
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; 
 
 // === Разрешаем все фронтенды ===
 app.use(cors({ origin: "*" }));
@@ -29,8 +33,7 @@ try {
   serviceWallet = Keypair.fromSecretKey(Uint8Array.from(secretKey));
   console.log("✅ Сервисный кошелёк:", serviceWallet.publicKey.toBase58());
 } catch (err) {
-  console.error("❌ Нет service_wallet.json. Создай через node create_wallet.js");
-  process.exit(1);
+  console.error("❌ Нет service_wallet.json. Проверьте доступность файла на Render.");
 }
 
 // === Подключение к devnet ===
@@ -49,20 +52,31 @@ app.get("/api/ping", async (req, res) => {
 // === Создание токена без метаданных ===
 app.post("/api/create-token", async (req, res) => {
   const { decimals, supply } = req.body;
-  if (!supply) return res.status(400).json({ error: "❗ Заполни supply" });
+  
+  if (!serviceWallet) {
+    return res.status(500).json({ error: "❗ Сервисный кошелек не загружен." });
+  }
+  if (!supply) {
+    return res.status(400).json({ error: "❗ Заполни supply" });
+  }
 
   try {
-    // 1️⃣ Создаём mint
-    const mint = await createMint(
+    const parsedDecimals = parseInt(decimals || 9);
+    const parsedSupply = parseFloat(supply);
+    // Обработка возможной ошибки при больших числах
+    const totalAmount = BigInt(Math.round(parsedSupply * Math.pow(10, parsedDecimals))); 
+
+    // 1️⃣ Создаём mint 
+    const mint = await createMint( // вызываем напрямую
       connection,
       serviceWallet,           // payer
       serviceWallet.publicKey, // mint authority
       null,                    // freeze authority
-      parseInt(decimals || 9)  // decimals
+      parsedDecimals           // decimals
     );
 
-    // 2️⃣ Создаём token account для сервисного кошелька
-    const tokenAccount = await getOrCreateAssociatedTokenAccount(
+    // 2️⃣ Создаём token account
+    const tokenAccount = await getOrCreateAssociatedTokenAccount( // вызываем напрямую
       connection,
       serviceWallet,
       mint,
@@ -70,13 +84,13 @@ app.post("/api/create-token", async (req, res) => {
     );
 
     // 3️⃣ Минтим токены
-    await mintTo(
+    await mintTo( // вызываем напрямую
       connection,
       serviceWallet,
       mint,
       tokenAccount.address,
       serviceWallet.publicKey,
-      parseFloat(supply) * 10 ** parseInt(decimals || 9)
+      totalAmount // используем BigInt для точности
     );
 
     res.json({
@@ -90,8 +104,12 @@ app.post("/api/create-token", async (req, res) => {
   }
 });
 
-// === Баланс сервисного кошелька + токены ===
+// === Баланс сервисного кошелька + токены (Эндпоинт /api/balance) ===
 app.get("/api/balance", async (req, res) => {
+  if (!serviceWallet) {
+    return res.status(500).json({ error: "❗ Сервисный кошелек не загружен." });
+  }
+  
   try {
     const pubKey = serviceWallet.publicKey;
     const solBalanceLamports = await connection.getBalance(pubKey);
@@ -101,12 +119,21 @@ app.get("/api/balance", async (req, res) => {
       programId: TOKEN_PROGRAM_ID
     });
 
-    const tokens = tokenAccounts.value.map(acc => {
-      const info = acc.account.data.parsed.info;
-      return { mint: info.mint, amount: info.tokenAmount.uiAmount };
-    });
+    const tokens = tokenAccounts.value
+      .map(acc => {
+        const info = acc.account.data.parsed.info;
+        return { 
+          mint: info.mint, 
+          amount: info.tokenAmount.uiAmount 
+        };
+      })
+      .filter(token => token.amount > 0); 
 
-    res.json({ sol: solBalance, tokens });
+    res.json({ 
+      serviceAddress: pubKey.toBase58(), 
+      sol: solBalance, 
+      tokens 
+    });
   } catch (err) {
     console.error("❌ Ошибка при получении баланса:", err);
     res.status(500).json({ error: err.toString() });
