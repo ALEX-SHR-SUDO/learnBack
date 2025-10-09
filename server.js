@@ -6,17 +6,20 @@ const {
   Keypair,
   clusterApiUrl,
   LAMPORTS_PER_SOL,
-  PublicKey // Добавим PublicKey, чтобы его можно было использовать
+  PublicKey
 } = require("@solana/web3.js");
 
-// 🚨 ИСПРАВЛЕНИЕ ОШИБКИ: Импортируем весь объект spl-token
-const splToken = require("@solana/spl-token");
+// 🚨 ИСПРАВЛЕНИЕ: Импортируем функции действий из CJS-совместимого подмодуля
+const { TOKEN_PROGRAM_ID } = require("@solana/spl-token");
+
 const {
-  TOKEN_PROGRAM_ID
-} = splToken; // TOKEN_PROGRAM_ID можно безопасно деструктурировать
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo
+} = require("@solana/spl-token/lib/cjs/actions"); 
+
 
 const app = express();
-// На Render PORT всегда устанавливается окружением
 const PORT = process.env.PORT || 3000; 
 
 // === Разрешаем все фронтенды ===
@@ -26,15 +29,11 @@ app.use(express.json());
 // === Сервисный кошелёк ===
 let serviceWallet;
 try {
-  // ВНИМАНИЕ: Для Render убедитесь, что service_wallet.json доступен
-  // (обычно через гит или через переменную окружения Base64, если это production)
   const secretKey = JSON.parse(fs.readFileSync("service_wallet.json"));
   serviceWallet = Keypair.fromSecretKey(Uint8Array.from(secretKey));
   console.log("✅ Сервисный кошелёк:", serviceWallet.publicKey.toBase58());
 } catch (err) {
-  console.error("❌ Нет service_wallet.json. Создай через node create_wallet.js или проверь доступность файла на Render.");
-  // На Render лучше не завершать процесс, а логгировать ошибку
-  // process.exit(1); 
+  console.error("❌ Нет service_wallet.json. Проверьте доступность файла на Render.");
 }
 
 // === Подключение к devnet ===
@@ -64,10 +63,11 @@ app.post("/api/create-token", async (req, res) => {
   try {
     const parsedDecimals = parseInt(decimals || 9);
     const parsedSupply = parseFloat(supply);
-    const totalAmount = parsedSupply * Math.pow(10, parsedDecimals);
+    // Обработка возможной ошибки при больших числах
+    const totalAmount = BigInt(Math.round(parsedSupply * Math.pow(10, parsedDecimals))); 
 
-    // 1️⃣ Создаём mint (Используем splToken.createMint)
-    const mint = await splToken.createMint(
+    // 1️⃣ Создаём mint 
+    const mint = await createMint( // вызываем напрямую
       connection,
       serviceWallet,           // payer
       serviceWallet.publicKey, // mint authority
@@ -75,22 +75,22 @@ app.post("/api/create-token", async (req, res) => {
       parsedDecimals           // decimals
     );
 
-    // 2️⃣ Создаём token account для сервисного кошелька (Используем splToken.getOrCreateAssociatedTokenAccount)
-    const tokenAccount = await splToken.getOrCreateAssociatedTokenAccount(
+    // 2️⃣ Создаём token account
+    const tokenAccount = await getOrCreateAssociatedTokenAccount( // вызываем напрямую
       connection,
       serviceWallet,
       mint,
       serviceWallet.publicKey
     );
 
-    // 3️⃣ Минтим токены (Используем splToken.mintTo)
-    await splToken.mintTo(
+    // 3️⃣ Минтим токены
+    await mintTo( // вызываем напрямую
       connection,
       serviceWallet,
       mint,
       tokenAccount.address,
       serviceWallet.publicKey,
-      totalAmount
+      totalAmount // используем BigInt для точности
     );
 
     res.json({
@@ -119,7 +119,6 @@ app.get("/api/balance", async (req, res) => {
       programId: TOKEN_PROGRAM_ID
     });
 
-    // Извлекаем только те аккаунты, у которых есть UI amount > 0
     const tokens = tokenAccounts.value
       .map(acc => {
         const info = acc.account.data.parsed.info;
@@ -128,10 +127,10 @@ app.get("/api/balance", async (req, res) => {
           amount: info.tokenAmount.uiAmount 
         };
       })
-      .filter(token => token.amount > 0); // Фильтруем пустые токены
+      .filter(token => token.amount > 0); 
 
     res.json({ 
-      serviceAddress: pubKey.toBase58(), // Добавим адрес, чтобы фронтенд его отобразил
+      serviceAddress: pubKey.toBase58(), 
       sol: solBalance, 
       tokens 
     });
