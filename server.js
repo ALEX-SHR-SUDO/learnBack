@@ -9,18 +9,17 @@ const {
   PublicKey
 } = require("@solana/web3.js");
 
-// 🚨 ИСПРАВЛЕНИЕ: Импортируем функции действий из CJS-совместимого подмодуля
-const { TOKEN_PROGRAM_ID } = require("@solana/spl-token");
-
+// ✅ ИСПРАВЛЕНИЕ: Объединяем импорты из @solana/spl-token в один блок.
+// УДАЛЕН дублирующий require и лишний комментарий.
 const {
   createMint,
   getOrCreateAssociatedTokenAccount,
   mintTo,
-  TOKEN_PROGRAM_ID
+  TOKEN_PROGRAM_ID // <-- Теперь импортируется только здесь
 } = require("@solana/spl-token");
 
 const app = express();
-const PORT = process.env.PORT || 3000; 
+const PORT = process.env.PORT || 3000;
 
 // === Разрешаем все фронтенды ===
 app.use(cors({ origin: "*" }));
@@ -52,7 +51,7 @@ app.get("/api/ping", async (req, res) => {
 // === Создание токена без метаданных ===
 app.post("/api/create-token", async (req, res) => {
   const { decimals, supply } = req.body;
-  
+
   if (!serviceWallet) {
     return res.status(500).json({ error: "❗ Сервисный кошелек не загружен." });
   }
@@ -64,9 +63,9 @@ app.post("/api/create-token", async (req, res) => {
     const parsedDecimals = parseInt(decimals || 9);
     const parsedSupply = parseFloat(supply);
     // Обработка возможной ошибки при больших числах
-    const totalAmount = BigInt(Math.round(parsedSupply * Math.pow(10, parsedDecimals))); 
+    const totalAmount = BigInt(Math.round(parsedSupply * Math.pow(10, parsedDecimals)));
 
-    // 1️⃣ Создаём mint 
+    // 1️⃣ Создаём mint
     const mint = await createMint( // вызываем напрямую
       connection,
       serviceWallet,           // payer
@@ -109,7 +108,7 @@ app.get("/api/balance", async (req, res) => {
   if (!serviceWallet) {
     return res.status(500).json({ error: "❗ Сервисный кошелек не загружен." });
   }
-  
+
   try {
     const pubKey = serviceWallet.publicKey;
     const solBalanceLamports = await connection.getBalance(pubKey);
@@ -122,17 +121,17 @@ app.get("/api/balance", async (req, res) => {
     const tokens = tokenAccounts.value
       .map(acc => {
         const info = acc.account.data.parsed.info;
-        return { 
-          mint: info.mint, 
-          amount: info.tokenAmount.uiAmount 
+        return {
+          mint: info.mint,
+          amount: info.tokenAmount.uiAmount
         };
       })
-      .filter(token => token.amount > 0); 
+      .filter(token => token.amount > 0);
 
-    res.json({ 
-      serviceAddress: pubKey.toBase58(), 
-      sol: solBalance, 
-      tokens 
+    res.json({
+      serviceAddress: pubKey.toBase58(),
+      sol: solBalance,
+      tokens
     });
   } catch (err) {
     console.error("❌ Ошибка при получении баланса:", err);
