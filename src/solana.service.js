@@ -9,74 +9,66 @@ const {
 } = require("@solana/web3.js");
 
 const {
-  createMint,
-  getOrCreateAssociatedTokenAccount,
-  mintTo,
   TOKEN_PROGRAM_ID
 } = require("@solana/spl-token"); 
+
+const metadataService = require("./metadata.service"); // НОВЫЙ СЕРВИС МЕТАДАННЫХ
+const fs = require("fs");
+const path = require("path");
 
 // --- Инициализация Solana ---
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
 let serviceWallet;
+let umiPayer; // Umi Keypair для сервиса метаданных
+
 try {
-  // ВНИМАНИЕ: Путь к файлу теперь должен быть относительным к КОРНЮ, 
-  // или вы должны передать его из server.js
-  const fs = require("fs"); 
-  const path = require("path");
-  
   // Предполагаем, что service_wallet.json находится в корне проекта
+  // Используем path.resolve для корректного пути, независимо от того, где находится src/
   const secretKeyPath = path.resolve(__dirname, '..', 'service_wallet.json'); 
   const secretKey = JSON.parse(fs.readFileSync(secretKeyPath));
   
   serviceWallet = Keypair.fromSecretKey(Uint8Array.from(secretKey));
+  
+  // Инициализируем Umi и получаем UmiPayer, как только кошелек загружен
+  umiPayer = metadataService.initializeUmi(serviceWallet);
+
   console.log("✅ Сервисный кошелёк (Solana Service):", serviceWallet.publicKey.toBase58());
 } catch (err) {
-  console.error("❌ Solana Service: Не удалось загрузить service_wallet.json.");
+  console.error("❌ Solana Service: Не удалось загрузить service_wallet.json. Проверьте путь или наличие файла.");
 }
+
 
 // --- Функции Блокчейна ---
 
-async function createNewToken({ decimals, supply }) {
+/**
+ * Создает и минтит новый токен с метаданными.
+ */
+async function createNewToken({ name, symbol, uri, decimals, supply }) {
   if (!serviceWallet) {
     throw new Error("Сервисный кошелек не загружен.");
   }
+  if (!name || !symbol || !uri) {
+    throw new Error("Необходимо указать name, symbol и uri для метаданных.");
+  }
 
-  const parsedDecimals = parseInt(decimals || 9);
-  const parsedSupply = parseFloat(supply);
-  const totalAmount = BigInt(Math.round(parsedSupply * Math.pow(10, parsedDecimals)));
+  // Вызываем функцию из отдельного сервиса метаданных
+  const result = await metadataService.createTokenWithMetadata({
+    umiPayer,
+    name,
+    symbol,
+    uri,
+    decimals,
+    supply
+  });
 
-  // 1️⃣ Создаём mint 
-  const mint = await createMint(
-    connection,
-    serviceWallet,           // payer
-    serviceWallet.publicKey, // mint authority
-    null,                    // freeze authority
-    parsedDecimals           // decimals
-  );
-
-  // 2️⃣ Создаём token account
-  const tokenAccount = await getOrCreateAssociatedTokenAccount(
-    connection,
-    serviceWallet,
-    mint,
-    serviceWallet.publicKey
-  );
-
-  // 3️⃣ Минтим токены
-  await mintTo(
-    connection,
-    serviceWallet,
-    mint,
-    tokenAccount.address,
-    serviceWallet.publicKey,
-    totalAmount
-  );
-
-  return { mint: mint.toBase58() };
+  return result; // { mint: string }
 }
 
+/**
+ * Получает баланс SOL и список токенов сервисного кошелька.
+ */
 async function getServiceWalletBalance() {
   if (!serviceWallet) {
     throw new Error("Сервисный кошелек не загружен.");
@@ -90,6 +82,7 @@ async function getServiceWalletBalance() {
     programId: TOKEN_PROGRAM_ID
   });
 
+  // Извлекаем только те аккаунты, у которых есть UI amount > 0
   const tokens = tokenAccounts.value
     .map(acc => ({
       mint: acc.account.data.parsed.info.mint,
@@ -108,8 +101,8 @@ async function getServiceWalletBalance() {
 // --- Экспорт ---
 
 module.exports = {
-  connection, // для пинга
+  connection,
   createNewToken,
   getServiceWalletBalance,
-  serviceWallet // для отображения адреса при запуске
+  serviceWallet
 };

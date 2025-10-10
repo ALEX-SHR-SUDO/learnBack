@@ -2,9 +2,9 @@
 
 const express = require("express");
 const router = express.Router();
-const solanaService = require("./solana.service"); // Подключаем сервис
+const solanaService = require("./solana.service"); 
 
-// === Проверка соединения ===
+// --- Проверка соединения ---
 router.get("/ping", async (req, res) => {
   try {
     const version = await solanaService.connection.getVersion();
@@ -14,16 +14,18 @@ router.get("/ping", async (req, res) => {
   }
 });
 
-// === Создание токена ===
+// --- Создание токена с метаданными ---
 router.post("/create-token", async (req, res) => {
-  const { decimals, supply } = req.body;
+  // Получаем ВСЕ необходимые поля, включая метаданные
+  const { name, symbol, uri, decimals, supply } = req.body; 
 
-  if (!supply) {
-    return res.status(400).json({ error: "❗ Заполни supply" });
+  if (!supply || !name || !symbol || !uri) { 
+    return res.status(400).json({ error: "❗ Необходимы supply, name, symbol и uri для создания токена" });
   }
 
   try {
-    const result = await solanaService.createNewToken({ decimals, supply });
+    // Передаем все поля в сервис
+    const result = await solanaService.createNewToken({ name, symbol, uri, decimals, supply });
 
     res.json({
       mint: result.mint,
@@ -32,11 +34,12 @@ router.post("/create-token", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Ошибка при создании токена:", err.toString());
+    // Возвращаем сообщение об ошибке, переданное из сервиса
     res.status(500).json({ error: err.message || "Ошибка сервера при создании токена" });
   }
 });
 
-// === Баланс сервисного кошелька + токены ===
+// --- Баланс сервисного кошелька + токены ---
 router.get("/balance", async (req, res) => {
   try {
     const balanceData = await solanaService.getServiceWalletBalance();
