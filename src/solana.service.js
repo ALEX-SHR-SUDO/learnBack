@@ -12,9 +12,10 @@ const {
   TOKEN_PROGRAM_ID
 } = require("@solana/spl-token"); 
 
-const metadataService = require("./metadata.service"); // НОВЫЙ СЕРВИС МЕТАДАННЫХ
-const fs = require("fs");
-const path = require("path");
+const metadataService = require("./metadata.service"); 
+// Удаляем 'fs' и 'path', так как они больше не нужны для чтения файла
+// const fs = require("fs"); 
+// const path = require("path");
 
 // --- Инициализация Solana ---
 
@@ -24,19 +25,26 @@ let serviceWallet;
 let umiPayer; // Umi Keypair для сервиса метаданных
 
 try {
-  // Предполагаем, что service_wallet.json находится в корне проекта
-  // Используем path.resolve для корректного пути, независимо от того, где находится src/
-  const secretKeyPath = path.resolve(__dirname, '..', 'service_wallet.json'); 
-  const secretKey = JSON.parse(fs.readFileSync(secretKeyPath));
+  // 1. Получаем секретный ключ из переменной окружения (Render)
+  const secretKeyString = process.env.SERVICE_SECRET_KEY;
+
+  if (!secretKeyString) {
+      // Это критическая ошибка, если ключ не установлен
+      throw new Error("Переменная окружения SERVICE_SECRET_KEY не найдена.");
+  }
+
+  // 2. Парсим строку обратно в массив чисел (Uint8Array)
+  const secretKey = JSON.parse(secretKeyString);
   
+  // 3. Создаем Keypair
   serviceWallet = Keypair.fromSecretKey(Uint8Array.from(secretKey));
   
-  // Инициализируем Umi и получаем UmiPayer, как только кошелек загружен
+  // 4. Инициализируем Umi
   umiPayer = metadataService.initializeUmi(serviceWallet);
 
-  console.log("✅ Сервисный кошелёк (Solana Service):", serviceWallet.publicKey.toBase58());
+  console.log("✅ Сервисный кошелёк (Solana Service) загружен:", serviceWallet.publicKey.toBase58());
 } catch (err) {
-  console.error("❌ Solana Service: Не удалось загрузить service_wallet.json. Проверьте путь или наличие файла.");
+  console.error(`❌ Solana Service: Не удалось загрузить сервисный кошелек. Причина: ${err.message}`);
 }
 
 
