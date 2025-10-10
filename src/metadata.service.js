@@ -1,42 +1,55 @@
 // src/metadata.service.js
 
+// ИМПОРТЫ Umi:
+// createUmi из бандла
 const { createUmi } = require('@metaplex-foundation/umi-bundle-defaults');
-const { createAndMint, mplTokenMetadata } = require('@metaplex-foundation/mpl-token-metadata');
-const { fromWeb3JsKeypair } = require('@metaplex-foundation/umi-web3js-adapters');
-const { publicKey } = require('@metaplex-foundation/umi');
+// mplTokenMetadata из основного пакета (он сам по себе является плагином)
+const { mplTokenMetadata } = require('@metaplex-foundation/mpl-token-metadata');
+// fromWeb3JsKeypair из адаптера (для конвертации)
+const { fromWeb3JsKeypair } = require('@metaplex-foundation/umi-web3js-adapters'); 
+
 
 let umi;
 
-// Функция для инициализации Umi с кошельком (payer)
+/**
+ * Инициализирует Umi с кошельком (payer) и устанавливает необходимые плагины.
+ * @param {Keypair} walletKeypair - web3.js Keypair сервисного кошелька.
+ */
 function initializeUmi(walletKeypair) {
     if (!walletKeypair) {
         throw new Error("Wallet Keypair required for Umi initialization.");
     }
     
-    // 1. Конвертируем web3.js Keypair в Umi Keypair
+    // 1. Конвертируем web3.js Keypair в Umi Keypair для использования в качестве Payer/Signer
     const umiPayer = fromWeb3JsKeypair(walletKeypair);
     
     // 2. Инициализируем Umi
-    umi = createUmi('https://api.devnet.solana.com') // Используем devnet
-        .use(mplTokenMetadata())
-        .use(umiPayer); 
+    // ВНИМАНИЕ: Плагин mplTokenMetadata() вызывается как ФУНКЦИЯ
+    umi = createUmi('https://api.devnet.solana.com') 
+        .use(mplTokenMetadata()) // <--- Вызываем mplTokenMetadata как функцию!
+        .identity(umiPayer)      // <--- Устанавливаем Payer/Signer с помощью .identity()
+        .payer(umiPayer);        // <--- Устанавливаем Payer с помощью .payer()
     
-    // Возвращаем публичный ключ UmiPayer для использования в качестве Mint/Authority
     return umiPayer; 
 }
 
 
-// Функция для создания токена с метаданными
+/**
+ * Создает токен и минтит его с метаданными.
+ * @param {object} params
+ */
 async function createTokenWithMetadata({ umiPayer, name, symbol, uri, decimals, supply }) {
     if (!umi) {
         throw new Error("Umi not initialized. Call initializeUmi first.");
     }
     
+    // ... (логика расчета amount и вызов createAndMint)
+    const { createAndMint } = require('@metaplex-foundation/mpl-token-metadata'); // Добавляем сюда, чтобы избежать конфликтов импорта.
+
     const parsedDecimals = parseInt(decimals || 9);
     const parsedSupply = parseFloat(supply);
     const totalAmount = BigInt(Math.round(parsedSupply * Math.pow(10, parsedDecimals))); 
     
-    // Mint-адрес совпадает с адресом Keypair, который мы передаем в "mint"
     const mintKeypair = umiPayer; 
 
     // Выполнение создания и минтинга токена с метаданными
@@ -45,11 +58,11 @@ async function createTokenWithMetadata({ umiPayer, name, symbol, uri, decimals, 
         authority: mintKeypair,
         name: name,
         symbol: symbol,
-        uri: uri, // Ссылка на JSON-файл метаданных
+        uri: uri,
         sellerFeeBasisPoints: 0, 
         decimals: parsedDecimals,
         amount: totalAmount,
-        tokenOwner: mintKeypair.publicKey, // Токены будут отправлены на кошелек
+        tokenOwner: mintKeypair.publicKey,
     }).sendAndConfirm(umi);
     
     return { mint: mintKeypair.publicKey.toString() };
