@@ -1,9 +1,9 @@
 // src/metadata.service.js
 
-// Мы сохраняем импорт * as Umi для всех служебных функций
-import * as Umi from '@metaplex-foundation/umi'; 
-
+// ✅ КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Используем createUmi из бандла, который включает все плагины и адреса
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
+import * as Umi from '@metaplex-foundation/umi'; // Сохраняем для keypairIdentity
 import * as web3 from '@solana/web3.js'; 
 
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
@@ -11,37 +11,17 @@ import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
 let umi;
 
-/**
- * Ручная регистрация адресов программ Solana для Devnet.
- */
-function registerDevnetPrograms(umiContext) {
-    const programRepository = {
-        // Стандартные программы Solana
-        'splToken': Umi.publicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
-        'splAta': Umi.publicKey('ATokenGPvbdGV1bmQe1mqFaB1xfuDk9Rz22c4Ld9P9d'),
-        
-        // Программа Metaplex Token Metadata
-        'mplTokenMetadata': Umi.publicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msFhoExbnw'),
-    };
-    
-    // ✅ ФИНАЛЬНОЕ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Прямое присвоение
-    // Это обходит ошибки .add() и .set(), что работает в самых старых версиях.
-    umiContext.programs = programRepository; 
-}
-
+// ✅ ФУНКЦИЯ registerDevnetPrograms УДАЛЕНА
 
 function initializeUmi(walletKeypair) {
     if (!walletKeypair) {
         throw new Error("Wallet Keypair required for Umi initialization.");
     }
     
-    // 1. Создаем Umi
-    umi = Umi.createUmi('https://api.devnet.solana.com');
+    // 1. Создаем Umi с помощью Umi-Bundle. Он автоматически регистрирует ProgramRepository.
+    umi = createUmi('https://api.devnet.solana.com'); 
         
-    // 2. Ручная регистрация программ
-    registerDevnetPrograms(umi); 
-    
-    // 3. Устанавливаем ключевые плагины
+    // 2. Устанавливаем оставшийся плагин
     umi.use(mplTokenMetadata()); 
     umi.use(Umi.keypairIdentity(walletKeypair)); 
     
@@ -64,7 +44,6 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
     
     await createAndMint(umi, {
         mint: mintKeypair,
-        // Authority берется из identity, которое уже является Umi Signer
         authority: umi.identity, 
         name: name,
         symbol: symbol,
