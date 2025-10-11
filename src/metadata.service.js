@@ -1,11 +1,9 @@
 // src/metadata.service.js
 
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'; 
+import { createUmi } from '@metaplex-foundation/umi'; // Базовый пакет
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-
-// ✅ ФИНАЛЬНОЕ ИМЯ: Попробуем 'web3'
-import { fromWeb3JsKeypair, web3 } from '@metaplex-foundation/umi-web3js-adapters'; 
-
+// ✅ Используем имя, которое было стабильным до последних версий
+import { fromWeb3JsKeypair, web3JsAdaptor } from '@metaplex-foundation/umi-web3js-adapters'; 
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
 
