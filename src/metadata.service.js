@@ -1,15 +1,15 @@
 // src/metadata.service.js
 
-// ⚠️ ИСПРАВЛЕНИЕ ИМПОРТА METAPLEX UMI: 
-// 1. Убеждаемся, что получаем нужные функции
-const { createUmi } = require('@metaplex-foundation/umi'); 
-const { mplTokenMetadata } = require('@metaplex-foundation/mpl-token-metadata');
-
-// 2. Получаем весь объект адаптеров, чтобы избежать проблем с деструктуризацией.
+// 1. Импортируем ВСЕ необходимые пакеты Umi целиком:
+const umiCore = require('@metaplex-foundation/umi');
+const umiTokenMetadata = require('@metaplex-foundation/mpl-token-metadata');
 const umiWeb3jsAdapters = require('@metaplex-foundation/umi-web3js-adapters');
-// Получаем нужные константы из полученного объекта
+
+// 2. Извлекаем нужные константы и функции:
+const createUmi = umiCore.createUmi;
+const mplTokenMetadata = umiTokenMetadata.mplTokenMetadata; // Используем как свойство
 const fromWeb3JsKeypair = umiWeb3jsAdapters.fromWeb3JsKeypair;
-const web3JsAdaptor = umiWeb3jsAdapters.web3JsAdaptor; 
+const web3JsAdaptor = umiWeb3jsAdapters.web3JsAdaptor; // Используем как свойство
 
 
 let umi;
@@ -27,7 +27,8 @@ function initializeUmi(walletKeypair) {
     
     // 2. Инициализируем Umi
     umi = createUmi('https://api.devnet.solana.com') 
-        // ✅ ИСПРАВЛЕНИЕ: Используем корректно импортированный объект плагина
+        // ❌ ИСПРАВЛЕНИЕ: Используем плагины, гарантируя, что они импортированы как объекты.
+        // mplTokenMetadata требует вызова, web3JsAdaptor - нет.
         .use(web3JsAdaptor) 
         .use(mplTokenMetadata()) 
         // Устанавливаем Payer/Signer
@@ -39,13 +40,14 @@ function initializeUmi(walletKeypair) {
     return umiPayer; 
 }
 
-// ... (остальные функции: createTokenWithMetadata и module.exports) ...
+// ... (остальные функции остаются без изменений) ...
 
 async function createTokenWithMetadata({ umiPayer, name, symbol, uri, decimals, supply }) {
     if (!umi) {
         throw new Error("Umi not initialized. Call initializeUmi first.");
     }
     
+    // ⚠️ Получаем createAndMint через тот же стабильный require
     const { createAndMint } = require('@metaplex-foundation/mpl-token-metadata');
 
     const parsedDecimals = parseInt(decimals || 9);
