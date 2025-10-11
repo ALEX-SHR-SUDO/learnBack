@@ -26,7 +26,7 @@ function registerDevnetPrograms(umiContext) {
     };
     
     // Вручную устанавливаем ProgramRepository в контекст Umi
-    umiContext.programs.add(programRepository);
+    umiContext.programs.set(programRepository);
 }
 
 
