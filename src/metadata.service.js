@@ -35,19 +35,24 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         throw new Error("Umi not initialized. Call initializeUmi first.");
     }
     
+    // ✅ ИСПРАВЛЕНИЕ: Гарантируем, что строковые поля не null/undefined
+    const tokenName = name || '';
+    const tokenSymbol = symbol || '';
+    const tokenUri = uri || '';
+
     const parsedDecimals = parseInt(decimals || 9);
     const parsedSupply = parseFloat(supply);
     const totalAmount = BigInt(Math.round(parsedSupply * Math.pow(10, parsedDecimals))); 
     
     //zamena (const mintKeypair = web3.Keypair.generate(); )
     const mintKeypair = umi.eddsa.generateKeypair();
-    
+
     await createAndMint(umi, {
         mint: mintKeypair,
         authority: umi.identity.publicKey.toString(),
-        name: name,
-        symbol: symbol,
-        uri: uri,
+        name: tokenName,
+        symbol: tokenSymbol,
+        uri: tokenUri,
         sellerFeeBasisPoints: 0, 
         decimals: parsedDecimals,
         amount: totalAmount,
