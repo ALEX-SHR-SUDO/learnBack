@@ -44,7 +44,7 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
     
     await createAndMint(umi, {
         mint: mintKeypair,
-        authority: umi.identity, 
+        authority: umi.identity.publicKey.toString(),
         name: name,
         symbol: symbol,
         uri: uri,
