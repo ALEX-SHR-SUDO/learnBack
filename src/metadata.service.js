@@ -2,10 +2,7 @@
 
 import { createUmi } from '@metaplex-foundation/umi'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-
-// ✅ КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Импортируем весь модуль как объект!
-import * as umiWeb3js from '@metaplex-foundation/umi-web3js-adapters'; 
-
+import * as umiWeb3js from '@metaplex-foundation/umi-web3js-adapters'; // Плагин web3.js
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
 
@@ -23,7 +20,7 @@ function initializeUmi(walletKeypair) {
     }
 
     // 1. Конвертируем web3.js Keypair в Umi Keypair
-    const umiPayer = fromWeb3JsKeypair(walletKeypair);
+    const umiPayer = umiWeb3js.fromWeb3JsKeypair(walletKeypair);
     
     // 2. Инициализируем Umi
    umi = createUmi('https://api.devnet.solana.com') 
