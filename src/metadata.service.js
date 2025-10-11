@@ -2,8 +2,6 @@
 
 // Импортируем весь модуль Umi как объект
 import * as Umi from '@metaplex-foundation/umi'; 
-// ✅ НОВЫЙ ИМПОРТ: Попробуем импортировать programs из отдельного пакета, как это часто бывает в старых версиях Umi
-import { programs } from '@metaplex-foundation/umi-programs'; 
 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as web3 from '@solana/web3.js'; 
@@ -13,12 +11,25 @@ import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
 let umi;
 
-// ✅ УДАЛЕНА ФУНКЦИЯ registerDevnetPrograms, т.к. она вызывала ошибку .set()/.add()
-
 /**
- * Инициализирует Umi с кошельком (payer) и устанавливает необходимые плагины.
- * @param {web3.Keypair} walletKeypair - Ключевая пара для плательщика.
+ * Ручная регистрация адресов программ Solana для Devnet.
+ * Мы используем .programs.add(), который является единственным рабочим методом в старых версиях.
  */
+function registerDevnetPrograms(umiContext) {
+    const programRepository = {
+        // Стандартные программы Solana
+        'splToken': Umi.publicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+        'splAta': Umi.publicKey('ATokenGPvbdGV1bmQe1mqFaB1xfuDk9Rz22c4Ld9P9d'),
+        
+        // Программа Metaplex Token Metadata
+        'mplTokenMetadata': Umi.publicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msFhoExbnw'),
+    };
+    
+    // ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем .programs.add() для регистрации
+    umiContext.programs.add(programRepository);
+}
+
+
 function initializeUmi(walletKeypair) {
     if (!walletKeypair) {
         throw new Error("Wallet Keypair required for Umi initialization.");
@@ -27,16 +38,12 @@ function initializeUmi(walletKeypair) {
     // 1. Создаем Umi (доступ через Umi.createUmi)
     umi = Umi.createUmi('https://api.devnet.solana.com');
         
-    // 2. Устанавливаем ключевые плагины
+    // 2. Ручная регистрация программ
+    registerDevnetPrograms(umi); 
     
-    // ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем плагин programs() (если он импортирован) 
-    // Если programs() не работает, то проблема в том, что его нет в установленных пакетах.
-    // Если же он есть в пакете umi-programs, он сработает:
-    umi.use(programs()); 
-    
-    // Плагин для метаданных токена
+    // 3. Устанавливаем ключевые плагины
     umi.use(mplTokenMetadata()); 
-    // Плагин keypairIdentity
+    // Плагин keypairIdentity (доступ через Umi.keypairIdentity)
     umi.use(Umi.keypairIdentity(walletKeypair)); 
     
     console.log(`Umi initialized. Payer: ${umi.identity.publicKey.toString()}`);
