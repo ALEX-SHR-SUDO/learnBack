@@ -1,33 +1,38 @@
 // src/metadata.service.js
 
-import { createUmi } from '@metaplex-foundation/umi'; 
+import { createUmi, keypairIdentity } from '@metaplex-foundation/umi'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-// ✅ НОВЫЙ ИМПОРТ: Импортируем 'programs'
-import { keypairIdentity, defaultPlugins } from '@metaplex-foundation/umi'; 
+// ✅ Используем umi-bundle-defaults для получения плагинов, чтобы избежать ошибок именования
+import { Umi as UmiBundle } from '@metaplex-foundation/umi-bundle-defaults'; 
 import * as web3 from '@solana/web3.js'; 
 
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
+
+let umi;
+
 /**
  * Инициализирует Umi с кошельком (payer) и устанавливает необходимые плагины.
- * * Мы используем 'umiAdapters.web3jsAdapter' как самый вероятный экспортируемый объект.
- * Если плагин не будет найден, вам придется поменять его на 'umiAdapters.web3JsAdapter'
- * (с заглавной 'J'), так как регистр в этой библиотеке очень нестабилен.
+ * @param {web3.Keypair} walletKeypair - Ключевая пара для плательщика.
  */
 function initializeUmi(walletKeypair) {
     if (!walletKeypair) {
         throw new Error("Wallet Keypair required for Umi initialization.");
     }
-
-    // 1. Создаем Umi
+    
+    // 1. Создаем Umi с подключением к devnet
     umi = createUmi('https://api.devnet.solana.com');
         
-    // 2. Устанавливаем идентичность и плагины
+    // 2. Устанавливаем ключевые плагины
+    
+    // Плагин для регистрации программ (решает ProgramRepositoryInterface)
+    // Используем UmiBundle для доступа к defaultPlugins
+    umi.use(UmiBundle.defaultPlugins()); 
+    
+    // Плагин для метаданных токена
     umi.use(mplTokenMetadata()); 
     
-    // ✅ ИСПРАВЛЕНИЕ: Добавляем плагин defaultPlugins() для регистрации программ
-    umi.use(defaultPlugins()); 
-    
+    // Плагин для установки идентичности (Payer/Signer), обходим проблемы с umi-web3js-adapters
     umi.use(keypairIdentity(walletKeypair)); 
     
     console.log(`Umi initialized. Payer: ${umi.identity.publicKey.toString()}`);
@@ -39,29 +44,29 @@ function initializeUmi(walletKeypair) {
 /**
  * Создает токен и минтит его с метаданными.
  */
-async function createTokenWithMetadata({ umiPayer, name, symbol, uri, decimals, supply }) {
+async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) {
     if (!umi) {
         throw new Error("Umi not initialized. Call initializeUmi first.");
     }
     
     const parsedDecimals = parseInt(decimals || 9);
     const parsedSupply = parseFloat(supply);
-    // Рассчитываем общее количество токенов в BigInt (для точности)
     const totalAmount = BigInt(Math.round(parsedSupply * Math.pow(10, parsedDecimals))); 
     
-    const mintKeypair = umiPayer; 
-
-    // Создание токена и минтинг в одной транзакции
+    // Mint Keypair создается внутри Umi, а authority берется из identity
+    // Примечание: Мы создаем Web3 Keypair для mint, потому что createAndMint принимает UmiSigner
+    const mintKeypair = web3.Keypair.generate(); 
+    
     await createAndMint(umi, {
         mint: mintKeypair,
-        authority: mintKeypair,
+        authority: umi.identity, 
         name: name,
         symbol: symbol,
         uri: uri,
         sellerFeeBasisPoints: 0, 
         decimals: parsedDecimals,
         amount: totalAmount,
-        tokenOwner: mintKeypair.publicKey,
+        tokenOwner: umi.identity.publicKey, 
     }).sendAndConfirm(umi);
     
     return { mint: mintKeypair.publicKey.toString() };
