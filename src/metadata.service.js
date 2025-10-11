@@ -1,11 +1,10 @@
 // src/metadata.service.js
 
-import { createUmi } from '@metaplex-foundation/umi'; 
+// ✅ ИСПРАВЛЕНИЕ: Используем бандл, который включает все адаптеры
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
+import { fromWeb3JsKeypair } from '@metaplex-foundation/umi-web3js-adapters'; // Оставляем только эту функцию для конвертации Keypair
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
-
-// ✅ НАДЕЖНОЕ РЕШЕНИЕ: Импортируем весь модуль адаптеров как объект
-import * as umiAdapters from '@metaplex-foundation/umi-web3js-adapters';
 
 
 let umi;
@@ -21,13 +20,12 @@ function initializeUmi(walletKeypair) {
         throw new Error("Wallet Keypair required for Umi initialization.");
     }
     
-    // 1. Используем umiAdapters для доступа к fromWeb3JsKeypair
-    const umiPayer = umiAdapters.fromWeb3JsKeypair(walletKeypair);
+    // 1. Конвертируем web3.js Keypair в Umi Keypair
+    const umiPayer = fromWeb3JsKeypair(walletKeypair);
     
-    // 2. Инициализируем Umi
+     // 2. Инициализируем Umi. Бандл уже включает адаптеры web3.js, 
+    // поэтому нам нужно добавить только mplTokenMetadata().
     umi = createUmi('https://api.devnet.solana.com') 
-        // Используем самый распространенный вариант именования плагина web3js
-        .use(umiAdapters.default) 
         .use(mplTokenMetadata())  
         .identity(umiPayer)      
         .payer(umiPayer);        
