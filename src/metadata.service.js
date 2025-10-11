@@ -25,8 +25,9 @@ function registerDevnetPrograms(umiContext) {
         'mplTokenMetadata': Umi.publicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msFhoExbnw'),
     };
     
-    // ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем .programs.add() для регистрации
-    umiContext.programs.add(programRepository);
+    // ✅ ФИНАЛЬНОЕ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Прямое присвоение ProgramRepository
+    // Это обходит ошибки .add() и .set(), что должно работать в самых старых версиях.
+    umiContext.programs = programRepository;
 }
 
 
