@@ -1,21 +1,17 @@
 // src/solana.service.js
 
-const {
+import {
   Connection,
   Keypair,
   clusterApiUrl,
-  LAMPORTS_PER_SOL,
-  PublicKey
-} = require("@solana/web3.js");
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
 
-const {
+import {
   TOKEN_PROGRAM_ID
-} = require("@solana/spl-token"); 
+} from "@solana/spl-token"; 
 
-const metadataService = require("./metadata.service"); 
-// Удаляем 'fs' и 'path', так как они больше не нужны для чтения файла
-// const fs = require("fs"); 
-// const path = require("path");
+import * as metadataService from "./metadata.service.js"; // Импортируем с .js
 
 // --- Инициализация Solana ---
 
@@ -29,7 +25,6 @@ try {
   const secretKeyString = process.env.SERVICE_SECRET_KEY;
 
   if (!secretKeyString) {
-      // Это критическая ошибка, если ключ не установлен
       throw new Error("Переменная окружения SERVICE_SECRET_KEY не найдена.");
   }
 
@@ -107,8 +102,8 @@ async function getServiceWalletBalance() {
 
 
 // --- Экспорт ---
-
-module.exports = {
+// Используем export вместо module.exports
+export {
   connection,
   createNewToken,
   getServiceWalletBalance,

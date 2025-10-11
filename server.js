@@ -1,9 +1,10 @@
-// server.js (В корне проекта)
+// server.js
 
-const express = require("express");
-const cors = require("cors");
-const tokenRoutes = require("./src/token.routes"); // Подключаем роуты
-const solanaService = require("./src/solana.service"); // Запускаем инициализацию кошелька
+import express from "express";
+import cors from "cors";
+import tokenRoutes from "./src/token.routes.js"; // Обязательно .js
+// Импортируем solanaService, чтобы инициализировать кошелек при запуске
+import * as solanaService from "./src/solana.service.js"; 
 
 const app = express();
 const PORT = process.env.PORT || 3000; 

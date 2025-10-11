@@ -1,8 +1,8 @@
 // src/token.routes.js
 
-const express = require("express");
+import express from "express";
 const router = express.Router();
-const solanaService = require("./solana.service"); 
+import * as solanaService from "./solana.service.js"; 
 
 // --- Проверка соединения ---
 router.get("/ping", async (req, res) => {
@@ -16,7 +16,6 @@ router.get("/ping", async (req, res) => {
 
 // --- Создание токена с метаданными ---
 router.post("/create-token", async (req, res) => {
-  // Получаем ВСЕ необходимые поля, включая метаданные
   const { name, symbol, uri, decimals, supply } = req.body; 
 
   if (!supply || !name || !symbol || !uri) { 
@@ -24,7 +23,6 @@ router.post("/create-token", async (req, res) => {
   }
 
   try {
-    // Передаем все поля в сервис
     const result = await solanaService.createNewToken({ name, symbol, uri, decimals, supply });
 
     res.json({
@@ -34,7 +32,6 @@ router.post("/create-token", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Ошибка при создании токена:", err.toString());
-    // Возвращаем сообщение об ошибке, переданное из сервиса
     res.status(500).json({ error: err.message || "Ошибка сервера при создании токена" });
   }
 });
@@ -50,4 +47,4 @@ router.get("/balance", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
