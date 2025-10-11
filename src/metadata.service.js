@@ -2,7 +2,7 @@
 
 import { createUmi } from '@metaplex-foundation/umi'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-import { fromWeb3JsKeypair, web3JsAdaptor } from '@metaplex-foundation/umi-web3js-adapters'; 
+import { fromWeb3JsKeypair, web3jsAdaptor } from '@metaplex-foundation/umi-web3js-adapters'; 
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
 
