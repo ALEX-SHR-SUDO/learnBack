@@ -27,7 +27,7 @@ function initializeUmi(walletKeypair) {
     // 2. Инициализируем Umi
     umi = createUmi('https://api.devnet.solana.com') 
         // Используем самый распространенный вариант именования плагина web3js
-        .use(umiAdapters.web3jsAdapter) 
+        .use(umiAdapters.default) 
         .use(mplTokenMetadata())  
         .identity(umiPayer)      
         .payer(umiPayer);        
