@@ -1,10 +1,16 @@
 // src/metadata.service.js
 
-// ИМПОРТЫ Umi:
+// ⚠️ ИСПРАВЛЕНИЕ ИМПОРТА METAPLEX UMI: 
+// 1. Убеждаемся, что получаем нужные функции
 const { createUmi } = require('@metaplex-foundation/umi'); 
 const { mplTokenMetadata } = require('@metaplex-foundation/mpl-token-metadata');
-// ⚠️ ИСПРАВЛЕНИЕ: Импортируем web3JsAdaptor как константу (объект-плагин)
-const { fromWeb3JsKeypair, web3JsAdaptor } = require('@metaplex-foundation/umi-web3js-adapters'); 
+
+// 2. Получаем весь объект адаптеров, чтобы избежать проблем с деструктуризацией.
+const umiWeb3jsAdapters = require('@metaplex-foundation/umi-web3js-adapters');
+// Получаем нужные константы из полученного объекта
+const fromWeb3JsKeypair = umiWeb3jsAdapters.fromWeb3JsKeypair;
+const web3JsAdaptor = umiWeb3jsAdapters.web3JsAdaptor; 
+
 
 let umi;
 
@@ -21,7 +27,7 @@ function initializeUmi(walletKeypair) {
     
     // 2. Инициализируем Umi
     umi = createUmi('https://api.devnet.solana.com') 
-        // ✅ ИСПРАВЛЕНИЕ: Используем web3JsAdaptor как объект-плагин, без вызова ()
+        // ✅ ИСПРАВЛЕНИЕ: Используем корректно импортированный объект плагина
         .use(web3JsAdaptor) 
         .use(mplTokenMetadata()) 
         // Устанавливаем Payer/Signer
@@ -33,7 +39,7 @@ function initializeUmi(walletKeypair) {
     return umiPayer; 
 }
 
-// ... (остальные функции остаются без изменений: createTokenWithMetadata и module.exports) ...
+// ... (остальные функции: createTokenWithMetadata и module.exports) ...
 
 async function createTokenWithMetadata({ umiPayer, name, symbol, uri, decimals, supply }) {
     if (!umi) {
