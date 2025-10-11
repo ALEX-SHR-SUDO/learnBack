@@ -3,7 +3,7 @@
 import { createUmi } from '@metaplex-foundation/umi'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 // ✅ НОВЫЙ ИМПОРТ: Импортируем 'programs'
-import { keypairIdentity, programs } from '@metaplex-foundation/umi'; 
+import { keypairIdentity, defaultPlugins } from '@metaplex-foundation/umi'; 
 import * as web3 from '@solana/web3.js'; 
 
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
@@ -19,14 +19,14 @@ function initializeUmi(walletKeypair) {
         throw new Error("Wallet Keypair required for Umi initialization.");
     }
 
-   // 1. Создаем Umi
+    // 1. Создаем Umi
     umi = createUmi('https://api.devnet.solana.com');
         
     // 2. Устанавливаем идентичность и плагины
     umi.use(mplTokenMetadata()); 
     
-    // ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Добавляем плагин programs для регистрации адресов программ Solana
-    umi.use(programs()); 
+    // ✅ ИСПРАВЛЕНИЕ: Добавляем плагин defaultPlugins() для регистрации программ
+    umi.use(defaultPlugins()); 
     
     umi.use(keypairIdentity(walletKeypair)); 
     
