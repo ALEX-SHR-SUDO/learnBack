@@ -1,6 +1,6 @@
 // src/metadata.service.js
 
-// Импортируем весь модуль Umi как объект
+// Мы сохраняем импорт * as Umi для всех служебных функций
 import * as Umi from '@metaplex-foundation/umi'; 
 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
@@ -13,7 +13,6 @@ let umi;
 
 /**
  * Ручная регистрация адресов программ Solana для Devnet.
- * Мы используем .programs.add(), который является единственным рабочим методом в старых версиях.
  */
 function registerDevnetPrograms(umiContext) {
     const programRepository = {
@@ -25,9 +24,9 @@ function registerDevnetPrograms(umiContext) {
         'mplTokenMetadata': Umi.publicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msFhoExbnw'),
     };
     
-    // ✅ ФИНАЛЬНОЕ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Прямое присвоение ProgramRepository
-    // Это обходит ошибки .add() и .set(), что должно работать в самых старых версиях.
-    umiContext.programs = programRepository;
+    // ✅ ФИНАЛЬНОЕ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Прямое присвоение
+    // Это обходит ошибки .add() и .set(), что работает в самых старых версиях.
+    umiContext.programs = programRepository; 
 }
 
 
@@ -36,7 +35,7 @@ function initializeUmi(walletKeypair) {
         throw new Error("Wallet Keypair required for Umi initialization.");
     }
     
-    // 1. Создаем Umi (доступ через Umi.createUmi)
+    // 1. Создаем Umi
     umi = Umi.createUmi('https://api.devnet.solana.com');
         
     // 2. Ручная регистрация программ
@@ -44,7 +43,6 @@ function initializeUmi(walletKeypair) {
     
     // 3. Устанавливаем ключевые плагины
     umi.use(mplTokenMetadata()); 
-    // Плагин keypairIdentity (доступ через Umi.keypairIdentity)
     umi.use(Umi.keypairIdentity(walletKeypair)); 
     
     console.log(`Umi initialized. Payer: ${umi.identity.publicKey.toString()}`);
