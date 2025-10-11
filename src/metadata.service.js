@@ -1,9 +1,9 @@
 // src/metadata.service.js
 
 // ИМПОРТЫ Umi:
-// ⚠️ ИСПРАВЛЕНИЕ: Используем основной createUmi из @metaplex-foundation/umi
 const { createUmi } = require('@metaplex-foundation/umi'); 
 const { mplTokenMetadata } = require('@metaplex-foundation/mpl-token-metadata');
+// ⚠️ ИСПРАВЛЕНИЕ: Импортируем web3JsAdaptor как константу (объект-плагин)
 const { fromWeb3JsKeypair, web3JsAdaptor } = require('@metaplex-foundation/umi-web3js-adapters'); 
 
 let umi;
@@ -21,22 +21,20 @@ function initializeUmi(walletKeypair) {
     
     // 2. Инициализируем Umi
     umi = createUmi('https://api.devnet.solana.com') 
-        // ⚠️ ИСПРАВЛЕНИЕ: Добавляем web3JsAdaptor как плагин для доступа к .identity()
-        .use(web3JsAdaptor()) 
+        // ✅ ИСПРАВЛЕНИЕ: Используем web3JsAdaptor как объект-плагин, без вызова ()
+        .use(web3JsAdaptor) 
         .use(mplTokenMetadata()) 
         // Устанавливаем Payer/Signer
         .identity(umiPayer)      
         .payer(umiPayer);        
     
-    // Проверяем, что Umi инициализирован корректно
     console.log(`Umi initialized. Payer: ${umi.identity.publicKey.toString()}`);
     
     return umiPayer; 
 }
 
-/**
- * Создает токен и минтит его с метаданными.
- */
+// ... (остальные функции остаются без изменений: createTokenWithMetadata и module.exports) ...
+
 async function createTokenWithMetadata({ umiPayer, name, symbol, uri, decimals, supply }) {
     if (!umi) {
         throw new Error("Umi not initialized. Call initializeUmi first.");
