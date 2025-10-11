@@ -1,8 +1,9 @@
 // src/metadata.service.js
 
-import { createUmi } from '@metaplex-foundation/umi'; // Базовый пакет
+import { createUmi } from '@metaplex-foundation/umi'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-// ✅ Используем имя, которое было стабильным до последних версий
+
+// ✅ СТАБИЛЬНЫЙ ИМПОРТ: Это имя экспорта работало в этих версиях
 import { fromWeb3JsKeypair, web3JsAdaptor } from '@metaplex-foundation/umi-web3js-adapters'; 
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
@@ -24,10 +25,9 @@ function initializeUmi(walletKeypair) {
     const umiPayer = fromWeb3JsKeypair(walletKeypair);
     
     // 2. Инициализируем Umi
-    umi = createUmi('https://api.devnet.solana.com') 
-        // ✅ Используем web3() как функцию-плагин
-        .use(web3()) 
-        .use(mplTokenMetadata())  
+   umi = createUmi('https://api.devnet.solana.com') 
+        .use(web3JsAdaptor())      // Плагин web3JsAdaptor в этих версиях используется как ФУНКЦИЯ!
+        .use(mplTokenMetadata())   
         .identity(umiPayer)      
         .payer(umiPayer);        
     
