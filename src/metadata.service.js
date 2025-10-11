@@ -5,7 +5,6 @@ import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; // Сохраняем для keypairIdentity
 import * as web3 from '@solana/web3.js'; 
-
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
 
@@ -40,7 +39,8 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
     const parsedSupply = parseFloat(supply);
     const totalAmount = BigInt(Math.round(parsedSupply * Math.pow(10, parsedDecimals))); 
     
-    const mintKeypair = web3.Keypair.generate(); 
+    //zamena (const mintKeypair = web3.Keypair.generate(); )
+    const mintKeypair = umi.eddsa.generateKeypair();
     
     await createAndMint(umi, {
         mint: mintKeypair,
@@ -52,6 +52,7 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         decimals: parsedDecimals,
         amount: totalAmount,
         tokenOwner: umi.identity.publicKey.toString(), 
+
     }).sendAndConfirm(umi);
     
     return { mint: mintKeypair.publicKey.toString() };
