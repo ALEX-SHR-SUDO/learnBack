@@ -1,15 +1,35 @@
 // src/metadata.service.js
 
-import { createUmi, keypairIdentity } from '@metaplex-foundation/umi'; 
+import { createUmi, keypairIdentity, programs, publicKey } from '@metaplex-foundation/umi'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-// ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Импортируем весь пакет как UmiBundle
-import UmiBundle from '@metaplex-foundation/umi-bundle-defaults'; 
+// ✅ УДАЛЕН КОНФЛИКТУЮЩИЙ ИМПОРТ: umi-bundle-defaults
 import * as web3 from '@solana/web3.js'; 
 
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
 
 let umi;
+
+/**
+ * Ручная регистрация адресов программ Solana для Devnet.
+ * Это обходной путь для устранения ошибки ProgramRepositoryInterface, когда defaultPlugins не работает.
+ */
+function registerDevnetPrograms(umiContext) {
+    const programRepository = {
+        // Стандартные программы Solana
+        'splToken': publicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+        'splAta': publicKey('ATokenGPvbdGV1bmQe1mqFaB1xfuDk9Rz22c4Ld9P9d'),
+        
+        // Программа Metaplex Token Metadata (для создания токена)
+        'mplTokenMetadata': publicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msFhoExbnw'),
+        
+        // Мы можем добавить другие, если потребуется, но этих должно быть достаточно
+    };
+    
+    // Вручную устанавливаем ProgramRepository в контекст Umi
+    umiContext.programs.add(programRepository);
+}
+
 
 /**
  * Инициализирует Umi с кошельком (payer) и устанавливает необходимые плагины.
@@ -23,15 +43,11 @@ function initializeUmi(walletKeypair) {
     // 1. Создаем Umi с подключением к devnet
     umi = createUmi('https://api.devnet.solana.com');
         
-    // 2. Устанавливаем ключевые плагины
+    // 2. ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Ручная регистрация программ
+    registerDevnetPrograms(umi); 
     
-    // ✅ ИСПОЛЬЗОВАНИЕ: Вызываем defaultPlugins() из импортированного объекта
-    umi.use(UmiBundle.defaultPlugins()); 
-    
-    // Плагин для метаданных токена
+    // 3. Устанавливаем ключевые плагины
     umi.use(mplTokenMetadata()); 
-    
-    // Плагин для установки идентичности
     umi.use(keypairIdentity(walletKeypair)); 
     
     console.log(`Umi initialized. Payer: ${umi.identity.publicKey.toString()}`);
