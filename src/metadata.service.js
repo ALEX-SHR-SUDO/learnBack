@@ -2,16 +2,11 @@
 
 import { createUmi } from '@metaplex-foundation/umi'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-
-// ✅ ИСПОЛЬЗУЕМ СТАНДАРТНЫЙ ПЛАГИН: keypairIdentity
-import { keypairIdentity, signerIdentity } from '@metaplex-foundation/umi'; 
-// ✅ ИСПОЛЬЗУЕМ БАЗОВЫЕ ФУНКЦИИ web3.js
+// ✅ НОВЫЙ ИМПОРТ: Импортируем 'programs'
+import { keypairIdentity, programs } from '@metaplex-foundation/umi'; 
 import * as web3 from '@solana/web3.js'; 
 
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
-
-
-let umi;
 
 /**
  * Инициализирует Umi с кошельком (payer) и устанавливает необходимые плагины.
@@ -24,20 +19,19 @@ function initializeUmi(walletKeypair) {
         throw new Error("Wallet Keypair required for Umi initialization.");
     }
 
-    // 1. Создаем Umi
-    umi = createUmi('https://api.devnet.solana.com'); 
+   // 1. Создаем Umi
+    umi = createUmi('https://api.devnet.solana.com');
         
-    // 2. Устанавливаем идентичность (Payer/Signer)
-    // ✅ КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Используем стандартный keypairIdentity, который не ломается
+    // 2. Устанавливаем идентичность и плагины
     umi.use(mplTokenMetadata()); 
-    umi.use(keypairIdentity(walletKeypair)); 
     
-    // Примечание: В современных версиях Umi, keypairIdentity автоматически устанавливает payer.
+    // ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Добавляем плагин programs для регистрации адресов программ Solana
+    umi.use(programs()); 
+    
+    umi.use(keypairIdentity(walletKeypair)); 
     
     console.log(`Umi initialized. Payer: ${umi.identity.publicKey.toString()}`);
     
-    // Поскольку мы удалили проблемный адаптер, нам больше не нужен umiPayer из него.
-    // Возвращаем просто публичный ключ.
     return umi.identity; 
 }
 
