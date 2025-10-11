@@ -1,12 +1,8 @@
 // src/metadata.service.js
 
-// Используем базовый пакет Umi
 import { createUmi } from '@metaplex-foundation/umi'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-
-// Импортируем адаптер web3js целиком как объект (это сработало в прошлый раз!)
 import * as umiWeb3js from '@metaplex-foundation/umi-web3js-adapters'; 
-
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
 
@@ -26,17 +22,15 @@ function initializeUmi(walletKeypair) {
     // 1. Конвертируем web3.js Keypair в Umi Keypair
     const umiPayer = umiWeb3js.fromWeb3JsKeypair(walletKeypair);
     
-   // 2. ✅ КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Передаем плагины напрямую в функцию createUmi
-    // ВНИМАНИЕ: мы предполагаем, что плагин mplTokenMetadata должен быть вызван как функция
-    // и что плагин web3jsAdaptor является объектом
+    // 2. Инициализируем Umi
     umi = createUmi('https://api.devnet.solana.com', {
-        // Передаем адаптеры в виде массива, минуя цепочку .use()
         plugins: [
-            umiWeb3js.web3JsAdaptor, // Плагин Web3js как объект
-            mplTokenMetadata(),      // Плагин токенов как функция
+            // ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Плагин Web3js как ФУНКЦИЯ!
+            umiWeb3js.web3JsAdaptor(), 
+            mplTokenMetadata(),      
         ],
     })
-    .identity(umiPayer)
+    .identity(umiPayer) // Теперь этот метод должен работать!
     .payer(umiPayer);
     
     console.log(`Umi initialized. Payer: ${umi.identity.publicKey.toString()}`);
