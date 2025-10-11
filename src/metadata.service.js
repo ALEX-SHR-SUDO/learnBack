@@ -2,8 +2,8 @@
 
 import { createUmi, keypairIdentity } from '@metaplex-foundation/umi'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-// ✅ Используем umi-bundle-defaults для получения плагинов, чтобы избежать ошибок именования
-import { Umi as UmiBundle } from '@metaplex-foundation/umi-bundle-defaults'; 
+// ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Импортируем весь пакет как UmiBundle
+import UmiBundle from '@metaplex-foundation/umi-bundle-defaults'; 
 import * as web3 from '@solana/web3.js'; 
 
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
@@ -25,14 +25,13 @@ function initializeUmi(walletKeypair) {
         
     // 2. Устанавливаем ключевые плагины
     
-    // Плагин для регистрации программ (решает ProgramRepositoryInterface)
-    // Используем UmiBundle для доступа к defaultPlugins
+    // ✅ ИСПОЛЬЗОВАНИЕ: Вызываем defaultPlugins() из импортированного объекта
     umi.use(UmiBundle.defaultPlugins()); 
     
     // Плагин для метаданных токена
     umi.use(mplTokenMetadata()); 
     
-    // Плагин для установки идентичности (Payer/Signer), обходим проблемы с umi-web3js-adapters
+    // Плагин для установки идентичности
     umi.use(keypairIdentity(walletKeypair)); 
     
     console.log(`Umi initialized. Payer: ${umi.identity.publicKey.toString()}`);
