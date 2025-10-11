@@ -1,50 +1,48 @@
 // src/metadata.service.js
 
 // ИМПОРТЫ Umi:
-// createUmi из бандла
-const { createUmi } = require('@metaplex-foundation/umi-bundle-defaults');
-// mplTokenMetadata из основного пакета (он сам по себе является плагином)
+// ⚠️ ИСПРАВЛЕНИЕ: Используем основной createUmi из @metaplex-foundation/umi
+const { createUmi } = require('@metaplex-foundation/umi'); 
 const { mplTokenMetadata } = require('@metaplex-foundation/mpl-token-metadata');
-// fromWeb3JsKeypair из адаптера (для конвертации)
-const { fromWeb3JsKeypair } = require('@metaplex-foundation/umi-web3js-adapters'); 
-
+const { fromWeb3JsKeypair, web3JsAdaptor } = require('@metaplex-foundation/umi-web3js-adapters'); 
 
 let umi;
 
 /**
  * Инициализирует Umi с кошельком (payer) и устанавливает необходимые плагины.
- * @param {Keypair} walletKeypair - web3.js Keypair сервисного кошелька.
  */
 function initializeUmi(walletKeypair) {
     if (!walletKeypair) {
         throw new Error("Wallet Keypair required for Umi initialization.");
     }
     
-    // 1. Конвертируем web3.js Keypair в Umi Keypair для использования в качестве Payer/Signer
+    // 1. Конвертируем web3.js Keypair в Umi Keypair
     const umiPayer = fromWeb3JsKeypair(walletKeypair);
     
     // 2. Инициализируем Umi
-    // ВНИМАНИЕ: Плагин mplTokenMetadata() вызывается как ФУНКЦИЯ
     umi = createUmi('https://api.devnet.solana.com') 
-        .use(mplTokenMetadata()) // <--- Вызываем mplTokenMetadata как функцию!
-        .identity(umiPayer)      // <--- Устанавливаем Payer/Signer с помощью .identity()
-        .payer(umiPayer);        // <--- Устанавливаем Payer с помощью .payer()
+        // ⚠️ ИСПРАВЛЕНИЕ: Добавляем web3JsAdaptor как плагин для доступа к .identity()
+        .use(web3JsAdaptor()) 
+        .use(mplTokenMetadata()) 
+        // Устанавливаем Payer/Signer
+        .identity(umiPayer)      
+        .payer(umiPayer);        
+    
+    // Проверяем, что Umi инициализирован корректно
+    console.log(`Umi initialized. Payer: ${umi.identity.publicKey.toString()}`);
     
     return umiPayer; 
 }
 
-
 /**
  * Создает токен и минтит его с метаданными.
- * @param {object} params
  */
 async function createTokenWithMetadata({ umiPayer, name, symbol, uri, decimals, supply }) {
     if (!umi) {
         throw new Error("Umi not initialized. Call initializeUmi first.");
     }
     
-    // ... (логика расчета amount и вызов createAndMint)
-    const { createAndMint } = require('@metaplex-foundation/mpl-token-metadata'); // Добавляем сюда, чтобы избежать конфликтов импорта.
+    const { createAndMint } = require('@metaplex-foundation/mpl-token-metadata');
 
     const parsedDecimals = parseInt(decimals || 9);
     const parsedSupply = parseFloat(supply);
@@ -52,7 +50,6 @@ async function createTokenWithMetadata({ umiPayer, name, symbol, uri, decimals, 
     
     const mintKeypair = umiPayer; 
 
-    // Выполнение создания и минтинга токена с метаданными
     await createAndMint(umi, {
         mint: mintKeypair,
         authority: mintKeypair,
