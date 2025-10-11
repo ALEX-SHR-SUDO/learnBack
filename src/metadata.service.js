@@ -1,15 +1,30 @@
 // src/metadata.service.js
 
-// 1. Импортируем ВСЕ необходимые пакеты Umi целиком:
-const umiCore = require('@metaplex-foundation/umi');
-const umiTokenMetadata = require('@metaplex-foundation/mpl-token-metadata');
-const umiWeb3jsAdapters = require('@metaplex-foundation/umi-web3js-adapters');
+// --- Надежный способ импорта Umi плагинов в CommonJS (require) ---
 
-// 2. Извлекаем нужные константы и функции:
+/**
+ * Функция-помощник для безопасного получения объекта из require.
+ * Проверяет наличие свойства .default, типичного для ESM в CommonJS.
+ */
+const getModule = (pkg) => {
+    const mod = require(pkg);
+    // Проверяем, есть ли экспорт в свойстве .default (типично для ESM)
+    if (mod && mod.__esModule && mod.default) {
+        return mod.default;
+    }
+    return mod;
+};
+
+// 1. Импортируем ВСЕ необходимые пакеты Umi целиком:
+const umiCore = getModule('@metaplex-foundation/umi');
+const umiTokenMetadata = getModule('@metaplex-foundation/mpl-token-metadata');
+const umiWeb3jsAdapters = getModule('@metaplex-foundation/umi-web3js-adapters');
+
+// 2. Извлекаем нужные константы и функции из импортированных объектов:
 const createUmi = umiCore.createUmi;
-const mplTokenMetadata = umiTokenMetadata.mplTokenMetadata; // Используем как свойство
+const mplTokenMetadata = umiTokenMetadata.mplTokenMetadata; // Функция-плагин
 const fromWeb3JsKeypair = umiWeb3jsAdapters.fromWeb3JsKeypair;
-const web3JsAdaptor = umiWeb3jsAdapters.web3JsAdaptor; // Используем как свойство
+const web3JsAdaptor = umiWeb3jsAdapters.web3JsAdaptor; // Объект-плагин
 
 
 let umi;
@@ -27,9 +42,9 @@ function initializeUmi(walletKeypair) {
     
     // 2. Инициализируем Umi
     umi = createUmi('https://api.devnet.solana.com') 
-        // ❌ ИСПРАВЛЕНИЕ: Используем плагины, гарантируя, что они импортированы как объекты.
-        // mplTokenMetadata требует вызова, web3JsAdaptor - нет.
+        // 1. Добавляем адаптер web3.js (как объект-плагин)
         .use(web3JsAdaptor) 
+        // 2. Добавляем плагин метаданных (как функцию)
         .use(mplTokenMetadata()) 
         // Устанавливаем Payer/Signer
         .identity(umiPayer)      
@@ -40,15 +55,17 @@ function initializeUmi(walletKeypair) {
     return umiPayer; 
 }
 
-// ... (остальные функции остаются без изменений) ...
 
+/**
+ * Создает токен и минтит его с метаданными.
+ */
 async function createTokenWithMetadata({ umiPayer, name, symbol, uri, decimals, supply }) {
     if (!umi) {
         throw new Error("Umi not initialized. Call initializeUmi first.");
     }
     
-    // ⚠️ Получаем createAndMint через тот же стабильный require
-    const { createAndMint } = require('@metaplex-foundation/mpl-token-metadata');
+    // Получаем createAndMint через тот же стабильный require
+    const { createAndMint } = getModule('@metaplex-foundation/mpl-token-metadata');
 
     const parsedDecimals = parseInt(decimals || 9);
     const parsedSupply = parseFloat(supply);
