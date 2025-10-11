@@ -51,7 +51,9 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         sellerFeeBasisPoints: 0, 
         decimals: parsedDecimals,
         amount: totalAmount,
-        tokenOwner: umi.identity.publicKey, 
+        // ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Гарантируем, что токенОвнер — это строка
+        // Используем .publicKey.toString() вместо просто .publicKey
+        tokenOwner: umi.identity.publicKey.toString(), 
     }).sendAndConfirm(umi);
     
     return { mint: mintKeypair.publicKey.toString() };
