@@ -2,7 +2,10 @@
 
 import { createUmi } from '@metaplex-foundation/umi'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-import * as umiWeb3js from '@metaplex-foundation/umi-web3js-adapters'; 
+
+// ✅ СОВРЕМЕННЫЙ ИМПОРТ: web3JsAdaptor снова как именованный экспорт
+import { fromWeb3JsKeypair, web3JsAdaptor } from '@metaplex-foundation/umi-web3js-adapters'; 
+
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
 
@@ -19,19 +22,16 @@ function initializeUmi(walletKeypair) {
         throw new Error("Wallet Keypair required for Umi initialization.");
     }
 
-    // 1. Конвертируем web3.js Keypair в Umi Keypair
-    const umiPayer = umiWeb3js.fromWeb3JsKeypair(walletKeypair);
+     // 1. Конвертируем Keypair
+    const umiPayer = fromWeb3JsKeypair(walletKeypair);
     
     // 2. Инициализируем Umi
-    umi = createUmi('https://api.devnet.solana.com', {
-        plugins: [
-            // ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Плагин Web3js как ФУНКЦИЯ!
-            umiWeb3js.web3JsAdaptor(), 
-            mplTokenMetadata(),      
-        ],
-    })
-    .identity(umiPayer) // Теперь этот метод должен работать!
-    .payer(umiPayer);
+    umi = createUmi('https://api.devnet.solana.com') 
+        // ✅ В НОВЫХ ВЕРСИЯХ ВСЕ ПЛАГИНЫ ВЫЗЫВАЮТСЯ КАК ФУНКЦИИ
+        .use(web3JsAdaptor())      
+        .use(mplTokenMetadata())   
+        .identity(umiPayer)      
+        .payer(umiPayer);        
     
     console.log(`Umi initialized. Payer: ${umi.identity.publicKey.toString()}`);
     
