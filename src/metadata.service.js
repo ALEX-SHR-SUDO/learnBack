@@ -36,9 +36,9 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
     }
     
     // Защита строк (как мы уже делали)
-    const tokenName = name || ''; 
-    const tokenSymbol = symbol || '';
-    const tokenUri = uri || '';
+    const tokenName = String(name || ''); 
+    const tokenSymbol = String(symbol || '');
+    const tokenUri = String(uri || '');
     
     // ✅ УСИЛЕННАЯ ЗАЩИТА ЧИСЕЛ
     const parsedDecimals = parseInt(decimals) || 9; // parseInt('9') -> 9
@@ -52,7 +52,7 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
     // Выполняем расчет в BigInt, используя строку, а не Math.round()
     // NOTE: Поскольку JS не работает с BigInt и float напрямую, мы должны использовать
     // старый метод, но с защитой от NaN.
-    const amountFloat = safeSupply * Math.pow(10, parsedDecimals);
+    const amountFloat = parsedSupply * Math.pow(10, parsedDecimals);
     
     // Проверяем, что результат не NaN, иначе возвращаем 0L (BigInt ноль)
     const totalAmount = isNaN(amountFloat) 
