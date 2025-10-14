@@ -72,7 +72,7 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         name: tokenName,
         symbol: tokenSymbol,
         uri: tokenUri,
-        sellerFeeBasisPoints: 0, 
+        sellerFeeBasisPoints: Number(0), 
         decimals: parsedDecimals,
         amount: totalAmount, // <-- Используем защищенный totalAmount
         tokenOwner: umi.identity.publicKey.toString(), 
