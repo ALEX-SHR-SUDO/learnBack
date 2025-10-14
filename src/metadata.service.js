@@ -36,9 +36,9 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
     }
     
     // ✅ ИСПРАВЛЕНИЕ: Гарантируем, что строковые поля не null/undefined
-    const tokenName = name || '';
-    const tokenSymbol = symbol || '';
-    const tokenUri = uri || '';
+    const tokenName = String(name || ''); // Гарантируем, что это строка
+    const tokenSymbol = String(symbol || '');
+    const tokenUri = String(uri || '');
 
     const parsedDecimals = parseInt(decimals || 9);
     const parsedSupply = parseFloat(supply);

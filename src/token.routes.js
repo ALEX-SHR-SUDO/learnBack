@@ -18,6 +18,11 @@ router.get("/ping", async (req, res) => {
 router.post("/create-token", async (req, res) => {
   const { name, symbol, uri, decimals, supply } = req.body; 
 
+  // Добавьте этот лог для ДИАГНОСТИКИ (Обязательно отправьте на Render!)
+  console.log("Req Body Received:", req.body);
+  console.log("Destructured values:", { name, symbol, uri, decimals, supply });
+  
+
   if (!supply || !name || !symbol || !uri) { 
     return res.status(400).json({ error: "❗ Необходимы supply, name, symbol и uri для создания токена" });
   }
