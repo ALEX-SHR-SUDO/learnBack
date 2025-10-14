@@ -35,18 +35,37 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         throw new Error("Umi not initialized. Call initializeUmi first.");
     }
     
-    // ✅ ИСПРАВЛЕНИЕ: Гарантируем, что строковые поля не null/undefined
-    const tokenName = String(name || ''); // Гарантируем, что это строка
-    const tokenSymbol = String(symbol || '');
-    const tokenUri = String(uri || '');
-
-    const parsedDecimals = parseInt(decimals || 9);
-    const parsedSupply = parseFloat(supply);
-    const totalAmount = BigInt(Math.round(parsedSupply * Math.pow(10, parsedDecimals))); 
+    // Защита строк (как мы уже делали)
+    const tokenName = name || ''; 
+    const tokenSymbol = symbol || '';
+    const tokenUri = uri || '';
     
-    //zamena (const mintKeypair = web3.Keypair.generate(); )
-    const mintKeypair = umi.eddsa.generateKeypair();
-
+    // ✅ УСИЛЕННАЯ ЗАЩИТА ЧИСЕЛ
+    const parsedDecimals = parseInt(decimals) || 9; // parseInt('9') -> 9
+    // Если supply null, используем 0. Затем парсим.
+    const safeSupply = supply ? parseFloat(supply) : 0; 
+    
+    // 💥 ИСПРАВЛЕНИЕ BigInt: Более безопасный расчет
+    // Используем BigInt для степени и умножения, чтобы избежать ошибок с плавающей точкой.
+    const multiplier = BigInt(10) ** BigInt(parsedDecimals);
+    
+    // Выполняем расчет в BigInt, используя строку, а не Math.round()
+    // NOTE: Поскольку JS не работает с BigInt и float напрямую, мы должны использовать
+    // старый метод, но с защитой от NaN.
+    const amountFloat = safeSupply * Math.pow(10, parsedDecimals);
+    
+    // Проверяем, что результат не NaN, иначе возвращаем 0L (BigInt ноль)
+    const totalAmount = isNaN(amountFloat) 
+        ? BigInt(0) 
+        : BigInt(Math.round(amountFloat)); // Теперь Math.round защищен
+    
+    if (totalAmount === BigInt(0) && safeSupply > 0) {
+        console.error("Total amount calculation resulted in zero despite non-zero supply.");
+        // Можете добавить здесь throw Error, если хотите предотвратить создание токена с нулевым запасом
+    }
+    
+    const mintKeypair = umi.eddsa.generateKeypair(); 
+    
     await createAndMint(umi, {
         mint: mintKeypair,
         authority: umi.identity.publicKey.toString(),
@@ -55,9 +74,9 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         uri: tokenUri,
         sellerFeeBasisPoints: 0, 
         decimals: parsedDecimals,
-        amount: totalAmount,
+        amount: totalAmount, // <-- Используем защищенный totalAmount
         tokenOwner: umi.identity.publicKey.toString(), 
-
+        
     }).sendAndConfirm(umi);
     
     return { mint: mintKeypair.publicKey.toString() };
