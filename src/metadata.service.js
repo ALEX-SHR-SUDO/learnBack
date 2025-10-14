@@ -52,7 +52,7 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
     // Выполняем расчет в BigInt, используя строку, а не Math.round()
     // NOTE: Поскольку JS не работает с BigInt и float напрямую, мы должны использовать
     // старый метод, но с защитой от NaN.
-    const amountFloat = parsedSupply * Math.pow(10, parsedDecimals);
+    const amountFloat = safeSupply * Math.pow(10, parsedDecimals); 
     
     // Проверяем, что результат не NaN, иначе возвращаем 0L (BigInt ноль)
     const totalAmount = isNaN(amountFloat) 
