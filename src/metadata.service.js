@@ -76,6 +76,7 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         decimals: parsedDecimals,
         amount: totalAmount, // <-- Используем защищенный totalAmount
         tokenOwner: umi.identity.publicKey.toString(), 
+        collection: null,
         
     }).sendAndConfirm(umi);
     
