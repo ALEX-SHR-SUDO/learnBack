@@ -77,6 +77,12 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         amount: totalAmount, // <-- Используем защищенный totalAmount
         tokenOwner: umi.identity.publicKey.toString(), 
         collection: null,
+        // ✅ ИСПРАВЛЕНИЕ #4: Явно указываем создателей (обязательно для Metaplex)
+        creators: [{
+            address: umi.identity.publicKey.toString(),
+            share: 100, // Весь процент принадлежит нашему кошельку
+            verified: true,
+        }],
         
     }).sendAndConfirm(umi);
     
