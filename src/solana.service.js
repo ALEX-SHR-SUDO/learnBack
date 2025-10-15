@@ -13,10 +13,7 @@ import {
 
 
 import { createToken as createTokenStep } from "./token-creation.service.js";
-import { addMetadataToToken as addMetadataStep } from "./metadata-addition.service.js";
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'; 
-import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-import * as Umi from '@metaplex-foundation/umi'; 
+import { addMetadataToToken as addMetadataStep } from "./metadata-addition.service.js"; 
 import { createUmi } from '@metaplex-foundation/umi'; // Базовый Umi
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
