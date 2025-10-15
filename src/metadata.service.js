@@ -5,8 +5,7 @@ import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; // Сохраняем для keypairIdentity
 import * as web3 from '@solana/web3.js'; 
-import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
-import { number } from '@metaplex-foundation/umi/serializers'; 
+import { createAndMint } from '@metaplex-foundation/mpl-token-metadata'; 
 
 
 let umi;
@@ -67,7 +66,7 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         
         sellerFeeBasisPoints: Number(0), // Роялти: 0%
         decimals: parsedDecimals,
-        amount: amountForUmi, 
+        amount: totalAmount, 
         
         // 💥 tokenOwner: Передаем ТОЛЬКО публичный ключ (объект)
         tokenOwner: umi.identity.publicKey, 
