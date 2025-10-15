@@ -6,6 +6,7 @@ import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; // Сохраняем для keypairIdentity
 import * as web3 from '@solana/web3.js'; 
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
+import { number } from '@metaplex-foundation/umi/serializers'; 
 
 
 let umi;
@@ -43,12 +44,15 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
     const parsedDecimals = parseInt(decimals) || 9;
     const parsedSupply = parseFloat(supply || 0);
     
-    const amountFloat = parsedSupply * Math.pow(10, parsedDecimals);
+   const amountFloat = parsedSupply * Math.pow(10, parsedDecimals);
     const totalAmount = isNaN(amountFloat) 
         ? BigInt(0) 
         : BigInt(Math.round(amountFloat));
     
-    const mintKeypair = umi.eddsa.generateKeypair(); 
+    // 💥 КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем number() для конвертации BigInt в Umi-формат
+    const amountForUmi = number(totalAmount); 
+    
+    const mintKeypair = umi.eddsa.generateKeypair();  
     
     // 🛑 ФИНАЛЬНЫЙ ТЕСТ: Передача ТОЛЬКО обязательных полей
     await createAndMint(umi, {
@@ -63,7 +67,7 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         
         sellerFeeBasisPoints: Number(0), // Роялти: 0%
         decimals: parsedDecimals,
-        amount: totalAmount, 
+        amount: amountForUmi, 
         
         // 💥 tokenOwner: Передаем ТОЛЬКО публичный ключ (объект)
         tokenOwner: umi.identity.publicKey, 
