@@ -48,8 +48,6 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         ? BigInt(0) 
         : BigInt(Math.round(amountFloat));
     
-    // 💥 КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем number() для конвертации BigInt в Umi-формат
-    const amountForUmi = number(totalAmount); 
     
     const mintKeypair = umi.eddsa.generateKeypair();  
     
