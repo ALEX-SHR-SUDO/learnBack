@@ -11,17 +11,18 @@ import {
   TOKEN_PROGRAM_ID
 } from "@solana/spl-token"; 
 
-// ❌ УДАЛЯЕМ старый импорт: import * as metadataService from "./metadata.service.js"; 
 
-// ✅ ДОБАВЛЯЕМ НОВЫЕ СЕРВИСЫ
-// Импортируем только функции, не требующие initializeUmi
 import { createToken as createTokenStep } from "./token-creation.service.js";
 import { addMetadataToToken as addMetadataStep } from "./metadata-addition.service.js";
-
-// Импорт для централизации Umi
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
+import { createUmi } from '@metaplex-foundation/umi'; // Базовый Umi
+import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
+import * as Umi from '@metaplex-foundation/umi'; 
+import { web3JsEddsa } from '@metaplex-foundation/umi-eddsa-web3js'; // Явный импорт EDDSA
+import { web3JsRpc } from '@metaplex-foundation/umi-rpc-web3js'; // Явный импорт RPC
+// Вам может потребоваться установить пакеты umi-eddsa-web3js и umi-rpc-web3js
 
 
 // --- Инициализация Solana и Umi ---
@@ -48,7 +49,9 @@ function initializeUmi() {
         serviceWallet = Keypair.fromSecretKey(Uint8Array.from(secretKey));
         
         // --- Инициализация Umi ---
-        umiInstance = createUmi('https://api.devnet.solana.com'); 
+        umiInstance = createUmi('https://api.devnet.solana.com');  
+        umiInstance.use(web3JsEddsa());    // Плагин для EDDSA
+        umiInstance.use(web3JsRpc());     // Плагин для RPC
         umiInstance.use(mplTokenMetadata()); 
         umiInstance.use(Umi.keypairIdentity(serviceWallet)); 
         // -------------------------
