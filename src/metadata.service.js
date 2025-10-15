@@ -50,39 +50,25 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
     
     const mintKeypair = umi.eddsa.generateKeypair(); 
     
-    // --- КРИТИЧЕСКИЙ БЛОК: Заполнение ВСЕХ обязательных полей Umi ---
+    // 🛑 ФИНАЛЬНЫЙ ТЕСТ: Передача ТОЛЬКО обязательных полей
     await createAndMint(umi, {
         mint: mintKeypair,
         
-        // Власть над токеном (требуется для будущих изменений)
-        authority: umi.identity.publicKey.toString(), 
+        // 💥 authority: Передаем ОБЪЕКТ подписанта (umi.identity)
+        authority: umi.identity, 
         
-        // Метаданные
         name: tokenName,
         symbol: tokenSymbol,
         uri: tokenUri,
         
-        // Числовые поля
         sellerFeeBasisPoints: Number(0), // Роялти: 0%
         decimals: parsedDecimals,
         amount: totalAmount, 
         
-        // 💥 ИСПРАВЛЕНИЕ: Owner и TokenOwner
-        // Owner — владелец токен-счёта (для Umi это важно)
-        owner: umi.identity.publicKey.toString(), 
+        // 💥 tokenOwner: Передаем ТОЛЬКО публичный ключ (объект)
+        tokenOwner: umi.identity.publicKey, 
         
-        // TokenOwner — владелец токена (для SPL)
-        tokenOwner: umi.identity.publicKey.toString(), 
-        
-        // 💥 ИСПРАВЛЕНИЕ: Явно указываем создателей (creators) и коллекцию
-        creators: [{
-            address: umi.identity.publicKey.toString(),
-            share: 100, // 100% доля принадлежит нашему кошельку
-            verified: true,
-        }],
-        
-        // Явно говорим, что токен не является частью коллекции
-        collection: null, 
+        // Удаляем creators, owner, collection, чтобы исключить null/undefined в необязательных полях
         
     }).sendAndConfirm(umi);
     
