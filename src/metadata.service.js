@@ -4,7 +4,8 @@
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'; 
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; // Сохраняем для keypairIdentity
-import * as web3 from '@solana/web3.js'; 
+// ❌ УДАЛЕН НЕИСПОЛЬЗУЕМЫЙ ИМПОРТ
+// import * as web3 from '@solana/web3.js'; 
 import { createAndMint } from '@metaplex-foundation/mpl-token-metadata'; 
 
 
@@ -68,8 +69,8 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         decimals: parsedDecimals,
         amount: totalAmountString, // ✅ Теперь как строка
         
-        // 💥 tokenOwner: Передаем ПУБЛИЧНЫЙ КЛЮЧ КАК СТРОКУ (последний обходной путь)
-        tokenOwner: umi.identity.publicKey.toString(), // <--- ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ТУТ
+        // 💥 tokenOwner: Передаем ПУБЛИЧНЫЙ КЛЮЧ КАК СТРОКУ (ФИНАЛЬНЫЙ ОБХОДНОЙ ПУТЬ)
+        tokenOwner: umi.identity.publicKey.toString(), 
         
         // Удаляем creators, owner, collection, чтобы исключить null/undefined в необязательных полях
         
