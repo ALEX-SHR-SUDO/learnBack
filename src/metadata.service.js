@@ -68,7 +68,7 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         amount: totalAmountString, 
         
         // 💥 tokenOwner: Передаем ТОЛЬКО публичный ключ (объект)
-        tokenOwner: umi.identity.publicKey, 
+        tokenOwner: umi.identity.publicKey.toString(), 
         
         // Удаляем creators, owner, collection, чтобы исключить null/undefined в необязательных полях
         
