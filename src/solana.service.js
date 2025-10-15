@@ -17,7 +17,7 @@ import { addMetadataToToken as addMetadataStep } from "./metadata-addition.servi
 import { createUmi } from '@metaplex-foundation/umi'; // Базовый Umi
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
-import { web3Js } from '@metaplex-foundation/umi-web3js-adapters'; // <-- НОВЫЙ ИМПОРТ
+import web3Js from '@metaplex-foundation/umi-web3js-adapters'; // <-- НОВЫЙ ИМПОРТ
 // Вам может потребоваться установить пакеты umi-eddsa-web3js и umi-rpc-web3js
 
 
