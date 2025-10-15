@@ -26,10 +26,7 @@ function initializeUmi(walletKeypair) {
  * Возвращает адрес нового Mint-аккаунта.
  */
 async function createToken({ decimals, supply }) {
-    if (!umi) {
-        throw new Error("Umi not initialized. Call initializeUmi first.");
-    }
-    
+   
     // --- Расчет Supply ---
     const parsedDecimals = parseInt(decimals) || 9;
     const parsedSupply = parseFloat(supply || 0);
