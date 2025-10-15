@@ -1,9 +1,9 @@
 // src/token-creation.service.js
 
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'; 
-import pkg from '@metaplex-foundation/mpl-token-metadata';
+import pkg from '@metaplex-foundation/mpl-token-metadata'; 
 import * as Umi from '@metaplex-foundation/umi'; 
-const { createMint, mplTokenMetadata } = pkg; // <--- НОВЫЙ СИНТАКСИС
+const { mplTokenMetadata, updateMetadata } = pkg; // <--- НОВЫЙ СИНТАКСИС
 
 
 let umi;
