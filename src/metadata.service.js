@@ -35,54 +35,54 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         throw new Error("Umi not initialized. Call initializeUmi first.");
     }
     
-    // Защита строк (как мы уже делали)
+    // --- Защита Входных Данных ---
     const tokenName = String(name || ''); 
     const tokenSymbol = String(symbol || '');
     const tokenUri = String(uri || '');
     
-    // ✅ УСИЛЕННАЯ ЗАЩИТА ЧИСЕЛ
-    const parsedDecimals = parseInt(decimals) || 9; // parseInt('9') -> 9
-    // Если supply null, используем 0. Затем парсим.
-    const safeSupply = supply ? parseFloat(supply) : 0; 
+    const parsedDecimals = parseInt(decimals) || 9;
+    const parsedSupply = parseFloat(supply || 0);
     
-    // 💥 ИСПРАВЛЕНИЕ BigInt: Более безопасный расчет
-    // Используем BigInt для степени и умножения, чтобы избежать ошибок с плавающей точкой.
-    const multiplier = BigInt(10) ** BigInt(parsedDecimals);
-    
-    // Выполняем расчет в BigInt, используя строку, а не Math.round()
-    // NOTE: Поскольку JS не работает с BigInt и float напрямую, мы должны использовать
-    // старый метод, но с защитой от NaN.
-    const amountFloat = safeSupply * Math.pow(10, parsedDecimals); 
-    
-    // Проверяем, что результат не NaN, иначе возвращаем 0L (BigInt ноль)
+    const amountFloat = parsedSupply * Math.pow(10, parsedDecimals);
     const totalAmount = isNaN(amountFloat) 
         ? BigInt(0) 
-        : BigInt(Math.round(amountFloat)); // Теперь Math.round защищен
-    
-    if (totalAmount === BigInt(0) && safeSupply > 0) {
-        console.error("Total amount calculation resulted in zero despite non-zero supply.");
-        // Можете добавить здесь throw Error, если хотите предотвратить создание токена с нулевым запасом
-    }
+        : BigInt(Math.round(amountFloat));
     
     const mintKeypair = umi.eddsa.generateKeypair(); 
     
+    // --- КРИТИЧЕСКИЙ БЛОК: Заполнение ВСЕХ обязательных полей Umi ---
     await createAndMint(umi, {
         mint: mintKeypair,
-        authority: umi.identity.publicKey.toString(),
+        
+        // Власть над токеном (требуется для будущих изменений)
+        authority: umi.identity.publicKey.toString(), 
+        
+        // Метаданные
         name: tokenName,
         symbol: tokenSymbol,
         uri: tokenUri,
-        sellerFeeBasisPoints: Number(0), 
+        
+        // Числовые поля
+        sellerFeeBasisPoints: Number(0), // Роялти: 0%
         decimals: parsedDecimals,
-        amount: totalAmount, // <-- Используем защищенный totalAmount
+        amount: totalAmount, 
+        
+        // 💥 ИСПРАВЛЕНИЕ: Owner и TokenOwner
+        // Owner — владелец токен-счёта (для Umi это важно)
+        owner: umi.identity.publicKey.toString(), 
+        
+        // TokenOwner — владелец токена (для SPL)
         tokenOwner: umi.identity.publicKey.toString(), 
-        collection: null,
-        // ✅ ИСПРАВЛЕНИЕ #4: Явно указываем создателей (обязательно для Metaplex)
+        
+        // 💥 ИСПРАВЛЕНИЕ: Явно указываем создателей (creators) и коллекцию
         creators: [{
             address: umi.identity.publicKey.toString(),
-            share: 100, // Весь процент принадлежит нашему кошельку
+            share: 100, // 100% доля принадлежит нашему кошельку
             verified: true,
         }],
+        
+        // Явно говорим, что токен не является частью коллекции
+        collection: null, 
         
     }).sendAndConfirm(umi);
     
