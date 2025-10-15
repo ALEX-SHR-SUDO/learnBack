@@ -86,7 +86,12 @@ async function createNewToken({ name, symbol, uri, decimals, supply }) {
       // ШАГ 1: Создание токена и минтинг (используем импортированную функцию)
       // ------------------------------------------------------------------
       console.log("Начинаем ШАГ 1: Создание токена...");
-      const tokenResult = await createTokenStep({ umi, decimals, supply });
+      // 💥 ФИКСИМ ВЫЗОВ: Передаем { umi, decimals, supply }
+      const tokenResult = await createTokenStep({ 
+          umi, // <--- ЭТО САМОЕ ВАЖНОЕ: ПЕРЕДАЕМ ИНСТАНС UMI!
+          decimals, 
+          supply 
+      }); 
       mintAddress = tokenResult.mint;
       console.log(`✅ ШАГ 1 успешен. Адрес Mint: ${mintAddress}`);
       
