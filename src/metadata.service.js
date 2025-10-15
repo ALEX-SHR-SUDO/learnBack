@@ -51,6 +51,7 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
     const mintKeypair = umi.eddsa.generateKeypair();  
     
     // 🛑 ФИНАЛЬНЫЙ ТЕСТ: Передача ТОЛЬКО обязательных полей
+    // Используем строку для BigInt, чтобы избежать внутреннего конфликта Umi
     const totalAmountString = totalAmount.toString();
 
     await createAndMint(umi, {
@@ -65,10 +66,10 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         
         sellerFeeBasisPoints: Number(0), // Роялти: 0%
         decimals: parsedDecimals,
-        amount: totalAmountString, 
+        amount: totalAmountString, // ✅ Теперь как строка
         
-        // 💥 tokenOwner: Передаем ТОЛЬКО публичный ключ (объект)
-        tokenOwner: umi.identity.publicKey.toString(), 
+        // 💥 tokenOwner: Передаем ПУБЛИЧНЫЙ КЛЮЧ КАК СТРОКУ (последний обходной путь)
+        tokenOwner: umi.identity.publicKey.toString(), // <--- ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ТУТ
         
         // Удаляем creators, owner, collection, чтобы исключить null/undefined в необязательных полях
         
