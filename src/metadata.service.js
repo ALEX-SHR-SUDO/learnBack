@@ -48,10 +48,11 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         ? BigInt(0) 
         : BigInt(Math.round(amountFloat));
     
-    
     const mintKeypair = umi.eddsa.generateKeypair();  
     
     // 🛑 ФИНАЛЬНЫЙ ТЕСТ: Передача ТОЛЬКО обязательных полей
+    const totalAmountString = totalAmount.toString();
+
     await createAndMint(umi, {
         mint: mintKeypair,
         
@@ -64,7 +65,7 @@ async function createTokenWithMetadata({ name, symbol, uri, decimals, supply }) 
         
         sellerFeeBasisPoints: Number(0), // Роялти: 0%
         decimals: parsedDecimals,
-        amount: totalAmount, 
+        amount: totalAmountString, 
         
         // 💥 tokenOwner: Передаем ТОЛЬКО публичный ключ (объект)
         tokenOwner: umi.identity.publicKey, 
