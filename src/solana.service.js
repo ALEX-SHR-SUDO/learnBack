@@ -51,7 +51,7 @@ function initializeUmi() {
         // 💥 ФИНАЛЬНЫЙ ФИКС: Вызов свойства .default как функции. 
         // Это последний известный обходной путь, который мы не пробовали.
         // Мы предполагаем, что web3jsAdapters.default - это функция-плагин.
-        umiInstance.use(web3jsAdapters.default()); // <-- ИЗМЕНЕНИЕ: Вызов .default()
+        umiInstance.use(web3jsAdapters.default.web3Js());// <-- ИЗМЕНЕНИЕ: Вызов .default()
         
         umiInstance.use(mplTokenMetadata()); // <-- Это функция, вызываем ее
         umiInstance.use(Umi.keypairIdentity(serviceWallet)); 
