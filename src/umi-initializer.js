@@ -24,9 +24,9 @@ export function initializeUmi() {
         // --- Инициализация Umi ---
         umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // 💥 ФИНАЛЬНЫЙ ФИКС АДАПТЕРА: (Последняя попытка с вызовом функции, чтобы решить проблему 'install')
-        // Мы предполагаем, что web3jsAdapters.web3Js - это функция-плагин.
-        umiInstance.use(web3jsAdapters.web3Js()); 
+        // 💥 ФИНАЛЬНЫЙ ФИКС АДАПТЕРА: УДАЛЕНЫ СКОБКИ ()
+        // Мы передаем объект плагина, чтобы Umi смог найти его метод 'install'.
+        umiInstance.use(web3jsAdapters.web3Js); // <-- ИЗМЕНЕНИЕ: УДАЛЕНЫ ()
         
         // ✅ ФИКС SIGNER IDENTITY (для решения проблемы eddsa)
         const serviceSigner = createSignerFromKeypair(umiInstance, serviceWallet);
