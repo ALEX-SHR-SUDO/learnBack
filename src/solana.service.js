@@ -2,7 +2,6 @@
 
 import {
   Connection,
-  Keypair,
   clusterApiUrl,
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
@@ -11,14 +10,12 @@ import {
   TOKEN_PROGRAM_ID
 } from "@solana/spl-token"; 
 
+// ✅ ИМПОРТ: загрузка кошелька
+import { loadServiceWallet } from "./service-wallet.js"; 
 
-import { createToken as createTokenStep } from "./token-creation.service.js";
-import { addMetadataToToken as addMetadataStep } from "./metadata-addition.service.js"; 
-import { createUmi, createSignerFromKeypair } from '@metaplex-foundation/umi'; // ✅ Добавлен createSignerFromKeypair
+import { createUmi, createSignerFromKeypair } from '@metaplex-foundation/umi';
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
-
-// ✅ ВОЗВРАЩАЕМСЯ К СТАТИЧЕСКОМУ ИМПОРТУ
 import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters';
 
 
@@ -30,32 +27,27 @@ let serviceWallet;
 let umiInstance; // Umi ИНСТАНЦИЯ
 
 /**
- * Централизованная функция инициализации Umi (чтобы не парсить ключ 3 раза).
+ * Централизованная функция инициализации Umi.
  * @returns {Umi.Umi | undefined} Инстанция Umi
  */
-function initializeUmi() { // ✅ СНОВА СДЕЛАНО СИНХРОННЫМ
+function initializeUmi() {
     if (umiInstance) return umiInstance;
     
     try {
-        const secretKeyString = process.env.SERVICE_SECRET_KEY;
-        if (!secretKeyString) {
-            throw new Error("Переменная окружения SERVICE_SECRET_KEY не найдена.");
+        serviceWallet = loadServiceWallet();
+        if (!serviceWallet) {
+            throw new Error("Сервисный кошелек не загружен. Проверьте SERVICE_SECRET_KEY.");
         }
-
-        const secretKey = JSON.parse(secretKeyString);
-        serviceWallet = Keypair.fromSecretKey(Uint8Array.from(secretKey));
         
         // --- Инициализация Umi ---
         umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // 💥 ФИНАЛЬНЫЙ ФИКС АДАПТЕРА: Используем web3Js (объект) ИЛИ default.web3Js (вызов функции)
+        // 💥 ФИНАЛЬНЫЙ ФИКС АДАПТЕРА:
         const web3JsPlugin = web3jsAdapters.web3Js || web3jsAdapters.default?.web3Js;
 
-        // Если web3JsPlugin - это функция (самый вероятный вариант), вызываем ее
         if (typeof web3JsPlugin === 'function') {
             umiInstance.use(web3JsPlugin()); 
         } else {
-            // Иначе, передаем объект (последняя надежда)
             umiInstance.use(web3jsAdapters.web3Js);
         }
         
@@ -63,74 +55,27 @@ function initializeUmi() { // ✅ СНОВА СДЕЛАНО СИНХРОННЫМ
         const serviceSigner = createSignerFromKeypair(umiInstance, serviceWallet);
         umiInstance.use(Umi.signerIdentity(serviceSigner)); 
 
-        umiInstance.use(mplTokenMetadata()); // <-- Это функция, вызываем ее
+        umiInstance.use(mplTokenMetadata());
         // -------------------------
 
-        console.log("✅ Сервисный кошелёк (Solana Service) загружен:", serviceWallet.publicKey.toBase58());
         return umiInstance;
     } catch (err) {
-        // Убрана попытка немедленного вызова, чтобы избежать ReferenceError
-        console.error(`❌ Solana Service: Не удалось загрузить сервисный кошелек/Umi. Причина: ${err.message}`);
+        console.error(`❌ Solana Service: Не удалось инициализировать Umi. Причина: ${err.message}`);
         return undefined;
     }
 }
 
-// ✅ ДОБАВЛЯЕМ немедленный вызов, так как initializeUmi() снова синхронен
+// Вызываем инициализацию сразу
 initializeUmi();
 
 
 // --- Функции Блокчейна ---
 
 /**
- * Создает и минтит новый токен с метаданными в 2 этапа.
- */
-async function createNewToken({ name, symbol, uri, decimals, supply }) {
-  // ✅ УБРАН await
-  const umi = initializeUmi(); 
-  if (!umi) {
-    throw new Error("Umi не инициализирован. Проверьте SERVICE_SECRET_KEY.");
-  }
-  if (!name || !symbol || !uri) {
-    throw new Error("Необходимо указать name, symbol и uri для метаданных.");
-  }
-  
-  let mintAddress = null;
-// ... (остальной код createNewToken остается прежним)
-  try {
-      // ------------------------------------------------------------------
-      // ШАГ 1: Создание токена и минтинг (используем импортированную функцию)
-      // ------------------------------------------------------------------
-      console.log("Начинаем ШАГ 1: Создание токена...");
-      // 💥 ФИКСИМ ВЫЗОВ: Передаем { umi, decimals, supply }
-      const tokenResult = await createTokenStep({ 
-          umi, // <--- ЭТО САМОЕ ВАЖНОЕ: ПЕРЕДАЕМ ИНСТАНС UMI!
-          decimals, 
-          supply 
-      }); 
-      mintAddress = tokenResult.mint;
-      console.log(`✅ ШАГ 1 успешен. Адрес Mint: ${mintAddress}`);
-      
-      // ------------------------------------------------------------------
-      // ШАГ 2: Добавление метаданных
-      // ------------------------------------------------------------------
-      console.log("Начинаем ШАГ 2: Добавление метаданных...");
-      await addMetadataStep({ umi, mintAddress, name, symbol, uri });
-      console.log("✅ ШАГ 2 успешен. Метаданные добавлены.");
-
-      return { mint: mintAddress }; 
-
-  } catch (err) {
-      console.error(`❌ ОШИБКА во время создания токена (Mint: ${mintAddress || 'N/A'}):`, err.message);
-      // Перебрасываем ошибку для обработки в роуте
-      throw new Error(`Ошибка на этапе создания токена. ${err.message}`); 
-  }
-}
-
-/**
  * Получает баланс SOL и список токенов сервисного кошелька.
+ * (Оставлено здесь, так как использует общие переменные)
  */
 async function getServiceWalletBalance() {
-  // ✅ УБРАН await
   const umi = initializeUmi(); 
   if (!umi || !serviceWallet) {
     throw new Error("Сервисный кошелек не загружен.");
@@ -139,7 +84,7 @@ async function getServiceWalletBalance() {
   const pubKey = serviceWallet.publicKey;
   const solBalanceLamports = await connection.getBalance(pubKey);
   const solBalance = solBalanceLamports / LAMPORTS_PER_SOL;
-// ... (остальной код getServiceWalletBalance остается прежним)
+
   const tokenAccounts = await connection.getParsedTokenAccountsByOwner(pubKey, {
     programId: TOKEN_PROGRAM_ID
   });
@@ -163,8 +108,7 @@ async function getServiceWalletBalance() {
 // --- Экспорт ---
 export {
   connection,
-  createNewToken,
+  // ❌ УДАЛЕНА createNewToken
   getServiceWalletBalance,
-  // Экспортируем функцию, а не переменную
   initializeUmi 
 };

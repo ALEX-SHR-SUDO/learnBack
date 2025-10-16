@@ -10,8 +10,9 @@ import { addMetadataToToken } from "./metadata-addition.service.js";
 // --- Проверка соединения ---
 router.get("/ping", async (req, res) => {
   try {
-    // Используем Umi для проверки RPC
     const umi = initializeUmi();
+    if (!umi) throw new Error("Umi is not initialized.");
+      
     const version = await umi.rpc.getVersion(); 
     res.json({ ok: true, solana: version });
   } catch (e) {
@@ -28,28 +29,36 @@ router.post("/create-token", async (req, res) => {
   console.log("Req Body Received:", req.body);
   console.log("Destructured values:", { name, symbol, uri, decimals, supply });
   
-
-  if (!supply || !name || !symbol || !uri) { 
-    return res.status(400).json({ error: "❗ Необходимы supply, name, symbol и uri для создания токена" });
+  // ✅ Инициализация Umi здесь
+  const umi = initializeUmi();
+  if (!umi) {
+      return res.status(500).json({ error: "❌ Umi не инициализирован. Проверьте SERVICE_SECRET_KEY." });
   }
 
-  let mintAddress = null; // Будет хранить адрес, если Шаг 1 пройдет
+  if (!supply || !name || !symbol || !uri || !decimals) { 
+    return res.status(400).json({ error: "❗ Необходимы supply, name, symbol, uri и decimals для создания токена" });
+  }
+
+  let mintAddress = null;
 
   try {
-    // Umi будет инициализирован внутри сервисных функций
-    
     // ==========================================================
     // ШАГ 1: Создание токена и минтинг
     // ==========================================================
     console.log("Начинаем ШАГ 1: createToken (создание Mint-аккаунта)");
-    const tokenResult = await createToken({ decimals, supply });
-    mintAddress = tokenResult.mint; // Получаем адрес Mint
+    const tokenResult = await createToken({ 
+        umi, // ✅ ПЕРЕДАЕМ UMI
+        decimals: Number(decimals), 
+        supply: Number(supply) 
+    });
+    mintAddress = tokenResult.mint;
     
     // ==========================================================
     // ШАГ 2: Добавление метаданных
     // ==========================================================
     console.log("Начинаем ШАГ 2: addMetadataToToken (добавление метаданных)");
     await addMetadataToToken({ 
+        umi, // ✅ ПЕРЕДАЕМ UMI
         mintAddress, 
         name, 
         symbol, 
@@ -67,8 +76,6 @@ router.post("/create-token", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Ошибка при создании токена:", err.toString());
-    // Если ошибка произошла на Шаге 1, `mintAddress` будет null.
-    // Если ошибка произошла на Шаге 2, `mintAddress` будет адресом токена, который не получил метаданные.
     res.status(500).json({ 
         error: `Ошибка на Mint: ${mintAddress || 'N/A'}. Причина: ${err.message || "Ошибка сервера"}` 
     });
@@ -78,7 +85,6 @@ router.post("/create-token", async (req, res) => {
 // --- Баланс сервисного кошелька + токены ---
 router.get("/balance", async (req, res) => {
   try {
-    // Используем новую функцию getServiceWalletBalance
     const balanceData = await getServiceWalletBalance();
     res.json(balanceData);
   } catch (err) {

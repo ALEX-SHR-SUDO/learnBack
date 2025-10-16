@@ -1,76 +1,75 @@
 // src/token-creation.service.js
 
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'; 
-import pkg from '@metaplex-foundation/mpl-token-metadata'; 
-import * as Umi from '@metaplex-foundation/umi'; 
-const { mplTokenMetadata, updateMetadata } = pkg; // <--- НОВЫЙ СИНТАКСИС
+// ✅ Используем только необходимые импорты.
+// createAndMint - это высокоуровневая функция, которая упрощает процесс.
+import { generateSigner } from '@metaplex-foundation/umi';
+import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
 
 
-let umi;
+// ❌ УДАЛЕНА: initializeUmi (она теперь в solana.service.js)
+// ❌ УДАЛЕНЫ: pkg, updateMetadata, umi (глобальная переменная)
+// ❌ УДАЛЕНЫ: createMint (низкоуровневая, склонная к ошибкам)
 
-function initializeUmi(walletKeypair) {
-    if (!walletKeypair) {
-        throw new Error("Wallet Keypair required for Umi initialization.");
-    }
-    
-    umi = createUmi('https://api.devnet.solana.com'); 
-    umi.use(mplTokenMetadata()); 
-    umi.use(Umi.keypairIdentity(walletKeypair)); 
-    
-    console.log(`Umi initialized. Payer: ${umi.identity.publicKey.toString()}`);
-    return umi.identity; 
-}
 
 /**
- * Создает Mint-аккаунт и выполняет первоначальный минтинг.
- * Возвращает адрес нового Mint-аккаунта.
+ * Создает Mint-аккаунт и минтит начальное предложение.
+ * @param {object} params
+ * @param {Umi} params.umi Инстанция Umi (ОБЯЗАТЕЛЬНА)
+ * @param {number | string} params.decimals Количество десятичных знаков
+ * @param {number | string} params.supply Общее предложение токена
+ * @returns {Promise<{ mint: string }>} Адрес нового Mint-аккаунта
  */
-async function createToken({ decimals, supply }) {
-   
+export async function createToken({ umi, decimals, supply }) { // ✅ ПРИНИМАЕТ UMI
+    if (!umi) {
+        throw new Error("UMI instance is required. Please pass it from the router/service.");
+    }
+    
     // --- Расчет Supply ---
-    const parsedDecimals = parseInt(decimals) || 9;
-    const parsedSupply = parseFloat(supply || 0);
+    const parsedDecimals = Number(decimals);
+    const parsedSupply = Number(supply);
+
+    if (isNaN(parsedDecimals) || isNaN(parsedSupply) || parsedSupply <= 0) {
+        throw new Error("Invalid decimals or supply provided.");
+    }
+
+    // Umi.createAndMint принимает supply как Number, а не BigInt,
+    // поскольку использует встроенные механизмы расчета.
     
-    const amountFloat = parsedSupply * Math.pow(10, parsedDecimals);
-    // Umi принимает BigInt для низкоуровневых функций
-    const totalAmount = isNaN(amountFloat) 
-        ? BigInt(0) 
-        : BigInt(Math.round(amountFloat));
-    
-    const mintKeypair = umi.eddsa.generateKeypair();
-    const mintAddress = mintKeypair.publicKey.toString();
+    const mint = generateSigner(umi);
+    const mintAddress = mint.publicKey.toString();
 
     console.log(`[ШАГ 1] Попытка создать Mint-аккаунт: ${mintAddress}`);
 
-    // ==========================================================
-    // НИЗКОУРОВНЕВАЯ ФУНКЦИЯ: Создание Mint-аккаунта и минтинг
-    // ==========================================================
-    await createMint(umi, {
-        mint: mintKeypair,
-        decimals: parsedDecimals,
-        
-        // authority: Для минтинга и закрытия
-        authority: umi.identity.publicKey, 
-        
-        // tokenOwner: Владелец, которому будут перечислены токены
-        tokenOwner: umi.identity.publicKey, 
-        
-        // amount: Количество токенов для минтинга (как BigInt)
-        amount: totalAmount, 
-        
-        // updateAuthority: Authority, который сможет обновлять метаданные (нужен для Шага 2)
-        updateAuthority: umi.identity.publicKey,
-        
-    }).sendAndConfirm(umi);
-    
-    console.log(`✅ [ШАГ 1] Токен создан и отчеканен. Адрес Mint: ${mintAddress}`);
+    try {
+        // ==========================================================
+        // ВЫСОКОУРОВНЕВАЯ ФУНКЦИЯ: Создание Mint-аккаунта и минтинг
+        // ==========================================================
+        const transaction = createAndMint(umi, {
+            mint,
+            decimals: parsedDecimals,
+            
+            // amount: количество для минтинга (Umi сам выполнит расчет)
+            amount: parsedSupply, 
+            
+            tokenOwner: umi.identity.publicKey,
+            authority: umi.identity, // Это Mint и Freeze Authority
+        });
 
-    return { mint: mintAddress };
+        // Отправляем транзакцию
+        await transaction.sendAndConfirm(umi);
+
+        console.log(`✅ [ШАГ 1] Токен создан и отчеканен. Адрес Mint: ${mintAddress}`);
+        
+        return { mint: mintAddress };
+    } catch (error) {
+        console.error("❌ Ошибка в createToken:", error);
+        throw new Error(`Не удалось создать Mint-аккаунт: ${error.message}`);
+    }
 }
 
 
 // --- Экспорт ---
 export {
-    initializeUmi,
+    // ❌ initializeUmi больше не экспортируется
     createToken
 };
