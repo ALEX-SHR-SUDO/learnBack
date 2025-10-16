@@ -1,8 +1,7 @@
 // src/umi-initializer.js
 
-// ✅ ДОБАВЛЕН ИМПОРТ ДЛЯ EDDSA
-import { eddsa } from '@metaplex-foundation/umi-signer-eddsa'; 
-// ✅ ИСПОЛЬЗУЕМ БАНДЛ, который включает адаптер web3.js
+// ❌ УДАЛЕН НЕРАБОЧИЙ ИМПОРТ EDDSA: import { eddsa } from '@metaplex-foundation/umi-signer-eddsa'; 
+// ✅ ИСПОЛЬЗУЕМ БАНДЛ
 import { createUmi as createUmiBundle } from '@metaplex-foundation/umi-bundle-defaults'; 
 import { createSignerFromKeypair } from '@metaplex-foundation/umi';
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
@@ -27,8 +26,7 @@ export async function initializeUmi() {
         // --- Инициализация Umi с помощью Bundled-функции ---
         umiInstance = createUmiBundle('https://api.devnet.solana.com');  
         
-        // 💥 ФИКС: ЯВНО ДОБАВЛЯЕМ ПЛАГИН EDDSA (для устранения ошибки generateKeypair)
-        umiInstance.use(eddsa());
+        // ❌ УДАЛЕН НЕРАБОЧИЙ ВЫЗОВ: umiInstance.use(eddsa());
 
         // ✅ ФИКС SIGNER IDENTITY (решает проблему eddsa)
         const serviceSigner = createSignerFromKeypair(umiInstance, serviceWallet);
