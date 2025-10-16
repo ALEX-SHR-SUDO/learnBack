@@ -4,14 +4,10 @@ import { createUmi, createSignerFromKeypair } from '@metaplex-foundation/umi';
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
 import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters';
-import { loadServiceWallet } from "./service-wallet.js"; // Используем существующий загрузчик кошелька
+import { loadServiceWallet } from "./service-wallet.js";
 
 let umiInstance;
 
-/**
- * Централизованная функция инициализации Umi.
- * @returns {Umi.Umi | undefined} Инстанция Umi
- */
 export function initializeUmi() {
     if (umiInstance) return umiInstance;
     
@@ -22,9 +18,9 @@ export function initializeUmi() {
         }
         
         // --- Инициализация Umi ---
-        umiInstance = createUmi('https://api.devnet.solana.com');   
+        umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // 💥 ФИНАЛЬНЫЙ ФИКС АДАПТЕРА: Передаем сам объект 12
+        // 💥 ФИНАЛЬНЫЙ ФИКС АДАПТЕРА: Передаем объект, спрятанный в .default
         umiInstance.use(web3jsAdapters.default); // <-- ИЗМЕНЕНИЕ: используем .default
         
         // ✅ ФИКС SIGNER IDENTITY (для решения проблемы eddsa)
