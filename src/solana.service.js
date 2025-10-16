@@ -18,6 +18,7 @@ import { createUmi } from '@metaplex-foundation/umi'; // Базовый Umi
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
 
+// ✅ Оставляем require(), так как чистый import не работает
 const web3jsAdapters = require('@metaplex-foundation/umi-web3js-adapters');
 
 
@@ -47,9 +48,22 @@ function initializeUmi() {
         // --- Инициализация Umi ---
         umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // 💥 ФИНАЛЬНЫЙ ФИКС: Возвращаем скобки. 
-        // Это стандарт Metaplex, и теперь, когда импорт * as работает, должно сработать и это.
-        umiInstance.use(web3jsAdapters.web3Js()); // <-- ДОБАВЛЕНЫ СКОБКИ ()
+        // 💥 ФИНАЛЬНЫЙ ФИКС: Логика для надежного вызова функции-плагина:
+        let web3JsPlugin;
+        
+        // 1. Пытаемся получить функцию из .web3Js
+        if (typeof web3jsAdapters.web3Js === 'function') {
+            web3JsPlugin = web3jsAdapters.web3Js;
+        // 2. Если не функция, ищем в .default (стандарт CommonJS)
+        } else if (web3jsAdapters.default && typeof web3jsAdapters.default.web3Js === 'function') {
+            web3JsPlugin = web3jsAdapters.default.web3Js;
+        } else {
+            // Если найти функцию не удалось, используем сам объект (последняя надежда)
+            web3JsPlugin = web3jsAdapters.web3Js; 
+        }
+
+        // Вызываем найденную функцию, если это функция, иначе передаем объект
+        umiInstance.use(typeof web3JsPlugin === 'function' ? web3JsPlugin() : web3JsPlugin);
         
         umiInstance.use(mplTokenMetadata()); // <-- Это функция, вызываем ее
         umiInstance.use(Umi.keypairIdentity(serviceWallet)); 
