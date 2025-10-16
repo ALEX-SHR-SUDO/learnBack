@@ -20,30 +20,42 @@ export async function initializeUmi() {
             throw new Error("Сервисный кошелек не загружен. Проверьте SERVICE_SECRET_KEY.");
         }
         
-        // --- Динамический импорт Адаптера ---
+                // --- Динамический импорт Адаптера ---
         const web3jsAdapters = await import('@metaplex-foundation/umi-web3js-adapters');
         
-        // 💥 ФИНАЛЬНЫЙ АГРЕССИВНЫЙ ОБХОД: Мы пытаемся получить плагин из всех возможных мест
-        let adapterPlugin = web3jsAdapters.web3Js || web3jsAdapters.default;
+        // 💥 ФИНАЛЬНЫЙ ОБХОД V2: Агрессивно ищем плагин в единственном рабочем виде
+        let adapterPlugin = (web3jsAdapters.web3Js || 
+                             web3jsAdapters.default); // Начнем с наиболее вероятных мест
 
-        // ВАЖНО: Если плагин — это функция, мы должны вызвать его.
+        // 1. Если это функция, вызываем ее, чтобы получить объект-плагин.
         if (typeof adapterPlugin === 'function') {
             adapterPlugin = adapterPlugin();
         }
 
-        // ВАЖНО: Если результат вызова/импорта сам содержит свойство .default 
-        // (двойной бандлинг), используем его.
+        // 2. Если плагин все еще undefined или не имеет install, 
+        // ищем в web3jsAdapters.default (на случай, если adapterPlugin был null/undefined)
+        if (!adapterPlugin) {
+            adapterPlugin = web3jsAdapters.default;
+        }
+
+        // 3. САМЫЙ ВАЖНЫЙ ШАГ: Проверка ДВОЙНОГО DEFAULT или обернутого объекта
         if (adapterPlugin && adapterPlugin.default) {
+            // Если объект обернут еще раз (Node.js/CJS quirk), используем внутренний default
             adapterPlugin = adapterPlugin.default;
         }
 
-        // ФИНАЛЬНАЯ ПРОВЕРКА: Если плагин все еще невалиден
-        if (!adapterPlugin || typeof adapterPlugin.install !== 'function') {
-            throw new Error(`Web3Js adapter not correctly resolved. Plugin is missing the 'install' method. Resolved type: ${typeof adapterPlugin}`);
+        // 4. Если плагин — это функция после шага 3, вызываем его еще раз (это редкость, но нужно для покрытия)
+        if (typeof adapterPlugin === 'function') {
+            adapterPlugin = adapterPlugin();
         }
 
-        // --- Инициализация Umi ---
-        umiInstance = createUmi('https://api.devnet.solana.com');  
+
+        // ФИНАЛЬНАЯ ПРОВЕРКА:
+        if (!adapterPlugin || typeof adapterPlugin.install !== 'function') {
+             // Если и это не сработало, значит, плагин не разрешен.
+             throw new Error(`Web3Js adapter not correctly resolved. Plugin missing 'install' after all attempts. Resolved type: ${typeof adapterPlugin}.`);
+        }
+        // ...
         
         // ✅ Используем найденный плагин
         umiInstance.use(adapterPlugin);
