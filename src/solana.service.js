@@ -10,7 +10,6 @@ import {
   TOKEN_PROGRAM_ID
 } from "@solana/spl-token"; 
 
-// ✅ ИМПОРТ: Umi инициализатор
 import { initializeUmi } from "./umi-initializer.js";
 import { loadServiceWallet } from "./service-wallet.js"; // Нужен для получения адреса кошелька
 
@@ -19,27 +18,18 @@ import { loadServiceWallet } from "./service-wallet.js"; // Нужен для п
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-// ❌ УДАЛЕНА: let serviceWallet; 
-// ❌ УДАЛЕНА: let umiInstance; 
-
-
-// Вызываем инициализацию Umi сразу
-const umi = initializeUmi();
-let serviceWallet; // Переобъявим, чтобы использовать его публичный ключ в getServiceWalletBalance
-
-if (umi) {
-    // Получаем Keypair для использования в getServiceWalletBalance
-    serviceWallet = loadServiceWallet(); 
-}
-
+// ❌ УДАЛЕН: const umi = initializeUmi();
+let serviceWallet = loadServiceWallet(); // Загружаем только кошелек при старте
 
 // --- Функции Блокчейна ---
 
 /**
  * Получает баланс SOL и список токенов сервисного кошелька.
  */
-async function getServiceWalletBalance() {
-  // ✅ Используем уже инициализированную инстанцию
+async function getServiceWalletBalance() { // ✅ ВСЕГДА БЫЛА ASYNC
+  // ✅ ИСПОЛЬЗУЕМ await
+  const umi = await initializeUmi(); 
+  
   if (!umi || !serviceWallet) {
     throw new Error("Сервисный кошелек или Umi не загружены.");
   }
