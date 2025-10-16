@@ -8,10 +8,10 @@ import { loadServiceWallet } from "./service-wallet.js";
 
 let umiInstance;
 
-// 1. ПЛАГИН АДАПТЕРА WEB3JS (Обходной путь, исправленная структура)
-function web3JsUmiAdapter(connection) {
+// 1. Адаптер Web3JS (Переименован)
+function web3JsCustomAdapter(connection) { // ⬅️ ПЕРЕИМЕНОВАНО
     return {
-        install(umi) { // ✅ Правильный метод install
+        install(umi) {
             umi.use({ 
                 getRpc: () => ({
                     send: (rpcInput) => { 
@@ -25,13 +25,12 @@ function web3JsUmiAdapter(connection) {
     };
 }
 
-// 2. ПЛАГИН EDDSA (Окончательный обходной путь, исправленная структура)
-function eddsaAdapter() {
+// 2. Плагин EDDSA (Переименован)
+function eddsaCustomAdapter() { // ⬅️ ПЕРЕИМЕНОВАНО
     return {
-        install(umi) { // ✅ Правильный метод install
+        install(umi) {
             umi.use({
                 eddsa: {
-                    // Принудительно добавляем generateKeypair
                     generateKeypair: Umi.generateSigner,
                     verify: Umi.verifySignature,
                     sign: Umi.signTransaction,
@@ -55,13 +54,13 @@ export async function initializeUmi() {
         
         umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // 1. Адаптер Web3JS
-        umiInstance.use(web3JsUmiAdapter(connection)); 
+        // 1. Адаптер Web3JS (Используем новое имя)
+        umiInstance.use(web3JsCustomAdapter(connection)); 
 
-        // 2. Плагин EDDSA
-        umiInstance.use(eddsaAdapter()); 
+        // 2. Плагин EDDSA (Используем новое имя)
+        umiInstance.use(eddsaCustomAdapter()); 
 
-        // 3. Идентификатор (Signer Identity)
+        // 3. Идентификатор
         const serviceSigner = createSignerFromKeypair(umiInstance, serviceWallet);
         umiInstance.use(Umi.signerIdentity(serviceSigner)); 
 
@@ -70,7 +69,8 @@ export async function initializeUmi() {
         
         return umiInstance;
     } catch (err) {
+        // Мы хотим видеть ошибку в консоли, если инициализация не удалась
         console.error(`❌ Umi Initializer: Не удалось инициализировать Umi. Причина: ${err.message}`);
-        return undefined;
+        return undefined; // Возвращаем undefined при ошибке
     }
 }
