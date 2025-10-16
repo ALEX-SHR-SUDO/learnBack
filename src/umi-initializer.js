@@ -20,8 +20,8 @@ export function initializeUmi() {
         // --- Инициализация Umi ---
         umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // 💥 ФИНАЛЬНЫЙ ФИКС АДАПТЕРА: Передаем объект, спрятанный в .default
-        umiInstance.use(web3jsAdapters.default); // <-- ИЗМЕНЕНИЕ: используем .default
+       // 💥 ФИНАЛЬНЫЙ ФИКС АДАПТЕРА: Передаем объект, спрятанный в .default
+        umiInstance.use(web3jsAdapters.default); // <-- ИЗМЕНЕНИЕ
         
         // ✅ ФИКС SIGNER IDENTITY (для решения проблемы eddsa)
         const serviceSigner = createSignerFromKeypair(umiInstance, serviceWallet);
