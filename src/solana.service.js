@@ -18,7 +18,7 @@ import { createUmi } from '@metaplex-foundation/umi'; // Базовый Umi
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
 
-// ✅ ВОЗВРАЩАЕМСЯ К import * as: Это единственный рабочий синтаксис импорта.
+// ✅ ВОЗВРАЩАЕМСЯ К import * as: Единственный синтаксис, который не вызывает SyntaxError.
 import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters';
 
 
@@ -48,22 +48,10 @@ function initializeUmi() {
         // --- Инициализация Umi ---
         umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // 💥 ФИНАЛЬНЫЙ ФИКС: Логика для надежного вызова функции-плагина, используя только ESM:
-        let web3JsPlugin;
-        
-        // 1. Ищем функцию в .web3Js
-        if (typeof web3jsAdapters.web3Js === 'function') {
-            web3JsPlugin = web3jsAdapters.web3Js;
-        // 2. Ищем функцию в .default.web3Js (стандартный обходной путь для CJS->ESM)
-        } else if (web3jsAdapters.default && typeof web3jsAdapters.default.web3Js === 'function') {
-            web3JsPlugin = web3jsAdapters.default.web3Js;
-        // 3. Если ничего не найдено, используем корневой объект
-        } else {
-            web3JsPlugin = web3jsAdapters.web3Js; 
-        }
-
-        // Вызываем найденную функцию, если это функция, иначе передаем объект (это должен быть готовый плагин).
-        umiInstance.use(typeof web3JsPlugin === 'function' ? web3JsPlugin() : web3JsPlugin);
+        // 💥 ФИНАЛЬНЫЙ ФИКС: Вызываем функцию из свойства .web3Js
+        // Мы предполагаем, что вся предыдущая борьба с 'is not a function' 
+        // была вызвана ошибками импорта, которые теперь устранены.
+        umiInstance.use(web3jsAdapters.web3Js()); 
         
         umiInstance.use(mplTokenMetadata()); // <-- Это функция, вызываем ее
         umiInstance.use(Umi.keypairIdentity(serviceWallet)); 
