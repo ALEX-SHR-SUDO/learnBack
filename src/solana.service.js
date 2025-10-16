@@ -10,75 +10,38 @@ import {
   TOKEN_PROGRAM_ID
 } from "@solana/spl-token"; 
 
-// ✅ ИМПОРТ: загрузка кошелька
-import { loadServiceWallet } from "./service-wallet.js"; 
-
-import { createUmi, createSignerFromKeypair } from '@metaplex-foundation/umi';
-import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
-import * as Umi from '@metaplex-foundation/umi'; 
-import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters';
+// ✅ ИМПОРТ: Umi инициализатор
+import { initializeUmi } from "./umi-initializer.js";
+import { loadServiceWallet } from "./service-wallet.js"; // Нужен для получения адреса кошелька
 
 
 // --- Инициализация Solana и Umi ---
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-let serviceWallet;
-let umiInstance; // Umi ИНСТАНЦИЯ
+// ❌ УДАЛЕНА: let serviceWallet; 
+// ❌ УДАЛЕНА: let umiInstance; 
 
-/**
- * Централизованная функция инициализации Umi.
- * @returns {Umi.Umi | undefined} Инстанция Umi
- */
-function initializeUmi() {
-    if (umiInstance) return umiInstance;
-    
-    try {
-        serviceWallet = loadServiceWallet();
-        if (!serviceWallet) {
-            throw new Error("Сервисный кошелек не загружен. Проверьте SERVICE_SECRET_KEY.");
-        }
-        
-        // --- Инициализация Umi ---
-        umiInstance = createUmi('https://api.devnet.solana.com');  
-        
-        // 💥 ФИНАЛЬНЫЙ ФИКС АДАПТЕРА:
-        const web3JsPlugin = web3jsAdapters.web3Js || web3jsAdapters.default?.web3Js;
 
-        if (typeof web3JsPlugin === 'function') {
-            umiInstance.use(web3JsPlugin()); 
-        } else {
-            umiInstance.use(web3jsAdapters.web3Js);
-        }
-        
-        // ✅ ФИКС SIGNER IDENTITY (для решения проблемы eddsa)
-        const serviceSigner = createSignerFromKeypair(umiInstance, serviceWallet);
-        umiInstance.use(Umi.signerIdentity(serviceSigner)); 
+// Вызываем инициализацию Umi сразу
+const umi = initializeUmi();
+let serviceWallet; // Переобъявим, чтобы использовать его публичный ключ в getServiceWalletBalance
 
-        umiInstance.use(mplTokenMetadata());
-        // -------------------------
-
-        return umiInstance;
-    } catch (err) {
-        console.error(`❌ Solana Service: Не удалось инициализировать Umi. Причина: ${err.message}`);
-        return undefined;
-    }
+if (umi) {
+    // Получаем Keypair для использования в getServiceWalletBalance
+    serviceWallet = loadServiceWallet(); 
 }
-
-// Вызываем инициализацию сразу
-initializeUmi();
 
 
 // --- Функции Блокчейна ---
 
 /**
  * Получает баланс SOL и список токенов сервисного кошелька.
- * (Оставлено здесь, так как использует общие переменные)
  */
 async function getServiceWalletBalance() {
-  const umi = initializeUmi(); 
+  // ✅ Используем уже инициализированную инстанцию
   if (!umi || !serviceWallet) {
-    throw new Error("Сервисный кошелек не загружен.");
+    throw new Error("Сервисный кошелек или Umi не загружены.");
   }
   
   const pubKey = serviceWallet.publicKey;
@@ -108,7 +71,6 @@ async function getServiceWalletBalance() {
 // --- Экспорт ---
 export {
   connection,
-  // ❌ УДАЛЕНА createNewToken
   getServiceWalletBalance,
-  initializeUmi 
+  initializeUmi // Экспортируем функцию из инициализатора
 };
