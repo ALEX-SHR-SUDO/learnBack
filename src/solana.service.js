@@ -18,8 +18,8 @@ import { createUmi } from '@metaplex-foundation/umi'; // Базовый Umi
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
 
-// ✅ Оставляем ТОЛЬКО import * as
-import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters';
+// ❌ УДАЛЕН статический импорт web3jsAdapters:
+// import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters';
 
 
 // --- Инициализация Solana и Umi ---
@@ -31,9 +31,9 @@ let umiInstance; // Umi ИНСТАНЦИЯ
 
 /**
  * Централизованная функция инициализации Umi (чтобы не парсить ключ 3 раза).
- * @returns {Umi.Umi | undefined} Инстанция Umi
+ * @returns {Promise<Umi.Umi | undefined>} Инстанция Umi
  */
-function initializeUmi() {
+async function initializeUmi() { // ✅ СДЕЛАНО ASYNC
     if (umiInstance) return umiInstance;
     
     try {
@@ -48,10 +48,18 @@ function initializeUmi() {
         // --- Инициализация Umi ---
         umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // 💥 ФИНАЛЬНЫЙ ФИКС: Вызов свойства .default как функции. 
-        // Это последний известный обходной путь, который мы не пробовали.
-        // Мы предполагаем, что web3jsAdapters.default - это функция-плагин.
-        umiInstance.use(web3jsAdapters.default.web3Js());// <-- ИЗМЕНЕНИЕ: Вызов .default()
+        // 💥 ФИНАЛЬНЫЙ ФИКС: Используем динамический import() для обхода всех конфликтов
+        const web3jsAdapters = await import('@metaplex-foundation/umi-web3js-adapters');
+        
+        // Логика поиска: web3Js может быть в корне или в .default
+        const web3JsPlugin = web3jsAdapters.web3Js || web3jsAdapters.default?.web3Js || web3jsAdapters.default;
+        
+        if (!web3JsPlugin) {
+             throw new Error("web3Js plugin not found in adapter object.");
+        }
+        
+        // Используем найденный плагин: вызываем, если это функция, иначе передаем объект
+        umiInstance.use(typeof web3JsPlugin === 'function' ? web3JsPlugin() : web3JsPlugin);
         
         umiInstance.use(mplTokenMetadata()); // <-- Это функция, вызываем ее
         umiInstance.use(Umi.keypairIdentity(serviceWallet)); 
@@ -60,14 +68,13 @@ function initializeUmi() {
         console.log("✅ Сервисный кошелёк (Solana Service) загружен:", serviceWallet.publicKey.toBase58());
         return umiInstance;
     } catch (err) {
+        // Убрана попытка немедленного вызова, чтобы избежать ReferenceError
         console.error(`❌ Solana Service: Не удалось загрузить сервисный кошелек/Umi. Причина: ${err.message}`);
         return undefined;
     }
 }
 
-// Вызываем инициализацию сразу
-initializeUmi();
-
+// ❌ УДАЛЕН немедленный вызов initializeUmi(), т.к. он асинхронен
 
 // --- Функции Блокчейна ---
 
@@ -75,7 +82,8 @@ initializeUmi();
  * Создает и минтит новый токен с метаданными в 2 этапа.
  */
 async function createNewToken({ name, symbol, uri, decimals, supply }) {
-  const umi = initializeUmi();
+  // ✅ initializeUmi теперь асинхронна, используем await
+  const umi = await initializeUmi(); 
   if (!umi) {
     throw new Error("Umi не инициализирован. Проверьте SERVICE_SECRET_KEY.");
   }
@@ -119,7 +127,8 @@ async function createNewToken({ name, symbol, uri, decimals, supply }) {
  * Получает баланс SOL и список токенов сервисного кошелька.
  */
 async function getServiceWalletBalance() {
-  const umi = initializeUmi();
+  // ✅ initializeUmi теперь асинхронна, используем await
+  const umi = await initializeUmi(); 
   if (!umi || !serviceWallet) {
     throw new Error("Сервисный кошелек не загружен.");
   }
