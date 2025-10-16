@@ -8,10 +8,10 @@ import { loadServiceWallet } from "./service-wallet.js";
 
 let umiInstance;
 
-// 1. ПЛАГИН АДАПТЕРА WEB3JS (ИСПРАВЛЕНА СТРУКТУРА)
+// 1. ПЛАГИН АДАПТЕРА WEB3JS (Обходной путь, исправленная структура)
 function web3JsUmiAdapter(connection) {
     return {
-        install(umi) { // ✅ Правильная структура: объект с методом install
+        install(umi) { // ✅ Правильный метод install
             umi.use({ 
                 getRpc: () => ({
                     send: (rpcInput) => { 
@@ -25,13 +25,13 @@ function web3JsUmiAdapter(connection) {
     };
 }
 
-// 2. ПЛАГИН EDDSA (ИСПРАВЛЕНА СТРУКТУРА)
+// 2. ПЛАГИН EDDSA (Окончательный обходной путь, исправленная структура)
 function eddsaAdapter() {
     return {
-        install(umi) { // ✅ Правильная структура: объект с методом install
+        install(umi) { // ✅ Правильный метод install
             umi.use({
                 eddsa: {
-                    // Принудительно добавляем generateKeypair, чтобы generateSigner(umi) сработал
+                    // Принудительно добавляем generateKeypair
                     generateKeypair: Umi.generateSigner,
                     verify: Umi.verifySignature,
                     sign: Umi.signTransaction,
