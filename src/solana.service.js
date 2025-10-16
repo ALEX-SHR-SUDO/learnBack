@@ -19,22 +19,27 @@ import { loadServiceWallet } from "./service-wallet.js"; // Нужен для п
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
 // ❌ УДАЛЕН: const umi = initializeUmi();
-let serviceWallet = loadServiceWallet(); // Загружаем только кошелек при старте
+// ❌ УДАЛИТЕ ЭТУ СТРОКУ, так как getServiceWalletBalance загружает кошелек или Umi.initializeUmi его загружает
+// let serviceWallet = loadServiceWallet(); 
+
 
 // --- Функции Блокчейна ---
 
 /**
  * Получает баланс SOL и список токенов сервисного кошелька.
  */
-async function getServiceWalletBalance() { // ✅ ВСЕГДА БЫЛА ASYNC
-  // ✅ ИСПОЛЬЗУЕМ await
+async function getServiceWalletBalance() { 
+  // ✅ ИСПОЛЬЗУЕМ await. Umi инициализирует и получает доступ к кошельку.
   const umi = await initializeUmi(); 
   
-  if (!umi || !serviceWallet) {
+  // Кошелек должен быть доступен через umi.identity.keypair
+  const serviceWallet = loadServiceWallet(); // Перезагружаем кошелек для доступа к его ключу
+  
+  if (!umi || !serviceWallet) { // Проверяем и umi, и кошелек (на всякий случай)
     throw new Error("Сервисный кошелек или Umi не загружены.");
   }
   
-  const pubKey = serviceWallet.publicKey;
+  const pubKey = serviceWallet.publicKey; // Используем публичный ключ
   const solBalanceLamports = await connection.getBalance(pubKey);
   const solBalance = solBalanceLamports / LAMPORTS_PER_SOL;
 
