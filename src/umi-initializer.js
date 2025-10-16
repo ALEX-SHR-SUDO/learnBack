@@ -8,10 +8,11 @@ import { loadServiceWallet } from "./service-wallet.js";
 
 let umiInstance;
 
-// 1. ПЛАГИН АДАПТЕРА WEB3JS (Обходной путь, который мы только что использовали)
+// 1. ПЛАГИН АДАПТЕРА WEB3JS (Обходной путь)
 function web3JsUmiAdapter(connection) {
+    // ❌ ИСПРАВЛЕНО: Возвращаем объект-плагин, который Umi ожидает!
     return {
-        install(umi) {
+        install(umi) { // ЭТО ДОЛЖЕН БЫТЬ МЕТОД, А НЕ ЛОГИКА ПЛАГИНА
             umi.use({ 
                 getRpc: () => ({
                     send: (rpcInput) => { throw new Error("RPC send not fully implemented in manual adapter."); },
@@ -23,20 +24,16 @@ function web3JsUmiAdapter(connection) {
     };
 }
 
-// 💥 2. ПЛАГИН EDDSA (Окончательный обходной путь для 'generateKeypair')
+// 2. ПЛАГИН EDDSA (Обходной путь)
 function eddsaAdapter() {
+    // ❌ ИСПРАВЛЕНО: Возвращаем объект-плагин
     return {
         install(umi) {
-            // Эта логика принудительно добавляет необходимые функции EDDSA к Umi
             umi.use({
                 eddsa: {
-                    // Используем встроенный в Umi метод для генерации ключей,
-                    // который должен быть доступен, если Umi загружен
                     generateKeypair: Umi.generateSigner,
-                    // Добавляем другие необходимые методы
                     verify: Umi.verifySignature,
                     sign: Umi.signTransaction,
-                    // Мы не можем легко создать generateSigner, но generateKeypair будет вызван из generateSigner
                 }
             });
         }
@@ -57,10 +54,12 @@ export async function initializeUmi() {
         
         umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // 1. Адаптер Web3JS (Обходной путь)
+        // 1. Адаптер Web3JS
+        // ✅ ВЫЗЫВАЕМ ФУНКЦИЮ, ЧТОБЫ ПОЛУЧИТЬ ОБЪЕКТ С МЕТОДОМ INSTALL
         umiInstance.use(web3JsUmiAdapter(connection)); 
 
-        // 💥 2. ПЛАГИН EDDSA (Принудительно!)
+        // 2. Плагин EDDSA
+        // ✅ ВЫЗЫВАЕМ ФУНКЦИЮ
         umiInstance.use(eddsaAdapter()); 
 
         // 3. Идентификатор (Signer Identity)
