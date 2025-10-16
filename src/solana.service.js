@@ -17,8 +17,8 @@ import { addMetadataToToken as addMetadataStep } from "./metadata-addition.servi
 import { createUmi } from '@metaplex-foundation/umi'; // Базовый Umi
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
-// ✅ Оставляем ТОЛЬКО импорт * as
-import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters'; 
+
+const web3jsAdapters = require('@metaplex-foundation/umi-web3js-adapters');
 
 
 // --- Инициализация Solana и Umi ---
