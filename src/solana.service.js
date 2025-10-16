@@ -17,8 +17,7 @@ import { addMetadataToToken as addMetadataStep } from "./metadata-addition.servi
 import { createUmi } from '@metaplex-foundation/umi'; // Базовый Umi
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
-import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters'; 
-const web3Js = web3jsAdapters.web3Js;
+import { web3Js } from '@metaplex-foundation/umi-web3js-adapters';
 
 
 // --- Инициализация Solana и Umi ---
@@ -46,7 +45,7 @@ function initializeUmi() {
         
         // --- Инициализация Umi ---
         umiInstance = createUmi('https://api.devnet.solana.com');  
-        umiInstance.use(web3jsAdapters);
+        umiInstance.use(web3Js());
         umiInstance.use(mplTokenMetadata()); 
         umiInstance.use(Umi.keypairIdentity(serviceWallet)); 
         // -------------------------
