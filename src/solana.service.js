@@ -18,7 +18,7 @@ import { createUmi } from '@metaplex-foundation/umi'; // Базовый Umi
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
 
-// ✅ ВОЗВРАЩАЕМСЯ К import * as: Единственный синтаксис, который не вызывает SyntaxError.
+// ✅ Оставляем ТОЛЬКО import * as
 import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters';
 
 
@@ -48,10 +48,10 @@ function initializeUmi() {
         // --- Инициализация Umi ---
         umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // 💥 ФИНАЛЬНЫЙ ФИКС: Вызываем функцию из свойства .web3Js
-        // Мы предполагаем, что вся предыдущая борьба с 'is not a function' 
-        // была вызвана ошибками импорта, которые теперь устранены.
-        umiInstance.use(web3jsAdapters.web3Js); 
+        // 💥 ФИНАЛЬНЫЙ ФИКС: Вызов свойства .default как функции. 
+        // Это последний известный обходной путь, который мы не пробовали.
+        // Мы предполагаем, что web3jsAdapters.default - это функция-плагин.
+        umiInstance.use(web3jsAdapters.default()); // <-- ИЗМЕНЕНИЕ: Вызов .default()
         
         umiInstance.use(mplTokenMetadata()); // <-- Это функция, вызываем ее
         umiInstance.use(Umi.keypairIdentity(serviceWallet)); 
