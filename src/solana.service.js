@@ -46,7 +46,7 @@ function initializeUmi() {
         
         // --- Инициализация Umi ---
         umiInstance = createUmi('https://api.devnet.solana.com');  
-        umiInstance.use(web3jsAdapters.web3Js());
+        umiInstance.use(web3jsAdapters.web3Js);
         umiInstance.use(mplTokenMetadata()); 
         umiInstance.use(Umi.keypairIdentity(serviceWallet)); 
         // -------------------------
