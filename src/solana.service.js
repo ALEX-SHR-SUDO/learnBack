@@ -51,7 +51,7 @@ function initializeUmi() {
         // 💥 ФИНАЛЬНЫЙ ФИКС: Вызываем функцию из свойства .web3Js
         // Мы предполагаем, что вся предыдущая борьба с 'is not a function' 
         // была вызвана ошибками импорта, которые теперь устранены.
-        umiInstance.use(web3jsAdapters.web3Js()); 
+        umiInstance.use(web3jsAdapters.web3Js); 
         
         umiInstance.use(mplTokenMetadata()); // <-- Это функция, вызываем ее
         umiInstance.use(Umi.keypairIdentity(serviceWallet)); 
