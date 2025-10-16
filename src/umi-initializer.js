@@ -1,40 +1,38 @@
 // src/umi-initializer.js
 
-// ❌ УДАЛЕН НЕРАБОЧИЙ ИМПОРТ EDDSA: import { eddsa } from '@metaplex-foundation/umi-signer-eddsa'; 
-// ✅ ИСПОЛЬЗУЕМ БАНДЛ
-import { createUmi as createUmiBundle } from '@metaplex-foundation/umi-bundle-defaults'; 
-import { createSignerFromKeypair } from '@metaplex-foundation/umi';
+import { createUmi, createSignerFromKeypair } from '@metaplex-foundation/umi';
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
+import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters'; // ✅ НОВЫЙ ИМПОРТ
 import * as Umi from '@metaplex-foundation/umi'; 
 import { loadServiceWallet } from "./service-wallet.js"; 
 
 let umiInstance;
 
-/**
- * Централизованная функция инициализации Umi (ASYNC).
- * @returns {Promise<Umi.Umi | undefined>} Инстанция Umi
- */
 export async function initializeUmi() {
     if (umiInstance) return umiInstance;
     
     try {
         const serviceWallet = loadServiceWallet();
         if (!serviceWallet) {
-            throw new Error("Сервисный кошелек не загружен. Проверьте SERVICE_SECRET_KEY.");
+            throw new Error("Сервисный кошелек не загружен.");
         }
         
-        // --- Инициализация Umi с помощью Bundled-функции ---
-        umiInstance = createUmiBundle('https://api.devnet.solana.com');  
+        // --- Инициализация Umi с прямой функцией ---
+        umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // ❌ УДАЛЕН НЕРАБОЧИЙ ВЫЗОВ: umiInstance.use(eddsa());
+        // 💥 ФИНАЛЬНЫЙ ФИКС: Явно добавляем адаптер и плагины.
+        // EDDSA является частью базового Umi, и это наш последний шанс, что он сработает.
 
-        // ✅ ФИКС SIGNER IDENTITY (решает проблему eddsa)
+        // 1. Адаптер (используем только .default, чтобы обойти CJS/ESM)
+        umiInstance.use(web3jsAdapters.web3Js || web3jsAdapters.default); 
+
+        // 2. Идентификатор (Signer Identity)
         const serviceSigner = createSignerFromKeypair(umiInstance, serviceWallet);
         umiInstance.use(Umi.signerIdentity(serviceSigner)); 
 
+        // 3. Плагин метаданных
         umiInstance.use(mplTokenMetadata());
-        // -------------------------
-
+        
         return umiInstance;
     } catch (err) {
         console.error(`❌ Umi Initializer: Не удалось инициализировать Umi. Причина: ${err.message}`);
