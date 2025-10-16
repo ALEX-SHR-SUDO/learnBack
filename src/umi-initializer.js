@@ -16,22 +16,21 @@ export async function initializeUmi() {
             throw new Error("Сервисный кошелек не загружен.");
         }
         
-        // --- Динамический импорт Адаптера (чтобы обойти конфликты) ---
-        const web3jsAdapters = await import('@metaplex-foundation/umi-web3js-adapters');
+         // --- Динамический импорт Адаптера (новый, чистый обход) ---
+        // Импортируем только сам плагин, без *, и принудительно ищем .default
+        const web3JsAdapter = (await import('@metaplex-foundation/umi-web3js-adapters')).default; 
         
-        // 💥 АГРЕССИВНЫЙ ПОИСК АДАПТЕРА (повторяем то, что работало лучше всего)
-        let adapterPlugin = web3jsAdapters.web3Js || web3jsAdapters.default;
+        let adapterPlugin = web3JsAdapter;
 
+        // ВАЖНО: Адаптер может быть обернут в функцию, которую нужно вызвать, 
+        // чтобы получить объект-плагин (в отличие от других плагинов).
         if (typeof adapterPlugin === 'function') {
-            adapterPlugin = adapterPlugin(); 
+             adapterPlugin = adapterPlugin();
         }
-
-        if (adapterPlugin && adapterPlugin.default) {
-            adapterPlugin = adapterPlugin.default;
-        }
-
+        
+        // 💥 ФИНАЛЬНАЯ ПРОВЕРКА:
         if (!adapterPlugin || typeof adapterPlugin.install !== 'function') {
-             throw new Error(`Web3Js adapter not resolved after all attempts.`);
+             throw new Error(`Web3Js adapter not resolved after all attempts. (Type: ${typeof adapterPlugin})`);
         }
 
         // --- Инициализация Umi с чистой функцией ---
