@@ -19,7 +19,6 @@ import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
 // ✅ Оставляем ТОЛЬКО импорт * as
 import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters'; 
-// ❌ УДАЛЯЕМ эту лишнюю строку: const web3JsPluginFunction = web3jsAdapters.web3Js;
 
 
 // --- Инициализация Solana и Umi ---
@@ -48,8 +47,9 @@ function initializeUmi() {
         // --- Инициализация Umi ---
         umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // ✅ ФИНАЛЬНЫЙ ФИКС: Передаем объект-плагин без скобок ()
-        umiInstance.use(web3jsAdapters.web3Js); // <-- Передача объекта-плагина
+        // 💥 ФИНАЛЬНЫЙ ФИКС: Возвращаем скобки. 
+        // Это стандарт Metaplex, и теперь, когда импорт * as работает, должно сработать и это.
+        umiInstance.use(web3jsAdapters.web3Js()); // <-- ДОБАВЛЕНЫ СКОБКИ ()
         
         umiInstance.use(mplTokenMetadata()); // <-- Это функция, вызываем ее
         umiInstance.use(Umi.keypairIdentity(serviceWallet)); 
