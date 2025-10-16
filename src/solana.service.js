@@ -18,8 +18,8 @@ import { createUmi } from '@metaplex-foundation/umi'; // Базовый Umi
 import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import * as Umi from '@metaplex-foundation/umi'; 
 
-// ✅ Оставляем require(), так как чистый import не работает
-const web3jsAdapters = require('@metaplex-foundation/umi-web3js-adapters');
+// ✅ ВОЗВРАЩАЕМСЯ К import * as: Это единственный рабочий синтаксис импорта.
+import * as web3jsAdapters from '@metaplex-foundation/umi-web3js-adapters';
 
 
 // --- Инициализация Solana и Umi ---
@@ -48,21 +48,21 @@ function initializeUmi() {
         // --- Инициализация Umi ---
         umiInstance = createUmi('https://api.devnet.solana.com');  
         
-        // 💥 ФИНАЛЬНЫЙ ФИКС: Логика для надежного вызова функции-плагина:
+        // 💥 ФИНАЛЬНЫЙ ФИКС: Логика для надежного вызова функции-плагина, используя только ESM:
         let web3JsPlugin;
         
-        // 1. Пытаемся получить функцию из .web3Js
+        // 1. Ищем функцию в .web3Js
         if (typeof web3jsAdapters.web3Js === 'function') {
             web3JsPlugin = web3jsAdapters.web3Js;
-        // 2. Если не функция, ищем в .default (стандарт CommonJS)
+        // 2. Ищем функцию в .default.web3Js (стандартный обходной путь для CJS->ESM)
         } else if (web3jsAdapters.default && typeof web3jsAdapters.default.web3Js === 'function') {
             web3JsPlugin = web3jsAdapters.default.web3Js;
+        // 3. Если ничего не найдено, используем корневой объект
         } else {
-            // Если найти функцию не удалось, используем сам объект (последняя надежда)
             web3JsPlugin = web3jsAdapters.web3Js; 
         }
 
-        // Вызываем найденную функцию, если это функция, иначе передаем объект
+        // Вызываем найденную функцию, если это функция, иначе передаем объект (это должен быть готовый плагин).
         umiInstance.use(typeof web3JsPlugin === 'function' ? web3JsPlugin() : web3JsPlugin);
         
         umiInstance.use(mplTokenMetadata()); // <-- Это функция, вызываем ее
