@@ -8,17 +8,14 @@ import { loadServiceWallet } from "./service-wallet.js";
 
 let umiInstance;
 
-// 1. ПЛАГИН АДАПТЕРА WEB3JS (ИСПРАВЛЕНА СТРУКТУРА)
+// 1. ПЛАГИН АДАПТЕРА WEB3JS (Обходной путь)
 function web3JsUmiAdapter(connection) {
+    // ❌ ИСПРАВЛЕНО: Возвращаем объект-плагин, который Umi ожидает!
     return {
-        // ✅ МЕТОД INSTALL ДОЛЖЕН ПРИНИМАТЬ UMI И ВЫЗЫВАТЬ umi.use({...})
-        install(umi) { 
+        install(umi) { // ЭТО ДОЛЖЕН БЫТЬ МЕТОД, А НЕ ЛОГИКА ПЛАГИНА
             umi.use({ 
                 getRpc: () => ({
-                    send: (rpcInput) => { 
-                        // Здесь должна быть более сложная логика, но для sendTransaction достаточно
-                        throw new Error("RPC send not fully implemented in manual adapter.");
-                    },
+                    send: (rpcInput) => { throw new Error("RPC send not fully implemented in manual adapter."); },
                     sendTransaction: (transaction) => connection.sendRawTransaction(transaction.serialize()),
                 }),
                 getConnection: () => connection,
