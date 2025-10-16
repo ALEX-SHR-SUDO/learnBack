@@ -53,4 +53,3 @@ export async function createToken({ umi, decimals, supply }) {
     }
 }
 
-export { createToken };
