@@ -22,11 +22,10 @@ export function initializeUmi() {
         }
         
         // --- Инициализация Umi ---
-        umiInstance = createUmi('https://api.devnet.solana.com');  
+        umiInstance = createUmi('https://api.devnet.solana.com');   
         
-        // 💥 ФИНАЛЬНЫЙ ФИКС АДАПТЕРА: УДАЛЕНЫ СКОБКИ ()
-        // Мы передаем объект плагина, чтобы Umi смог найти его метод 'install'.
-        umiInstance.use(web3jsAdapters.web3Js); // <-- ИЗМЕНЕНИЕ: УДАЛЕНЫ ()
+        // 💥 ФИНАЛЬНЫЙ ФИКС АДАПТЕРА: Передаем сам объект 12
+        umiInstance.use(web3jsAdapters.default); // <-- ИЗМЕНЕНИЕ: используем .default
         
         // ✅ ФИКС SIGNER IDENTITY (для решения проблемы eddsa)
         const serviceSigner = createSignerFromKeypair(umiInstance, serviceWallet);
