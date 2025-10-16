@@ -19,7 +19,7 @@ import { createAndMint } from '@metaplex-foundation/mpl-token-metadata';
  * @param {number | string} params.supply Общее предложение токена
  * @returns {Promise<{ mint: string }>} Адрес нового Mint-аккаунта
  */
-export async function createToken({ umi, decimals, supply }) { // ✅ ПРИНИМАЕТ UMI
+export async function createToken({ umi, decimals, supply }) { // ✅ ПРИНИМАЕТ UMI и уже ЭКСПОРТИРОВАНА
     if (!umi) {
         throw new Error("UMI instance is required. Please pass it from the router/service.");
     }
@@ -69,7 +69,7 @@ export async function createToken({ umi, decimals, supply }) { // ✅ ПРИНИ
 
 
 // --- Экспорт ---
-export {
-    // ❌ initializeUmi больше не экспортируется
-    createToken
-};
+// ❌ УДАЛЕН ДУБЛИРУЮЩИЙ БЛОК: 
+// export {
+//     createToken
+// };
