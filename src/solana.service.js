@@ -7,6 +7,7 @@ import {
     LAMPORTS_PER_SOL 
 } from '@solana/web3.js'; 
 import bs58 from 'bs58';
+import { TOKEN_PROGRAM_ID, AccountState } from '@solana/spl-token'; // ✅ ДОБАВИТЬ ЭТОТ ИМПОРТ
 
 const CLUSTER_URL = 'https://api.devnet.solana.com';
 let connectionInstance = null;
@@ -56,35 +57,54 @@ export function getConnection() {
 export async function getServiceWalletBalance() {
     const keypair = getServiceKeypair();
     const connection = getConnection();
-
-    const serviceAddress = keypair.publicKey.toBase58(); // Получаем адрес
+    const serviceAddress = keypair.publicKey.toBase58();
+    
+    // Переменная для списка токенов
+    let tokenList = [];
     
     try {
+        // --- 1. Получение баланса SOL (Остаётся без изменений) ---
         const balanceLamports = await connection.getBalance(keypair.publicKey);
-        
-        // ❌ Исправление: Использовать LAMPORTS_PER_SOL напрямую
         const balanceSOL = balanceLamports / LAMPORTS_PER_SOL; 
+        
+        // --- 2. Получение списка токенов SPL ---
+        const tokenAccounts = await connection.getTokenAccountsByOwner(
+            keypair.publicKey,
+            { programId: TOKEN_PROGRAM_ID } // Фильтруем по ID программы SPL Token
+        );
 
-        // ✅ ИСПРАВЛЕНИЕ 1: Возвращаем serviceAddress вместо 'wallet' и 'sol' вместо 'balanceSOL'
+        tokenList = tokenAccounts.value
+            .map(accountInfo => {
+                const data = splToken.AccountLayout.decode(accountInfo.account.data);
+                
+                // Фильтруем закрытые (зануленные) аккаунты
+                if (data.state === AccountState.Initialized) {
+                     return {
+                        mint: data.mint.toBase58(),
+                        amount: Number(data.amount), // Преобразуем BigInt в Number (для фронтенда)
+                    };
+                }
+                return null;
+            })
+            .filter(token => token !== null); // Удаляем нулевые записи
+
+        // ✅ ВОЗВРАЩАЕМ ВСЕ ДАННЫЕ
         return { 
             serviceAddress: serviceAddress,
             sol: balanceSOL,
-            tokens: [] // Заглушка для токенов
+            tokens: tokenList // ⬅️ ВОЗВРАЩАЕМ РЕАЛЬНЫЙ СПИСОК
         };
         
     } catch (error) {
-        console.error(`Ошибка при запросе баланса для ${serviceAddress}:`, error.message);
-        
-        // ✅ ИСПРАВЛЕНИЕ 2: Обрабатываем ошибку "Account not found" (если 0 SOL)
+        // ... (логика обработки ошибок остается прежней: возвращаем 0 SOL, если аккаунт не найден)
         if (error.message && error.message.includes('Account not found')) {
              return { 
                 serviceAddress: serviceAddress,
-                sol: 0, // Возвращаем 0 SOL, чтобы фронтенд не падал
-                tokens: []
+                sol: 0,
+                tokens: [] // При ошибке возвращаем пустой список
             };
         }
         
-        // Если это другая критическая ошибка (например, ошибка сети), пробрасываем её
         throw new Error(`Failed to fetch service wallet balance: ${error.message}`);
     }
 }
