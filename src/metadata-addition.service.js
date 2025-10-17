@@ -1,14 +1,17 @@
 // src/metadata-addition.service.js
 
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
-// Правильный импорт CommonJS-модулей в режиме ESM: импортируем все как 'metaplex'
+// Правильный импорт CommonJS-модулей в режиме ESM
 import * as metaplex from "@metaplex-foundation/mpl-token-metadata";
 import { Buffer } from "buffer";
 
-// Извлекаем функции и константы из импортированного объекта metaplex
+// Явное определение Metaplex Program ID, чтобы избежать проблем с импортом CJS/ESM
+// Это гарантирует, что ключ метаданных всегда будет валидным объектом PublicKey.
+const TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
+
+// Извлекаем необходимые функции
 const { 
     createCreateMetadataAccountV3Instruction, 
-    PROGRAM_ID: METADATA_PROGRAM_ID, 
     findMetadataPda 
 } = metaplex;
 
@@ -26,11 +29,10 @@ export async function addTokenMetadata(connection, payer, mintAddress, name, sym
     const mintPublicKey = new PublicKey(mintAddress);
     
     // 1. ВЫЧИСЛЕНИЕ АДРЕСА PDA МЕТАДАННЫХ
-    // Используем Metaplex Helper, который обходит внутренние проблемы web3.js/Buffer, 
-    // что было нашим изначальным предположением
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress}`);
     
-    // findMetadataPda: [ 'metadata', METADATA_PROGRAM_ID, mint.publicKey ]
+    // findMetadataPda использует Mint-адрес, который у нас есть (mintPublicKey), и 
+    // внутренне использует Program ID метаданных. Мы полагаемся на помощник.
     const [metadataAddress] = findMetadataPda({
         mint: mintPublicKey,
     });
@@ -44,7 +46,7 @@ export async function addTokenMetadata(connection, payer, mintAddress, name, sym
             mint: mintPublicKey,
             mintAuthority: payer.publicKey,
             payer: payer.publicKey,
-            updateAuthority: payer.publicKey, // Используем плательщика в качестве Update Authority
+            updateAuthority: payer.publicKey,
         },
         {
             createMetadataAccountArgsV3: {
@@ -52,7 +54,7 @@ export async function addTokenMetadata(connection, payer, mintAddress, name, sym
                     name: name,
                     symbol: symbol,
                     uri: uri,
-                    sellerFeeBasisPoints: 0, // Устанавливаем 0, так как это не NFT
+                    sellerFeeBasisPoints: 0,
                     creators: null,
                     collection: null,
                     uses: null,
@@ -60,30 +62,32 @@ export async function addTokenMetadata(connection, payer, mintAddress, name, sym
                 isMutable: true,
                 collectionDetails: null,
             },
-        }
+        },
+        // Передаем явно определенный Program ID (на случай, если Metaplex v3
+        // в нашей среде требует его в аргументах)
+        TOKEN_METADATA_PROGRAM_ID
     );
 
     // 3. ОТПРАВКА ТРАНЗАКЦИИ
-    const transaction = await connection.getLatestBlockhash();
-    
-    // При создании транзакции с одной инструкцией безопаснее использовать массив инструкций
-    // или создать новую транзакцию, используя .add
-    const tx = await connection.sendTransaction(
-        new TransactionInstruction({
-            keys: instruction.keys,
-            programId: instruction.programId,
-            data: instruction.data,
-        }),
-        [payer], // Подписывается только плательщик
-        { 
-            skipPreflight: false,
-            preflightCommitment: "confirmed"
-        }
-    );
-
+    // Мы убрали лишний new TransactionInstruction, так как connection.sendTransaction
+    // может принимать и готовые инструкции.
     try {
-        console.log(`✅ [ШАГ 4] Метаданные токена созданы. Подпись: ${tx}`);
-        return tx;
+        const { blockhash } = await connection.getLatestBlockhash();
+
+        const txSignature = await connection.sendTransaction(
+            new (await import('@solana/web3.js')).Transaction({
+                recentBlockhash: blockhash,
+                feePayer: payer.publicKey,
+            }).add(instruction),
+            [payer], // Подписывается только плательщик
+            { 
+                skipPreflight: false,
+                preflightCommitment: "confirmed"
+            }
+        );
+
+        console.log(`✅ [ШАГ 4] Метаданные токена созданы. Подпись: ${txSignature}`);
+        return txSignature;
     } catch (error) {
         console.error("❌ Ошибка при добавлении метаданных токена:", error);
         throw new Error("Ошибка при добавлении метаданных токена: " + error.message);
