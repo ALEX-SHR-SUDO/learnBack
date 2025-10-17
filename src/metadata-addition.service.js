@@ -1,5 +1,10 @@
 // src/metadata-addition.service.js
 
+// ✅ ФИНАЛЬНЫЙ ОБХОДНОЙ ПУТЬ ДЛЯ NODE.JS
+if (typeof Buffer === 'undefined') {
+    global.Buffer = (await import('buffer')).Buffer;
+}
+
 // ✅ ИМПОРТЫ СТАЛИ ЕЩЕ БОЛЕЕ ПРЯМЫМИ
 import {
     PublicKey,
