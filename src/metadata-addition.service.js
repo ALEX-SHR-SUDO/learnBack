@@ -10,7 +10,6 @@ import {
 } from '@solana/web3.js';
 import mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
 import { getServiceKeypair, getConnection } from "./solana.service.js";
-import { Buffer } from 'buffer'; // ✅ ЯВНЫЙ ИМПОРТ Buffer
 
 // Деструктурируем необходимые экспорты из полученного объекта
 const { DataV2, createCreateMetadataAccountV2Instruction } = mplTokenMetadataPkg;
