@@ -3,12 +3,10 @@
 import express from "express";
 const router = express.Router();
 
-// ✅ Импортируем PublicKey только для базового импорта web3.js
-import { PublicKey } from '@solana/web3.js'; 
-
-import { createTokenAndMint } from "./token-creation.service.js"; 
-import { addTokenMetadata } from "./metadata-addition.service.js"; 
-import { getConnection, getServiceWalletBalance } from "./solana.service.js"; 
+// Удаляем старые раздельные сервисы. Импортируем новый объединенный сервис.
+import { createTokenAndMetadata } from "./metadata-addition.service.js"; 
+// Добавляем импорт getServiceWallet для получения кошелька-плательщика
+import { getConnection, getServiceWalletBalance, getServiceWallet } from "./solana.service.js"; 
 
 // ---------------------------------------------
 // --- Проверка соединения ---
@@ -26,7 +24,7 @@ router.get("/ping", async (req, res) => {
 });
 
 // ---------------------------------------------
-// --- Создание токена с метаданными (2 ШАГА) ---
+// --- Создание токена с метаданными (ОБЪЕДИНЕННЫЙ ШАГ) ---
 // ---------------------------------------------
 router.post("/create-token", async (req, res) => {
   const { name, symbol, uri, decimals, supply } = req.body; 
@@ -41,29 +39,27 @@ router.post("/create-token", async (req, res) => {
   let mintAddress = null;
 
   try {
+    const connection = getConnection();
+    // Получаем кошелек-плательщик, который будет Mint Authority
+    const payer = getServiceWallet(); 
+
     // ==========================================================
-    // ШАГ 1: Создание токена и минтинг
+    // ШАГ 1-4: Создание токена, минтинг и добавление метаданных (ОДИН ВЫЗОВ)
     // ==========================================================
-    console.log("Начинаем ШАГ 1: createTokenAndMint (создание Mint-аккаунта)");
+    console.log("Начинаем ШАГ 1-4: createTokenAndMetadata (полный процесс)");
     
-    const mintPublicKey = await createTokenAndMint({ 
-        decimals: Number(decimals), 
-        supply: Number(supply) 
-    });
-    mintAddress = mintPublicKey.toBase58();
-    
-    // ==========================================================
-    // ШАГ 2: Добавление метаданных
-    // ==========================================================
-    console.log("Начинаем ШАГ 2: addTokenMetadata (добавление метаданных)");
-    
-    // 🛑 КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Передаем СТРОКУ, а не объект PublicKey.
-    const metadataPublicKey = await addTokenMetadata(
-        mintAddress, // <--- Передаем строку Base58
+    // Вызываем единственную, объединенную функцию
+    const results = await createTokenAndMetadata(
+        connection, 
+        payer,
         name, 
         symbol, 
-        uri 
+        uri, 
+        supply,
+        decimals
     );
+    
+    mintAddress = results.mint;
     
     // ==========================================================
     // УСПЕХ
@@ -71,7 +67,8 @@ router.post("/create-token", async (req, res) => {
     console.log(`✅ Токен успешно создан. Mint: ${mintAddress}`);
     res.json({
       mint: mintAddress,
-      metadata: metadataPublicKey.toBase58(),
+      associatedTokenAccount: results.ata,
+      metadataTransaction: results.metadataTx,
       solscan: `https://solscan.io/token/${mintAddress}?cluster=devnet`
     });
 

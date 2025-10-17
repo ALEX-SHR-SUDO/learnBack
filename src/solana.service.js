@@ -4,7 +4,8 @@
 import { 
     Connection, 
     Keypair, 
-    LAMPORTS_PER_SOL 
+    LAMPORTS_PER_SOL,
+    PublicKey 
 } from '@solana/web3.js'; 
 import bs58 from 'bs58';
 import * as splToken from '@solana/spl-token';
@@ -29,7 +30,7 @@ export function getServiceKeypair() {
     try {
         const secretKeyBytes = bs58.decode(secretKeyBs58);
         
-        // ❌ Исправление: Использовать Keypair напрямую
+        // Используем Keypair напрямую
         serviceKeypairInstance = Keypair.fromSecretKey(secretKeyBytes); 
         
         console.log(`✅ Сервисный кошелёк загружен: ${serviceKeypairInstance.publicKey.toBase58()}`);
@@ -41,12 +42,20 @@ export function getServiceKeypair() {
 }
 
 /**
+ * ПСЕВДОНИМ: Возвращает Keypair сервисного кошелька. Используется в token.routes.js как "payer".
+ * @returns {Keypair} Keypair сервисного кошелька
+ */
+export function getServiceWallet() {
+    return getServiceKeypair();
+}
+
+/**
  * Возвращает Connection.
  * @returns {Connection}
  */
 export function getConnection() {
     if (!connectionInstance) {
-        // ❌ Исправление: Использовать Connection напрямую
+        // Используем Connection напрямую
         connectionInstance = new Connection(CLUSTER_URL, 'confirmed'); 
     }
     return connectionInstance;
@@ -71,7 +80,7 @@ export async function getServiceWalletBalance() {
         // --- 2. Получение списка токенов SPL ---
         const tokenAccounts = await connection.getTokenAccountsByOwner(
             keypair.publicKey,
-            { programId: TOKEN_PROGRAM_ID } // Фильтруем по ID программы SPL Token
+            { programId: new PublicKey(TOKEN_PROGRAM_ID) } // Фильтруем по ID программы SPL Token
         );
 
         tokenList = tokenAccounts.value
