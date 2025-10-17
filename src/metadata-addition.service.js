@@ -41,7 +41,7 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
     const connection = getConnection();
     const payer = serviceKeypair;
 
-    // --- Валидация, запрошенная пользователем (ОЧЕНЬ ВАЖНО) ---
+    // --- Валидация Mint Address (добавлено в прошлом шаге) ---
     if (!(mintAddress instanceof PublicKey)) {
         throw new Error("Внутренняя ошибка: Mint Address не является объектом PublicKey.");
     }
@@ -54,12 +54,12 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        // Используем Buffer.from("metadata") напрямую для сида.
+        // ИСПРАВЛЕНИЕ: Используем .toBytes() вместо .toBuffer() для большей совместимости с web3.js в данной среде.
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
                 Buffer.from("metadata", "utf8"),
-                METADATA_PROGRAM_ID.toBuffer(),
-                mintAddress.toBuffer(),
+                METADATA_PROGRAM_ID.toBytes(), // <--- ИЗМЕНЕНИЕ
+                mintAddress.toBytes(),         // <--- ИЗМЕНЕНИЕ
             ],
             METADATA_PROGRAM_ID
         );
@@ -109,9 +109,6 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
 
     } catch (error) {
         console.error("❌ Ошибка в addTokenMetadata:", error);
-        // Если проверка пройдена, но ошибка "Invalid public key input" всё равно возникает,
-        // это может быть проблема с самой функцией findProgramAddress в текущей версии web3.js
-        // или окружением Node.js.
         throw new Error(`Не удалось создать метаданные: ${error.message}`);
     }
 }
