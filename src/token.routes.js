@@ -3,20 +3,18 @@
 import express from "express";
 const router = express.Router();
 
-// ✅ Импортируем PublicKey для явной проверки и кастинга
+// ✅ Импортируем PublicKey только для базового импорта web3.js
 import { PublicKey } from '@solana/web3.js'; 
 
-// ✅ ИСПОЛЬЗУЕМ ТОЛЬКО НОВЫЕ НАТИВНЫЕ ФУНКЦИИ
-import { createTokenAndMint } from "./token-creation.service.js"; // Переименовано для ясности
-import { addTokenMetadata } from "./metadata-addition.service.js"; // Переименовано для ясности
-import { getConnection, getServiceWalletBalance } from "./solana.service.js"; // ✅ Возвращаем функции для баланса и соединения
+import { createTokenAndMint } from "./token-creation.service.js"; 
+import { addTokenMetadata } from "./metadata-addition.service.js"; 
+import { getConnection, getServiceWalletBalance } from "./solana.service.js"; 
 
 // ---------------------------------------------
 // --- Проверка соединения ---
 // ---------------------------------------------
 router.get("/ping", async (req, res) => {
   try {
-    // ✅ Используем нативное web3.js соединение
     const connection = getConnection();
     if (!connection) throw new Error("Solana connection failed.");
       
@@ -41,7 +39,6 @@ router.post("/create-token", async (req, res) => {
   }
 
   let mintAddress = null;
-  let mintPublicKey = null; // Объявляем здесь для доступа в catch
 
   try {
     // ==========================================================
@@ -49,7 +46,7 @@ router.post("/create-token", async (req, res) => {
     // ==========================================================
     console.log("Начинаем ШАГ 1: createTokenAndMint (создание Mint-аккаунта)");
     
-    mintPublicKey = await createTokenAndMint({ 
+    const mintPublicKey = await createTokenAndMint({ 
         decimals: Number(decimals), 
         supply: Number(supply) 
     });
@@ -60,12 +57,9 @@ router.post("/create-token", async (req, res) => {
     // ==========================================================
     console.log("Начинаем ШАГ 2: addTokenMetadata (добавление метаданных)");
     
-    // ✅ ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Явно преобразуем ключ в PublicKey перед передачей.
-    // Это должно устранить любые конфликты типов между модулями.
-    const validatedMintPublicKey = new PublicKey(mintPublicKey);
-    
+    // 🛑 КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Передаем СТРОКУ, а не объект PublicKey.
     const metadataPublicKey = await addTokenMetadata(
-        validatedMintPublicKey, // Передаем проверенный PublicKey
+        mintAddress, // <--- Передаем строку Base58
         name, 
         symbol, 
         uri 
@@ -94,7 +88,6 @@ router.post("/create-token", async (req, res) => {
 // ---------------------------------------------
 router.get("/balance", async (req, res) => {
   try {
-    // ✅ Используем функцию, которая теперь должна быть нативной (в src/solana.service.js)
     const balanceData = await getServiceWalletBalance(); 
     res.json(balanceData);
   } catch (err) {

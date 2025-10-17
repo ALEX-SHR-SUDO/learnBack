@@ -30,36 +30,34 @@ const METADATA_PROGRAM_ID_STRING = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc';
 
 /**
  * Создает Metaplex Metadata Account для токена (с использованием V3).
- * @param {PublicKey} mintAddress Адрес Mint-аккаунта
+ * @param {string} mintAddressString Адрес Mint-аккаунта в виде строки Base58
  * @param {string} name Имя токена
  * @param {string} symbol Символ токена
  * @param {string} uri URI метаданных
  * @returns {Promise<PublicKey>} Адрес Metadata Account PDA.
  */
-export async function addTokenMetadata(mintAddress, name, symbol, uri) {
+export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
     const serviceKeypair = getServiceKeypair();
     const connection = getConnection();
     const payer = serviceKeypair;
 
-    // --- Валидация Mint Address (добавлено в прошлом шаге) ---
-    if (!(mintAddress instanceof PublicKey)) {
-        throw new Error("Внутренняя ошибка: Mint Address не является объектом PublicKey.");
-    }
-    // -----------------------------------------------------------
+    // 🛑 КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Создаем объект PublicKey здесь из переданной строки.
+    // Это гарантирует, что мы используем правильный инстанс класса PublicKey.
+    const mintAddress = new PublicKey(mintAddressString);
 
-    // --- Преобразуем строковый адрес в PublicKey внутри функции ---
+    // --- Преобразуем строковый адрес программы метаданных в PublicKey внутри функции ---
     const METADATA_PROGRAM_ID = new PublicKey(METADATA_PROGRAM_ID_STRING);
 
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress.toBase58()}`);
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        // ИСПРАВЛЕНИЕ: Используем .toBytes() вместо .toBuffer() для большей совместимости с web3.js в данной среде.
+        // Используем .toBytes() для сидов.
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
                 Buffer.from("metadata", "utf8"),
-                METADATA_PROGRAM_ID.toBytes(), // <--- ИЗМЕНЕНИЕ
-                mintAddress.toBytes(),         // <--- ИЗМЕНЕНИЕ
+                METADATA_PROGRAM_ID.toBytes(), 
+                mintAddress.toBytes(),         
             ],
             METADATA_PROGRAM_ID
         );
