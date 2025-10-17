@@ -10,21 +10,22 @@ import {
     sendAndConfirmTransaction, 
 } from '@solana/web3.js';
 
-// ✅ 2. Импортируем V3 Инструкцию и PROGRAM_ID напрямую, как в рабочем React-коде
-import {
+// ✅ 2. ИСПОЛЬЗУЕМ DEFAULT IMPORT, ЧТОБЫ ОБОЙТИ ОШИБКУ COMMONJS/ESM
+import * as mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
+// Деструктурируем компоненты из объекта 'mplTokenMetadataPkg'
+const {
     DataV2, 
     createCreateMetadataAccountV3Instruction,
-    PROGRAM_ID as METADATA_PROGRAM_ID, // <-- Переименовываем PROGRAM_ID
-} from '@metaplex-foundation/mpl-token-metadata';
+    PROGRAM_ID: METADATA_PROGRAM_ID, // Импортируем Metaplex Program ID
+} = mplTokenMetadataPkg;
+
 
 import { getServiceKeypair, getConnection } from "./solana.service.js";
 
 
 /**
  * Создает Metaplex Metadata Account для токена (с использованием V3).
- * * Мы используем этот метод, поскольку он полностью соответствует рабочему
- * фронтенд-коду и явно включает все поля, необходимые для V3.
- * * @param {PublicKey} mintAddress Адрес Mint-аккаунта
+ * @param {PublicKey} mintAddress Адрес Mint-аккаунта
  * @param {string} name Имя токена
  * @param {string} symbol Символ токена
  * @param {string} uri URI метаданных
@@ -39,8 +40,7 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        // ✅ Используем импортированный METADATA_PROGRAM_ID
-        // ✅ Явно конвертируем сид "metadata" в Buffer/Uint8Array для надёжности
+        // Используем METADATA_PROGRAM_ID и явный Buffer
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
                 new Uint8Array(Buffer.from("metadata")), 
@@ -51,7 +51,6 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
         );
 
         // --- 2. Определение данных Metaplex DataV2 ---
-        // Используем DataV2 (стандартный формат метаданных)
         const tokenData = new DataV2({
             name: name,
             symbol: symbol,
@@ -75,8 +74,8 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
             {
                 createMetadataAccountArgsV3: { 
                     data: tokenData,
-                    isMutable: true, // Позволяет изменять метаданные в будущем
-                    collectionDetails: null, // Обязательное поле для V3, если коллекция не используется
+                    isMutable: true,
+                    collectionDetails: null, 
                 },
             }
         );
