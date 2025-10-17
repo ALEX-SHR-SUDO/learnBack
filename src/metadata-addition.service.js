@@ -1,116 +1,85 @@
 // src/metadata-addition.service.js
 
-import { Buffer } from 'buffer';
-
-import {
-    PublicKey,
-    SystemProgram, 
-    Transaction, 
-    sendAndConfirmTransaction, 
-} from '@solana/web3.js';
-
-// ИСПОЛЬЗУЕМ DEFAULT IMPORT ДЛЯ ИНСТРУКЦИЙ И DataV2
-import * as mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
-
-const mplExports = mplTokenMetadataPkg.default || mplTokenMetadataPkg;
-
-const {
-    DataV2, 
-    createCreateMetadataAccountV3Instruction,
-} = mplExports;
-
-import { getServiceKeypair, getConnection } from "./solana.service.js";
-
-
-// Program ID: Token Metadata Program
-const METADATA_PROGRAM_ID_STRING = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc';
-
+import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { 
+    createCreateMetadataAccountV3Instruction, 
+    PROGRAM_ID as METADATA_PROGRAM_ID,
+    findMetadataPda, // Импортируем Metaplex Helper
+} from "@metaplex-foundation/mpl-token-metadata";
+import { Buffer } from "buffer";
 
 /**
- * Создает Metaplex Metadata Account для токена (с использованием V3).
- * @param {string} mintAddressString Адрес Mint-аккаунта в виде строки Base58
- * @param {string} name Имя токена
- * @param {string} symbol Символ токена
- * @param {string} uri URI метаданных
- * @returns {Promise<PublicKey>} Адрес Metadata Account PDA.
+ * Добавляет метаданные Metaplex (имя, символ, URI) к существующему Mint-аккаунту токена.
+ * * @param {import('@solana/web3.js').Connection} connection Соединение с Solana.
+ * @param {import('@solana/web3.js').Keypair} payer Кошелек, оплачивающий транзакцию и являющийся Mint Authority.
+ * @param {string} mintAddress Адрес Mint-аккаунта токена.
+ * @param {string} name Название токена.
+ * @param {string} symbol Символ токена.
+ * @param {string} uri Ссылка на JSON-файл метаданных.
+ * @returns {Promise<string>} Подпись транзакции.
  */
-export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
-    const serviceKeypair = getServiceKeypair();
-    const connection = getConnection();
-    const payer = serviceKeypair;
+export async function addTokenMetadata(connection, payer, mintAddress, name, symbol, uri) {
+    const mintPublicKey = new PublicKey(mintAddress);
+    
+    // 1. ВЫЧИСЛЕНИЕ АДРЕСА PDA МЕТАДАННЫХ
+    // Мы используем Metaplex Helper для обхода проблем с web3.js/Buffer
+    console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress}`);
+    
+    // findMetadataPda: [ 'metadata', METADATA_PROGRAM_ID, mint.publicKey ]
+    const [metadataAddress] = findMetadataPda({
+        mint: mintPublicKey,
+    });
 
-    // Безопасное инстанцирование PublicKey внутри функции
-    const mintAddress = new PublicKey(mintAddressString);
-    const METADATA_PROGRAM_ID = new PublicKey(METADATA_PROGRAM_ID_STRING);
+    console.log(`[ШАГ 4] Адрес PDA метаданных успешно вычислен: ${metadataAddress.toBase58()}`);
 
-    console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress.toBase58()}`);
+    // 2. ФОРМИРОВАНИЕ ИНСТРУКЦИИ
+    const instruction = createCreateMetadataAccountV3Instruction(
+        {
+            metadata: metadataAddress,
+            mint: mintPublicKey,
+            mintAuthority: payer.publicKey,
+            payer: payer.publicKey,
+            updateAuthority: payer.publicKey, // Используем плательщика в качестве Update Authority
+        },
+        {
+            createMetadataAccountArgsV3: {
+                data: {
+                    name: name,
+                    symbol: symbol,
+                    uri: uri,
+                    sellerFeeBasisPoints: 0, // Устанавливаем 0, так как это не NFT
+                    creators: null,
+                    collection: null,
+                    uses: null,
+                },
+                isMutable: true,
+                collectionDetails: null,
+            },
+        }
+    );
+
+    // 3. ОТПРАВКА ТРАНЗАКЦИИ
+    const transaction = await connection.getLatestBlockhash();
+    const finalTransaction = new TransactionInstruction({
+        keys: instruction.keys,
+        programId: instruction.programId,
+        data: instruction.data,
+    });
 
     try {
-        // --- 1. Получение адреса Metadata Account PDA ---
-        // ✅ САМОЕ НАДЕЖНОЕ РЕШЕНИЕ: используем PublicKey объекты напрямую для сидов.
-        // Это стандартный и наиболее устойчивый паттерн.
-       const [metadataAddress] = await PublicKey.findProgramAddress( 
-            [
-                Buffer.from("metadata", "utf8"), // Seed 1: String prefix as Buffer
-                METADATA_PROGRAM_ID,             // Seed 2: Program ID (as PublicKey object)
-                mintAddress,                     // Seed 3: Mint Key (as PublicKey object)
-            ],
-            METADATA_PROGRAM_ID
-        );
-        
-        console.log(`[DEBUG PDA] Адрес PDA метаданных успешно вычислен: ${metadataAddress.toBase58()}`);
-
-
-        // --- 2. Определение данных Metaplex DataV2 ---
-        const tokenData = new DataV2({
-            name: name,
-            symbol: symbol,
-            uri: uri,
-            sellerFeeBasisPoints: 0,
-            creators: null,
-            collection: null,
-            uses: null,
-        });
-
-        // --- 3. Создание инструкции V3 ---
-        const metadataInstruction = createCreateMetadataAccountV3Instruction(
-            {
-                metadata: metadataAddress,
-                mint: mintAddress,
-                mintAuthority: payer.publicKey,
-                payer: payer.publicKey,
-                updateAuthority: payer.publicKey,
-                systemProgram: SystemProgram.programId, 
-            },
-            {
-                createMetadataAccountArgsV3: { 
-                    data: tokenData,
-                    isMutable: true,
-                    collectionDetails: null, 
-                },
+        const tx = await connection.sendTransaction(
+            finalTransaction, 
+            [payer], 
+            { 
+                skipPreflight: false,
+                preflightCommitment: "confirmed"
             }
         );
 
-        // --- 4. Отправка транзакции ---
-        const transaction = new Transaction().add(metadataInstruction);
-
-        const signature = await sendAndConfirmTransaction(
-            connection,
-            transaction,
-            [payer] 
-        );
-
-        console.log(`✅ [ШАГ 4] Метаданные созданы. Signature: ${signature}`);
-        
-        return metadataAddress;
-
+        console.log(`✅ [ШАГ 4] Метаданные токена созданы. Подпись: ${tx}`);
+        return tx;
     } catch (error) {
-        // Логирование, если сбой происходит после вычисления PDA
-        if (error.message.includes('Invalid public key input')) {
-            console.error("❌ Ошибка в addTokenMetadata: Ключ не прошел валидацию в findProgramAddress.");
-        } else {
-            console.error("❌ Ошибка в addTokenMetadata:", error);
-        }
-        throw new Error(`Не удалось создать метаданные. Причина: ${error.message}`);
+        console.error("❌ Ошибка при добавлении метаданных токена:", error);
+        throw new Error("Ошибка при добавлении метаданных токена: " + error.message);
     }
 }
