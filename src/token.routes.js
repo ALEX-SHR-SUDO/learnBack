@@ -3,7 +3,9 @@
 import express from "express";
 const router = express.Router();
 
-// ❌ УДАЛЕНЫ импорты Umi и solana.service
+// ✅ Импортируем PublicKey для явной проверки и кастинга
+import { PublicKey } from '@solana/web3.js'; 
+
 // ✅ ИСПОЛЬЗУЕМ ТОЛЬКО НОВЫЕ НАТИВНЫЕ ФУНКЦИИ
 import { createTokenAndMint } from "./token-creation.service.js"; // Переименовано для ясности
 import { addTokenMetadata } from "./metadata-addition.service.js"; // Переименовано для ясности
@@ -34,21 +36,20 @@ router.post("/create-token", async (req, res) => {
   console.log("Req Body Received:", req.body);
   console.log("Destructured values:", { name, symbol, uri, decimals, supply });
   
-  // ❌ УДАЛЕНА Инициализация Umi. Мы полагаемся на то, что Keypair загружается в сервисах.
-  
   if (!supply || !name || !symbol || !uri || !decimals) { 
     return res.status(400).json({ error: "❗ Необходимы supply, name, symbol, uri и decimals для создания токена" });
   }
 
   let mintAddress = null;
+  let mintPublicKey = null; // Объявляем здесь для доступа в catch
 
   try {
     // ==========================================================
     // ШАГ 1: Создание токена и минтинг
     // ==========================================================
     console.log("Начинаем ШАГ 1: createTokenAndMint (создание Mint-аккаунта)");
-    // ✅ Вызываем нативную функцию. Umi больше не нужен
-    const mintPublicKey = await createTokenAndMint({ 
+    
+    mintPublicKey = await createTokenAndMint({ 
         decimals: Number(decimals), 
         supply: Number(supply) 
     });
@@ -58,9 +59,13 @@ router.post("/create-token", async (req, res) => {
     // ШАГ 2: Добавление метаданных
     // ==========================================================
     console.log("Начинаем ШАГ 2: addTokenMetadata (добавление метаданных)");
-    // ✅ Вызываем нативную функцию. Umi больше не нужен
+    
+    // ✅ ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Явно преобразуем ключ в PublicKey перед передачей.
+    // Это должно устранить любые конфликты типов между модулями.
+    const validatedMintPublicKey = new PublicKey(mintPublicKey);
+    
     const metadataPublicKey = await addTokenMetadata(
-        mintPublicKey, // Передаем PublicKey
+        validatedMintPublicKey, // Передаем проверенный PublicKey
         name, 
         symbol, 
         uri 
