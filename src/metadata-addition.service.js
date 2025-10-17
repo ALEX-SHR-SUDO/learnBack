@@ -12,13 +12,15 @@ import {
 
 // ✅ 2. ИСПОЛЬЗУЕМ DEFAULT IMPORT, ЧТОБЫ ОБОЙТИ ОШИБКУ COMMONJS/ESM
 import * as mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
-// Деструктурируем компоненты из объекта 'mplTokenMetadataPkg'
+
+// Проверяем, находятся ли экспорты в свойстве .default (типично для Node.js CommonJS -> ESM)
+const mplExports = mplTokenMetadataPkg.default || mplTokenMetadataPkg;
+
 const {
     DataV2, 
     createCreateMetadataAccountV3Instruction,
     PROGRAM_ID: METADATA_PROGRAM_ID, // Импортируем Metaplex Program ID
-} = mplTokenMetadataPkg;
-
+} = mplExports;
 
 import { getServiceKeypair, getConnection } from "./solana.service.js";
 
