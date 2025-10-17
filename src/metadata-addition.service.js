@@ -1,8 +1,9 @@
 // src/metadata-addition.service.js
 
 // ✅ ИСПОЛЬЗУЕМ СИНТАКСИС, РЕКОМЕНДОВАННЫЙ NODE.JS ДЛЯ CJS/ESM
+import { PublicKey, Keypair, SystemProgram, Transaction, sendAndConfirmTransaction } from '@solana/web3.js';
 import mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
-import { getServiceKeypair, getConnection } from "./solana.service.js"; 
+import { getServiceKeypair, getConnection } from "./solana.service.js";
 
 // Деструктурируем необходимые экспорты из полученного объекта
 const { DataV2, createCreateMetadataAccountV2Instruction } = mplTokenMetadataPkg;
