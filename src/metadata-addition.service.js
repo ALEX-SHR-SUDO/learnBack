@@ -44,12 +44,12 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
         // PublicKey здесь уже доступен, так как он импортирован напрямую
-        const [metadataAddress] = PublicKey.findProgramAddressSync( 
-            [
-                Buffer.from("metadata"),
-                METADATA_PROGRAM_ID.toBuffer(),
-                mintAddress.toBuffer(),
-            ],
+       const [metadataAddress] = PublicKey.findProgramAddressSync( 
+        [
+            new Uint8Array(Buffer.from("metadata")), // ⬅️ Используем Uint8Array
+            METADATA_PROGRAM_ID.toBuffer(),
+            mintAddress.toBuffer(),
+        ],
             METADATA_PROGRAM_ID
         );
 
