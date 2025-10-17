@@ -1,16 +1,14 @@
 // src/metadata-addition.service.js
 
-// ✅ ФИНАЛЬНЫЙ ОБХОДНОЙ ПУТЬ ДЛЯ NODE.JS
-if (typeof Buffer === 'undefined') {
-    global.Buffer = (await import('buffer')).Buffer;
-}
+// ✅ 1. ЯВНЫЙ ИМПОРТ Buffer для гарантии правильной реализации
+import { Buffer } from 'buffer';
 
-// ✅ ИМПОРТЫ СТАЛИ ЕЩЕ БОЛЕЕ ПРЯМЫМИ
+// ✅ 2. ИМПОРТЫ СТАЛИ ЕЩЕ БОЛЕЕ ПРЯМЫМИ
 import {
     PublicKey,
-    SystemProgram, // Используется напрямую
-    Transaction, // Используется напрямую
-    sendAndConfirmTransaction, // Используется напрямую
+    SystemProgram, 
+    Transaction, 
+    sendAndConfirmTransaction, 
     PublicKey as Web3PublicKey 
 } from '@solana/web3.js';
 import mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
@@ -37,17 +35,16 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
     const connection = getConnection();
     const payer = serviceKeypair;
     
-    // ✅ Инициализируем константу внутри функции (безопасное место)
     const METADATA_PROGRAM_ID = getMetadataProgramId();
 
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress.toBase58()}`);
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        // ✅ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Гарантируем чистый Uint8Array для семян PDA
+        // ✅ Используем АСИНХРОННЫЙ вызов и явно импортированный Buffer
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
-                new Uint8Array(Buffer.from("metadata")), // ⬅️ Используем явный Uint8Array для устранения конфликта Buffer
+                new Uint8Array(Buffer.from("metadata")), // ⬅️ Теперь Buffer гарантированно импортирован
                 METADATA_PROGRAM_ID.toBuffer(),
                 mintAddress.toBuffer(),
             ],
