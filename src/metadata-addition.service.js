@@ -46,17 +46,29 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        // ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Все сиды передаются как явные объекты Buffer.
+        
+        // 🛑 КРИТИЧЕСКИЙ ДЕБАГ: Получаем байты и проверяем их длину
+        const metadataProgramBytes = METADATA_PROGRAM_ID.toBytes();
+        const mintAddressBytes = mintAddress.toBytes();
+        
+        console.log(`[DEBUG PDA] METADATA_PROGRAM_ID bytes length: ${metadataProgramBytes.length}`);
+        console.log(`[DEBUG PDA] mintAddress bytes length: ${mintAddressBytes.length}`);
+
+
+        // ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Все сиды передаются как явные объекты Buffer,
+        // что является самым низкоуровневым и надежным способом.
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
-                // Buffer для текстового сида
                 Buffer.from("metadata", "utf8"),
-                // Явное преобразование PublicKey в Buffer
-                METADATA_PROGRAM_ID.toBuffer(), 
-                mintAddress.toBuffer(),         
+                // Явное преобразование Uint8Array в Buffer
+                Buffer.from(metadataProgramBytes), 
+                Buffer.from(mintAddressBytes),         
             ],
             METADATA_PROGRAM_ID
         );
+        
+        console.log(`[DEBUG PDA] Адрес PDA метаданных успешно вычислен: ${metadataAddress.toBase58()}`);
+
 
         // --- 2. Определение данных Metaplex DataV2 ---
         const tokenData = new DataV2({
