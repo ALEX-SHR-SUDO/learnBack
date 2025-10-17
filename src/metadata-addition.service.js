@@ -6,7 +6,7 @@ import {
     SystemProgram, // Используется напрямую
     Transaction, // Используется напрямую
     sendAndConfirmTransaction, // Используется напрямую
-    PublicKey as Web3PublicKey // Используется для типа в JSDoc (поскольку web3.PublicKey был удален)
+    PublicKey as Web3PublicKey 
 } from '@solana/web3.js';
 import mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
 import { getServiceKeypair, getConnection } from "./solana.service.js";
@@ -14,10 +14,7 @@ import { getServiceKeypair, getConnection } from "./solana.service.js";
 // Деструктурируем необходимые экспорты из полученного объекта
 const { DataV2, createCreateMetadataAccountV2Instruction } = mplTokenMetadataPkg;
 
-// ❌ УДАЛЕНА ПРОБЛЕМНАЯ СТРОКА: Инициализация константы при загрузке модуля
-// const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc');
-
-// ✅ ИНИЦИАЛИЗАЦИЯ: Ленивая (lazy) инициализация, чтобы PublicKey создавался только при вызове
+// ✅ ИНИЦИАЛИЗАЦИЯ: Ленивая (lazy) инициализация адреса Metaplex Program ID
 function getMetadataProgramId() {
     return new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc');
 }
@@ -42,13 +39,13 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        // PublicKey здесь уже доступен, так как он импортирован напрямую
+        // ✅ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Гарантируем чистый Uint8Array для семян PDA
        const [metadataAddress] = PublicKey.findProgramAddressSync( 
-        [
-            new Uint8Array(Buffer.from("metadata")), // ⬅️ Используем Uint8Array
-            METADATA_PROGRAM_ID.toBuffer(),
-            mintAddress.toBuffer(),
-        ],
+            [
+                new Uint8Array(Buffer.from("metadata")), // ⬅️ Используем явный Uint8Array для устранения конфликта Buffer
+                METADATA_PROGRAM_ID.toBuffer(),
+                mintAddress.toBuffer(),
+            ],
             METADATA_PROGRAM_ID
         );
 
@@ -71,8 +68,6 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
                 mintAuthority: payer.publicKey,
                 payer: payer.publicKey,
                 updateAuthority: payer.publicKey,
-                // ❌ БЫЛО: web3.SystemProgram.programId (web3 не определен)
-                // ✅ СТАЛО: SystemProgram.programId (импортирован напрямую)
                 systemProgram: SystemProgram.programId, 
             },
             {
@@ -84,12 +79,8 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
         );
 
         // --- 4. Отправка транзакции ---
-        // ❌ БЫЛО: new web3.Transaction().add (web3 не определен)
-        // ✅ СТАЛО: new Transaction().add (импортирован напрямую)
         const transaction = new Transaction().add(metadataInstruction);
 
-        // ❌ БЫЛО: web3.sendAndConfirmTransaction (web3 не определен)
-        // ✅ СТАЛО: sendAndConfirmTransaction (импортирован напрямую)
         const signature = await sendAndConfirmTransaction(
             connection,
             transaction,
