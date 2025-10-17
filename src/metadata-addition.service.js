@@ -24,8 +24,9 @@ const {
 import { getServiceKeypair, getConnection } from "./solana.service.js";
 
 
-// 3. Используем адрес программы метаданных как строку.
-const METADATA_PROGRAM_ID_STRING = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc';
+// 🛑 КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Создаем PublicKey для программы метаданных на уровне модуля.
+// Это гарантирует, что она инстанцирована правильно и стабильно.
+const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc');
 
 
 /**
@@ -41,30 +42,30 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
     const connection = getConnection();
     const payer = serviceKeypair;
 
-    let mintAddress; // Declared here for use inside the try/catch
+    let mintAddress; 
 
-    // 🛑 CRITICAL DEBUGGING BLOCK: Isolate the PublicKey creation failure
+    // CRITICAL DEBUGGING BLOCK: Isolate the PublicKey creation failure
     try {
         console.log(`[DEBUG] Входящая строка Mint-адреса: ${mintAddressString}`);
-        
-        // Create PublicKey object here from the passed string.
+        // Создаем объект PublicKey здесь из переданной строки.
         mintAddress = new PublicKey(mintAddressString);
-
-        console.log(`[DEBUG] Объект PublicKey успешно создан: ${mintAddress.toBase58()}`);
+        console.log(`[DEBUG] Объект Mint PublicKey успешно создан: ${mintAddress.toBase58()}`);
 
     } catch (e) {
-        console.error(`[КРИТИЧЕСКИЙ DEBUG] НЕ УДАЛОСЬ преобразовать строку в PublicKey: ${e.message}`);
+        console.error(`[КРИТИЧЕСКИЙ DEBUG] НЕ УДАЛОСЬ преобразовать строку в Mint PublicKey: ${e.message}`);
         throw new Error(`Невалидный адрес Mint: ${mintAddressString}. Причина: ${e.message}`);
     }
-
-    // --- Convert the string metadata program address to PublicKey inside the function ---
-    const METADATA_PROGRAM_ID = new PublicKey(METADATA_PROGRAM_ID_STRING);
 
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress.toBase58()}`);
 
     try {
         // --- 1. Get Metadata Account PDA address ---
-        // Using .toBytes() for seeds.
+        
+        // 🛑 КРИТИЧЕСКИЙ DEBUG 2: Проверяем типы перед findProgramAddress
+        console.log(`[DEBUG] Тип METADATA_PROGRAM_ID (константа модуля): ${METADATA_PROGRAM_ID.constructor.name}`); // Должен быть 'PublicKey'
+        console.log(`[DEBUG] Тип mintAddress (создан в функции): ${mintAddress.constructor.name}`); // Должен быть 'PublicKey'
+        
+        // Используем .toBytes() для сидов.
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
                 Buffer.from("metadata", "utf8"),
@@ -73,6 +74,8 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
             ],
             METADATA_PROGRAM_ID
         );
+        
+        console.log(`[DEBUG] Адрес PDA метаданных успешно вычислен: ${metadataAddress.toBase58()}`);
 
         // --- 2. Define Metaplex DataV2 data ---
         const tokenData = new DataV2({
@@ -86,6 +89,7 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
         });
 
         // --- 3. Create V3 instruction ---
+        // Если PDA вычислен, ошибка почти наверняка не здесь.
         const metadataInstruction = createCreateMetadataAccountV3Instruction(
             {
                 metadata: metadataAddress,
@@ -118,6 +122,7 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
         return metadataAddress;
 
     } catch (error) {
+        // Мы поймаем ошибку, если она произошла в findProgramAddress или в sendAndConfirmTransaction
         console.error("❌ Ошибка в addTokenMetadata:", error);
         throw new Error(`Не удалось создать метаданные: ${error.message}`);
     }
