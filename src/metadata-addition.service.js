@@ -22,6 +22,7 @@ const {
 import { getServiceKeypair, getConnection } from "./solana.service.js";
 
 
+// Program ID: Token Metadata Program
 const METADATA_PROGRAM_ID_STRING = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc';
 
 
@@ -46,23 +47,13 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        
-        // 🛑 КРИТИЧЕСКИЙ ДЕБАГ: Получаем байты и проверяем их длину
-        const metadataProgramBytes = METADATA_PROGRAM_ID.toBytes();
-        const mintAddressBytes = mintAddress.toBytes();
-        
-        console.log(`[DEBUG PDA] METADATA_PROGRAM_ID bytes length: ${metadataProgramBytes.length}`);
-        console.log(`[DEBUG PDA] mintAddress bytes length: ${mintAddressBytes.length}`);
-
-
-        // ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Все сиды передаются как явные объекты Buffer,
-        // что является самым низкоуровневым и надежным способом.
+        // ✅ САМОЕ НАДЕЖНОЕ РЕШЕНИЕ: используем PublicKey объекты напрямую для сидов.
+        // Это стандартный и наиболее устойчивый паттерн.
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
-                Buffer.from("metadata", "utf8"),
-                // Явное преобразование Uint8Array в Buffer
-                Buffer.from(metadataProgramBytes), 
-                Buffer.from(mintAddressBytes),         
+                Buffer.from("metadata", "utf8"), // Seed 1: String prefix as Buffer
+                METADATA_PROGRAM_ID,             // Seed 2: Program ID (as PublicKey object)
+                mintAddress,                     // Seed 3: Mint Key (as PublicKey object)
             ],
             METADATA_PROGRAM_ID
         );
@@ -114,7 +105,12 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
         return metadataAddress;
 
     } catch (error) {
-        console.error("❌ Ошибка в addTokenMetadata:", error);
-        throw new Error(`Не удалось создать метаданные. Возможно, проблема с метаданными или лимитом транзакции. Причина: ${error.message}`);
+        // Логирование, если сбой происходит после вычисления PDA
+        if (error.message.includes('Invalid public key input')) {
+            console.error("❌ Ошибка в addTokenMetadata: Ключ не прошел валидацию в findProgramAddress.");
+        } else {
+            console.error("❌ Ошибка в addTokenMetadata:", error);
+        }
+        throw new Error(`Не удалось создать метаданные. Причина: ${error.message}`);
     }
 }
