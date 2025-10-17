@@ -7,6 +7,9 @@
   "scripts": {
     "start": "node server.js"
   },
+  "engines": {
+    "node": "20.x" 
+  },
   "dependencies": {
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
     "@solana/spl-token": "^0.4.14",
