@@ -1,12 +1,14 @@
 // src/metadata-addition.service.js
 
 import * as web3 from '@solana/web3.js';
-// ❌ We no longer import * as mpl to avoid the PROGRAM_ID import issue
-// We will import only what we need from Metaplex
-import { DataV2, createCreateMetadataAccountV2Instruction } from '@metaplex-foundation/mpl-token-metadata';
+// ✅ ИСПОЛЬЗУЕМ СИНТАКСИС, РЕКОМЕНДОВАННЫЙ NODE.JS ДЛЯ CJS/ESM
+import mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
 import { getServiceKeypair, getConnection } from "./solana.service.js"; 
 
-// ✅ HARDCODE FIX: The Public Key for the Metaplex Token Metadata Program (same across clusters)
+// Деструктурируем необходимые экспорты из полученного объекта
+const { DataV2, createCreateMetadataAccountV2Instruction } = mplTokenMetadataPkg;
+
+// ✅ HARDCODE FIX: Адрес программы Metaplex Token Metadata
 const METADATA_PROGRAM_ID = new web3.PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc');
 
 /**
