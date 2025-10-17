@@ -1,20 +1,20 @@
 // src/solana.service.js
 
+// ✅ ПРЯМОЙ ИМПОРТ ВСЕХ НЕОБХОДИМЫХ КЛАССОВ И КОНСТАНТ
 import { 
     Connection, 
     Keypair, 
     LAMPORTS_PER_SOL 
-    // PublicKey (если используется)
 } from '@solana/web3.js'; 
 import bs58 from 'bs58';
 
-const CLUSTER_URL = 'https://api.devnet.solana.com'
+const CLUSTER_URL = 'https://api.devnet.solana.com';
 let connectionInstance = null;
 let serviceKeypairInstance = null;
 
 /**
  * Загружает Keypair из SERVICE_SECRET_KEY (Base58).
- * @returns {web3.Keypair} Keypair сервисного кошелька
+ * @returns {Keypair} Keypair сервисного кошелька
  */
 export function getServiceKeypair() {
     if (serviceKeypairInstance) return serviceKeypairInstance;
@@ -26,21 +26,26 @@ export function getServiceKeypair() {
     
     try {
         const secretKeyBytes = bs58.decode(secretKeyBs58);
-        serviceKeypairInstance = web3.Keypair.fromSecretKey(secretKeyBytes);
+        
+        // ❌ Исправление: Использовать Keypair напрямую
+        serviceKeypairInstance = Keypair.fromSecretKey(secretKeyBytes); 
+        
         console.log(`✅ Сервисный кошелёк загружен: ${serviceKeypairInstance.publicKey.toBase58()}`);
         return serviceKeypairInstance;
     } catch (e) {
+        // Если ошибка здесь "Non-base58 character", значит, SERVICE_SECRET_KEY неверный.
         throw new Error(`Failed to load Keypair from SERVICE_SECRET_KEY: ${e.message}`);
     }
 }
 
 /**
  * Возвращает Connection.
- * @returns {web3.Connection}
+ * @returns {Connection}
  */
 export function getConnection() {
     if (!connectionInstance) {
-        connectionInstance = new web3.Connection(CLUSTER_URL, 'confirmed');
+        // ❌ Исправление: Использовать Connection напрямую
+        connectionInstance = new Connection(CLUSTER_URL, 'confirmed'); 
     }
     return connectionInstance;
 }
@@ -54,7 +59,9 @@ export async function getServiceWalletBalance() {
         const connection = getConnection();
 
         const balanceLamports = await connection.getBalance(keypair.publicKey);
-        const balanceSOL = balanceLamports / web3.LAMPORTS_PER_SOL;
+        
+        // ❌ Исправление: Использовать LAMPORTS_PER_SOL напрямую
+        const balanceSOL = balanceLamports / LAMPORTS_PER_SOL; 
 
         return { 
             wallet: keypair.publicKey.toBase58(),
