@@ -1,7 +1,23 @@
 // src/metadata-addition.service.js
 
-// Добавляем 'Transaction' для более чистого создания транзакций
-import { PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js"; 
+import {
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
+
+import {
+  MINT_SIZE,
+  TOKEN_PROGRAM_ID,
+  createInitializeMintInstruction,
+  getMinimumBalanceForRentExemptMint,
+} from "@solana/spl-token";
+import {
+  createCreateMetadataAccountV3Instruction,
+  PROGRAM_ID,
+} from "@metaplex-foundation/mpl-token-metadata";
+
 // Правильный импорт CommonJS-модулей в режиме ESM
 import * as metaplex from "@metaplex-foundation/mpl-token-metadata";
 import { Buffer } from "buffer";
