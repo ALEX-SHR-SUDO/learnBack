@@ -25,6 +25,7 @@ import { getServiceKeypair, getConnection } from "./solana.service.js";
 
 
 // ✅ 3. Используем адрес программы метаданных как строку, чтобы избежать ошибки при запуске.
+// ЭТО ПРОСТАЯ СТРОКА, ОНА НЕ МОЖЕТ ВЫЗВАТЬ ОШИБКУ "Invalid public key input"
 const METADATA_PROGRAM_ID_STRING = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc';
 
 
@@ -41,7 +42,7 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
     const connection = getConnection();
     const payer = serviceKeypair;
 
-    // --- Преобразуем строковый адрес в PublicKey внутри функции ---
+    // --- Преобразуем строковый адрес в PublicKey внутри функции (ТОЛЬКО ЗДЕСЬ) ---
     const METADATA_PROGRAM_ID = new PublicKey(METADATA_PROGRAM_ID_STRING);
 
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress.toBase58()}`);
