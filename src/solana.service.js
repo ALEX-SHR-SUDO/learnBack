@@ -7,6 +7,7 @@ import {
     LAMPORTS_PER_SOL 
 } from '@solana/web3.js'; 
 import bs58 from 'bs58';
+import * as splToken from '@solana/spl-token';
 import { TOKEN_PROGRAM_ID, AccountState } from '@solana/spl-token'; // ✅ ДОБАВИТЬ ЭТОТ ИМПОРТ
 
 const CLUSTER_URL = 'https://api.devnet.solana.com';
