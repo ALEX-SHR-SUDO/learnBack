@@ -1,28 +1,10 @@
 // src/metadata-addition.service.js
 
-import {
-  Keypair,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-} from "@solana/web3.js";
-
-import {
-  MINT_SIZE,
-  TOKEN_PROGRAM_ID,
-  createInitializeMintInstruction,
-  getMinimumBalanceForRentExemptMint,
-} from "@solana/spl-token";
-import {
-  createCreateMetadataAccountV3Instruction,
-  PROGRAM_ID,
-} from "@metaplex-foundation/mpl-token-metadata";
-
-// Правильный импорт CommonJS-модулей в режиме ESM
+import { PublicKey, Transaction } from "@solana/web3.js"; 
 import * as metaplex from "@metaplex-foundation/mpl-token-metadata";
 import { Buffer } from "buffer";
 
-// Извлекаем необходимые функции
+// Извлекаем необходимые функции из Metaplex для совместимости с ESM
 const { 
     createCreateMetadataAccountV3Instruction, 
     findMetadataPda 
@@ -41,17 +23,18 @@ const {
 export async function addTokenMetadata(connection, payer, mintAddress, name, symbol, uri) {
     const mintPublicKey = new PublicKey(mintAddress);
     
-    // Временно определяем Program ID внутри функции, чтобы избежать ошибки 
-    // "Invalid public key input" при инициализации модуля в Node.js 22.x/ESM.
+    // Определяем Program ID внутри функции. Это самый надежный способ избежать ошибок инициализации модулей.
     const TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
 
     // 1. ВЫЧИСЛЕНИЕ АДРЕСА PDA МЕТАДАННЫХ
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress}`);
     
-    // findMetadataPda использует Mint-адрес, который у нас есть (mintPublicKey), и 
-    // внутренне использует Program ID метаданных. Мы полагаемся на помощник.
+    // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Мы явно передаем programId в findMetadataPda.
+    // Это обходит внутренние проблемы совместимости CJS/ESM, гарантируя, 
+    // что для вычисления PDA используется валидный объект PublicKey.
     const [metadataAddress] = findMetadataPda({
         mint: mintPublicKey,
+        programId: TOKEN_METADATA_PROGRAM_ID, // <-- ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ
     });
 
     console.log(`[ШАГ 4] Адрес PDA метаданных успешно вычислен: ${metadataAddress.toBase58()}`);
