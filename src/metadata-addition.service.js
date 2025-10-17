@@ -10,17 +10,20 @@ import {
     sendAndConfirmTransaction, 
 } from '@solana/web3.js';
 
-// ✅ 2. ИСПОЛЬЗУЕМ DEFAULT IMPORT, ЧТОБЫ ОБОЙТИ ОШИБКУ COMMONJS/ESM
+// ✅ 2. ИСПОЛЬЗУЕМ DEFAULT IMPORT ДЛЯ ИНСТРУКЦИЙ И DataV2
 import * as mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
 
-// Проверяем, находятся ли экспорты в свойстве .default (типично для Node.js CommonJS -> ESM)
+// Проверяем, находятся ли экспорты в свойстве .default (обход CommonJS/ESM)
 const mplExports = mplTokenMetadataPkg.default || mplTokenMetadataPkg;
 
 const {
     DataV2, 
     createCreateMetadataAccountV3Instruction,
-    PROGRAM_ID: METADATA_PROGRAM_ID, // Импортируем Metaplex Program ID
 } = mplExports;
+
+// ✅ 3. ЖЕСТКОЕ КОДИРОВАНИЕ PROGRAM_ID Metaplex, чтобы избежать проблем с импортом,
+// так как адрес программы метаданных всегда один и тот же.
+const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc');
 
 import { getServiceKeypair, getConnection } from "./solana.service.js";
 
@@ -42,7 +45,7 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        // Используем METADATA_PROGRAM_ID и явный Buffer
+        // Используем METADATA_PROGRAM_ID (который теперь является надежной константой PublicKey)
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
                 new Uint8Array(Buffer.from("metadata")), 
