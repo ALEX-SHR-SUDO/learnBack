@@ -1,8 +1,8 @@
 // src/token-creation.service.js
 
-import * as web3 from '@solana/web3.js';
+import { Connection, PublicKey, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'; 
 import * as splToken from '@solana/spl-token';
-import { getServiceKeypair, getConnection } from "./solana.service.js"; // ✅ ИСПОЛЬЗУЕМ ВАШ КЛЮЧ
+import { getServiceKeypair, getConnection } from "./solana.service.js";
 
 /**
  * Создает Mint-аккаунт, ATA и минтит начальное предложение.

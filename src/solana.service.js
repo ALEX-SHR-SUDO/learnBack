@@ -1,6 +1,6 @@
 // src/solana.service.js
 
-import { Connection, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'; 
 import bs58 from 'bs58';
 
 const CLUSTER_URL = 'https://api.devnet.solana.com';
