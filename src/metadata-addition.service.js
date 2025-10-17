@@ -1,6 +1,7 @@
 // src/metadata-addition.service.js
 
 import { PublicKey, Transaction } from "@solana/web3.js"; 
+// Правильный импорт CommonJS-модулей в режиме ESM (используем * as metaplex)
 import * as metaplex from "@metaplex-foundation/mpl-token-metadata";
 import { Buffer } from "buffer";
 
@@ -29,12 +30,12 @@ export async function addTokenMetadata(connection, payer, mintAddress, name, sym
     // 1. ВЫЧИСЛЕНИЕ АДРЕСА PDA МЕТАДАННЫХ
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress}`);
     
-    // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Мы явно передаем programId в findMetadataPda.
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Мы явно передаем programId в findMetadataPda.
     // Это обходит внутренние проблемы совместимости CJS/ESM, гарантируя, 
-    // что для вычисления PDA используется валидный объект PublicKey.
+    // что для вычисления PDA используется валидный объект PublicKey, а не поврежденный внутренний.
     const [metadataAddress] = findMetadataPda({
         mint: mintPublicKey,
-        programId: TOKEN_METADATA_PROGRAM_ID, // <-- ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ
+        programId: TOKEN_METADATA_PROGRAM_ID, // <-- Это должно решить проблему "Invalid public key input"
     });
 
     console.log(`[ШАГ 4] Адрес PDA метаданных успешно вычислен: ${metadataAddress.toBase58()}`);
