@@ -4,7 +4,7 @@
 import { Buffer } from 'buffer';
 
 import {
-    PublicKey,
+    PublicKey, // Используется внутри addTokenMetadata
     SystemProgram, 
     Transaction, 
     sendAndConfirmTransaction, 
@@ -21,11 +21,11 @@ const {
     createCreateMetadataAccountV3Instruction,
 } = mplExports;
 
-// ✅ 3. ЖЕСТКОЕ КОДИРОВАНИЕ PROGRAM_ID Metaplex, чтобы избежать проблем с импортом,
-// так как адрес программы метаданных всегда один и тот же.
-const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc');
-
 import { getServiceKeypair, getConnection } from "./solana.service.js";
+
+
+// ✅ 3. Используем адрес программы метаданных как строку, чтобы избежать ошибки при запуске.
+const METADATA_PROGRAM_ID_STRING = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc';
 
 
 /**
@@ -41,11 +41,13 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
     const connection = getConnection();
     const payer = serviceKeypair;
 
+    // --- Преобразуем строковый адрес в PublicKey внутри функции ---
+    const METADATA_PROGRAM_ID = new PublicKey(METADATA_PROGRAM_ID_STRING);
+
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress.toBase58()}`);
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        // Используем METADATA_PROGRAM_ID (который теперь является надежной константой PublicKey)
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
                 new Uint8Array(Buffer.from("metadata")), 
