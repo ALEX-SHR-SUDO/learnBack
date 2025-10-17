@@ -40,7 +40,7 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
         // ✅ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Гарантируем чистый Uint8Array для семян PDA
-       const [metadataAddress] = PublicKey.findProgramAddressSync( 
+       const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
                 new Uint8Array(Buffer.from("metadata")), // ⬅️ Используем явный Uint8Array для устранения конфликта Buffer
                 METADATA_PROGRAM_ID.toBuffer(),
