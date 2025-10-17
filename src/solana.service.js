@@ -51,23 +51,40 @@ export function getConnection() {
 }
 
 /**
- * Возвращает баланс сервисного кошелька (в SOL).
+ * Возвращает баланс сервисного кошелька (в SOL) и его адрес.
  */
 export async function getServiceWalletBalance() {
-    try {
-        const keypair = getServiceKeypair();
-        const connection = getConnection();
+    const keypair = getServiceKeypair();
+    const connection = getConnection();
 
+    const serviceAddress = keypair.publicKey.toBase58(); // Получаем адрес
+    
+    try {
         const balanceLamports = await connection.getBalance(keypair.publicKey);
         
         // ❌ Исправление: Использовать LAMPORTS_PER_SOL напрямую
         const balanceSOL = balanceLamports / LAMPORTS_PER_SOL; 
 
+        // ✅ ИСПРАВЛЕНИЕ 1: Возвращаем serviceAddress вместо 'wallet' и 'sol' вместо 'balanceSOL'
         return { 
-            wallet: keypair.publicKey.toBase58(),
-            balanceSOL: balanceSOL
+            serviceAddress: serviceAddress,
+            sol: balanceSOL,
+            tokens: [] // Заглушка для токенов
         };
+        
     } catch (error) {
+        console.error(`Ошибка при запросе баланса для ${serviceAddress}:`, error.message);
+        
+        // ✅ ИСПРАВЛЕНИЕ 2: Обрабатываем ошибку "Account not found" (если 0 SOL)
+        if (error.message && error.message.includes('Account not found')) {
+             return { 
+                serviceAddress: serviceAddress,
+                sol: 0, // Возвращаем 0 SOL, чтобы фронтенд не падал
+                tokens: []
+            };
+        }
+        
+        // Если это другая критическая ошибка (например, ошибка сети), пробрасываем её
         throw new Error(`Failed to fetch service wallet balance: ${error.message}`);
     }
 }
