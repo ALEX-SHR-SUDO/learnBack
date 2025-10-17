@@ -41,10 +41,10 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        // ✅ Используем АСИНХРОННЫЙ вызов и явно импортированный Buffer
-       const [metadataAddress] = await PublicKey.findProgramAddress( 
+        // ✅ Асинхронный вызов, явный Buffer, явный Uint8Array
+       const [metadataAddress] = await PublicKey.findProgramAddress( // ⬅️ await PublicKey.findProgramAddress
             [
-                new Uint8Array(Buffer.from("metadata")), // ⬅️ Теперь Buffer гарантированно импортирован
+                new Uint8Array(Buffer.from("metadata")), // ⬅️ Buffer.from() + new Uint8Array()
                 METADATA_PROGRAM_ID.toBuffer(),
                 mintAddress.toBuffer(),
             ],
