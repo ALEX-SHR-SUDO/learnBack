@@ -1,75 +1,81 @@
 // src/metadata-addition.service.js
 
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'; 
-import pkg from '@metaplex-foundation/mpl-token-metadata';
-import * as Umi from '@metaplex-foundation/umi'; 
-const { mplTokenMetadata, updateMetadata } = pkg; // <--- НОВЫЙ СИНТАКСИС
+import * as web3 from '@solana/web3.js';
+import * as mpl from '@metaplex-foundation/mpl-token-metadata';
+import { getServiceKeypair, getConnection } from "./solana.service.js"; // ✅ ИСПОЛЬЗУЕМ ВАШ КЛЮЧ
 
-
-let umi;
-
-function initializeUmi(walletKeypair) {
-    if (!walletKeypair) {
-        throw new Error("Wallet Keypair required for Umi initialization.");
-    }
-    
-    umi = createUmi('https://api.devnet.solana.com'); 
-    umi.use(mplTokenMetadata()); 
-    umi.use(Umi.keypairIdentity(walletKeypair)); 
-    
-    // В этом сервисе мы используем тот же Keypair для аутентификации.
-    console.log(`Umi initialized (Metadata Service). Payer: ${umi.identity.publicKey.toString()}`);
-    return umi.identity; 
-}
-
+const METADATA_PROGRAM_ID = new web3.PublicKey(mpl.PROGRAM_ID.toBase58());
 
 /**
- * Добавляет метаданные к существующему Mint-аккаунту.
+ * Создает Metaplex Metadata Account для токена.
+ * @param {web3.PublicKey} mintAddress Адрес Mint-аккаунта
+ * @param {string} name Имя токена
+ * @param {string} symbol Символ токена
+ * @param {string} uri URI метаданных
+ * @returns {Promise<web3.PublicKey>} Адрес Metadata Account PDA.
  */
-async function addMetadataToToken({ mintAddress, name, symbol, uri }) {
-    if (!umi) {
-        throw new Error("Umi not initialized. Call initializeUmi first.");
+export async function addTokenMetadata(mintAddress, name, symbol, uri) {
+    const serviceKeypair = getServiceKeypair();
+    const connection = getConnection();
+    const payer = serviceKeypair;
+
+    console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress.toBase58()}`);
+
+    try {
+        // --- 1. Получение адреса Metadata Account PDA ---
+        const [metadataAddress] = web3.PublicKey.findProgramAddressSync(
+            [
+                Buffer.from("metadata"),
+                METADATA_PROGRAM_ID.toBuffer(),
+                mintAddress.toBuffer(),
+            ],
+            METADATA_PROGRAM_ID
+        );
+
+        // --- 2. Определение данных Metaplex DataV2 ---
+        const tokenData = new mpl.DataV2({
+            name: name,
+            symbol: symbol,
+            uri: uri,
+            sellerFeeBasisPoints: 0,
+            creators: null,
+            collection: null,
+            uses: null,
+        });
+
+        // --- 3. Создание инструкции ---
+        const metadataInstruction = mpl.createCreateMetadataAccountV2Instruction(
+            {
+                metadata: metadataAddress,
+                mint: mintAddress,
+                mintAuthority: payer.publicKey,
+                payer: payer.publicKey,
+                updateAuthority: payer.publicKey,
+                systemProgram: web3.SystemProgram.programId,
+            },
+            {
+                createMetadataAccountArgsV2: {
+                    data: tokenData,
+                    isMutable: true,
+                },
+            }
+        );
+
+        // --- 4. Отправка транзакции ---
+        const transaction = new web3.Transaction().add(metadataInstruction);
+
+        const signature = await web3.sendAndConfirmTransaction(
+            connection,
+            transaction,
+            [payer] 
+        );
+
+        console.log(`✅ [ШАГ 4] Метаданные созданы. Signature: ${signature}`);
+        
+        return metadataAddress;
+
+    } catch (error) {
+        console.error("❌ Ошибка в addTokenMetadata:", error);
+        throw new Error(`Не удалось создать метаданные: ${error.message}`);
     }
-
-    // --- Защита Входных Данных ---
-    const tokenName = String(name || ''); 
-    const tokenSymbol = String(symbol || '');
-    const tokenUri = String(uri || '');
-    
-    // Преобразуем строку адреса в PublicKey Umi для использования в транзакции.
-    const mintPublicKey = Umi.publicKey(mintAddress); 
-
-    console.log(`[ШАГ 2] Попытка добавить метаданные к Mint: ${mintAddress}`);
-
-    // ==========================================================
-    // НИЗКОУРОВНЕВАЯ ФУНКЦИЯ: Обновление (добавление) метаданных
-    // ==========================================================
-    await updateMetadata(umi, {
-        mint: mintPublicKey,
-        
-        // authority: ДОЛЖЕН БЫТЬ Signer (тот, у кого есть закрытый ключ)
-        // Этот Signer должен быть 'updateAuthority', установленным на Шаге 1.
-        authority: umi.identity, 
-        
-        data: {
-            name: tokenName,
-            symbol: tokenSymbol,
-            uri: tokenUri,
-            sellerFeeBasisPoints: 0, 
-        },
-        
-        // isMutable: true, чтобы разрешить будущие обновления
-        isMutable: true, 
-    }).sendAndConfirm(umi);
-    
-    console.log("✅ [ШАГ 2] Метаданные успешно добавлены.");
-
-    return { success: true, mint: mintAddress };
 }
-
-
-// --- Экспорт ---
-export {
-    initializeUmi,
-    addMetadataToToken
-};

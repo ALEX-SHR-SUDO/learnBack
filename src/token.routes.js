@@ -2,18 +2,23 @@
 
 import express from "express";
 const router = express.Router();
-import { initializeUmi, getServiceWalletBalance } from "./solana.service.js"; 
-import { createToken } from "./token-creation.service.js";
-import { addMetadataToToken } from "./metadata-addition.service.js";
 
+// ❌ УДАЛЕНЫ импорты Umi и solana.service
+// ✅ ИСПОЛЬЗУЕМ ТОЛЬКО НОВЫЕ НАТИВНЫЕ ФУНКЦИИ
+import { createTokenAndMint } from "./token-creation.service.js"; // Переименовано для ясности
+import { addTokenMetadata } from "./metadata-addition.service.js"; // Переименовано для ясности
+import { getConnection, getServiceWalletBalance } from "./solana.service.js"; // ✅ Возвращаем функции для баланса и соединения
 
+// ---------------------------------------------
 // --- Проверка соединения ---
+// ---------------------------------------------
 router.get("/ping", async (req, res) => {
   try {
-    const umi = initializeUmi();
-    if (!umi) throw new Error("Umi is not initialized.");
+    // ✅ Используем нативное web3.js соединение
+    const connection = getConnection();
+    if (!connection) throw new Error("Solana connection failed.");
       
-    const version = await umi.rpc.getVersion(); 
+    const version = await connection.getVersion(); 
     res.json({ ok: true, solana: version });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.toString() });
@@ -29,12 +34,8 @@ router.post("/create-token", async (req, res) => {
   console.log("Req Body Received:", req.body);
   console.log("Destructured values:", { name, symbol, uri, decimals, supply });
   
-  // ✅ Инициализация Umi здесь
-  const umi = initializeUmi();
-  if (!umi) {
-      return res.status(500).json({ error: "❌ Umi не инициализирован. Проверьте SERVICE_SECRET_KEY." });
-  }
-
+  // ❌ УДАЛЕНА Инициализация Umi. Мы полагаемся на то, что Keypair загружается в сервисах.
+  
   if (!supply || !name || !symbol || !uri || !decimals) { 
     return res.status(400).json({ error: "❗ Необходимы supply, name, symbol, uri и decimals для создания токена" });
   }
@@ -45,25 +46,25 @@ router.post("/create-token", async (req, res) => {
     // ==========================================================
     // ШАГ 1: Создание токена и минтинг
     // ==========================================================
-    console.log("Начинаем ШАГ 1: createToken (создание Mint-аккаунта)");
-    const tokenResult = await createToken({ 
-        umi, // ✅ ПЕРЕДАЕМ UMI
+    console.log("Начинаем ШАГ 1: createTokenAndMint (создание Mint-аккаунта)");
+    // ✅ Вызываем нативную функцию. Umi больше не нужен
+    const mintPublicKey = await createTokenAndMint({ 
         decimals: Number(decimals), 
         supply: Number(supply) 
     });
-    mintAddress = tokenResult.mint;
+    mintAddress = mintPublicKey.toBase58();
     
     // ==========================================================
     // ШАГ 2: Добавление метаданных
     // ==========================================================
-    console.log("Начинаем ШАГ 2: addMetadataToToken (добавление метаданных)");
-    await addMetadataToToken({ 
-        umi, // ✅ ПЕРЕДАЕМ UMI
-        mintAddress, 
+    console.log("Начинаем ШАГ 2: addTokenMetadata (добавление метаданных)");
+    // ✅ Вызываем нативную функцию. Umi больше не нужен
+    const metadataPublicKey = await addTokenMetadata(
+        mintPublicKey, // Передаем PublicKey
         name, 
         symbol, 
         uri 
-    });
+    );
     
     // ==========================================================
     // УСПЕХ
@@ -71,6 +72,7 @@ router.post("/create-token", async (req, res) => {
     console.log(`✅ Токен успешно создан. Mint: ${mintAddress}`);
     res.json({
       mint: mintAddress,
+      metadata: metadataPublicKey.toBase58(),
       solscan: `https://solscan.io/token/${mintAddress}?cluster=devnet`
     });
 
@@ -82,10 +84,13 @@ router.post("/create-token", async (req, res) => {
   }
 });
 
+// ---------------------------------------------
 // --- Баланс сервисного кошелька + токены ---
+// ---------------------------------------------
 router.get("/balance", async (req, res) => {
   try {
-    const balanceData = await getServiceWalletBalance();
+    // ✅ Используем функцию, которая теперь должна быть нативной (в src/solana.service.js)
+    const balanceData = await getServiceWalletBalance(); 
     res.json(balanceData);
   } catch (err) {
     console.error("❌ Ошибка при получении баланса:", err.toString());
