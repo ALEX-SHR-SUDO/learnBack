@@ -1,13 +1,10 @@
 // src/metadata-addition.service.js
 
-import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+// Добавляем 'Transaction' для более чистого создания транзакций
+import { PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js"; 
 // Правильный импорт CommonJS-модулей в режиме ESM
 import * as metaplex from "@metaplex-foundation/mpl-token-metadata";
 import { Buffer } from "buffer";
-
-// Явное определение Metaplex Program ID, чтобы избежать проблем с импортом CJS/ESM
-// Это гарантирует, что ключ метаданных всегда будет валидным объектом PublicKey.
-const TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
 
 // Извлекаем необходимые функции
 const { 
@@ -28,6 +25,10 @@ const {
 export async function addTokenMetadata(connection, payer, mintAddress, name, symbol, uri) {
     const mintPublicKey = new PublicKey(mintAddress);
     
+    // Временно определяем Program ID внутри функции, чтобы избежать ошибки 
+    // "Invalid public key input" при инициализации модуля в Node.js 22.x/ESM.
+    const TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
+
     // 1. ВЫЧИСЛЕНИЕ АДРЕСА PDA МЕТАДАННЫХ
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress}`);
     
@@ -63,19 +64,17 @@ export async function addTokenMetadata(connection, payer, mintAddress, name, sym
                 collectionDetails: null,
             },
         },
-        // Передаем явно определенный Program ID (на случай, если Metaplex v3
-        // в нашей среде требует его в аргументах)
+        // Передаем явно определенный Program ID
         TOKEN_METADATA_PROGRAM_ID
     );
 
     // 3. ОТПРАВКА ТРАНЗАКЦИИ
-    // Мы убрали лишний new TransactionInstruction, так как connection.sendTransaction
-    // может принимать и готовые инструкции.
     try {
         const { blockhash } = await connection.getLatestBlockhash();
 
+        // Используем статически импортированный Transaction.
         const txSignature = await connection.sendTransaction(
-            new (await import('@solana/web3.js')).Transaction({
+            new Transaction({ 
                 recentBlockhash: blockhash,
                 feePayer: payer.publicKey,
             }).add(instruction),
