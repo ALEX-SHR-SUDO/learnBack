@@ -25,7 +25,6 @@ import { getServiceKeypair, getConnection } from "./solana.service.js";
 
 
 // ✅ 3. Используем адрес программы метаданных как строку, чтобы избежать ошибки при запуске.
-// ЭТО ПРОСТАЯ СТРОКА, ОНА НЕ МОЖЕТ ВЫЗВАТЬ ОШИБКУ "Invalid public key input"
 const METADATA_PROGRAM_ID_STRING = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc';
 
 
@@ -49,9 +48,10 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
+        // ИСПРАВЛЕНИЕ: Используем Buffer.from("metadata") напрямую для сида.
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
-                new Uint8Array(Buffer.from("metadata")), 
+                Buffer.from("metadata", "utf8"),
                 METADATA_PROGRAM_ID.toBuffer(),
                 mintAddress.toBuffer(),
             ],
