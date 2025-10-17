@@ -9,13 +9,15 @@ import {
     SystemProgram, 
     Transaction, 
     sendAndConfirmTransaction, 
-    PublicKey as Web3PublicKey 
+    // В V3 часто требуется TOKEN_PROGRAM_ID, хотя явно не используется в этой инструкции
+    // Если вам это потребуется позже, можно добавить: TOKEN_PROGRAM_ID
 } from '@solana/web3.js';
 import mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
 import { getServiceKeypair, getConnection } from "./solana.service.js";
 
 // Деструктурируем необходимые экспорты из полученного объекта
-const { DataV2, createCreateMetadataAccountV2Instruction } = mplTokenMetadataPkg;
+// ✅ ИСПОЛЬЗУЕМ V3
+const { DataV2, createCreateMetadataAccountV3Instruction } = mplTokenMetadataPkg; 
 
 // ✅ ИНИЦИАЛИЗАЦИЯ: Ленивая (lazy) инициализация адреса Metaplex Program ID
 function getMetadataProgramId() {
@@ -23,7 +25,7 @@ function getMetadataProgramId() {
 }
 
 /**
- * Создает Metaplex Metadata Account для токена.
+ * Создает Metaplex Metadata Account для токена (с использованием V3).
  * @param {PublicKey} mintAddress Адрес Mint-аккаунта
  * @param {string} name Имя токена
  * @param {string} symbol Символ токена
@@ -42,9 +44,9 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
         // ✅ Асинхронный вызов, явный Buffer, явный Uint8Array
-       const [metadataAddress] = await PublicKey.findProgramAddress( // ⬅️ await PublicKey.findProgramAddress
+       const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
-                new Uint8Array(Buffer.from("metadata")), // ⬅️ Buffer.from() + new Uint8Array()
+                new Uint8Array(Buffer.from("metadata")), 
                 METADATA_PROGRAM_ID.toBuffer(),
                 mintAddress.toBuffer(),
             ],
@@ -62,8 +64,8 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
             uses: null,
         });
 
-        // --- 3. Создание инструкции ---
-        const metadataInstruction = createCreateMetadataAccountV2Instruction(
+        // --- 3. Создание инструкции V3 ---
+        const metadataInstruction = createCreateMetadataAccountV3Instruction(
             {
                 metadata: metadataAddress,
                 mint: mintAddress,
@@ -73,9 +75,11 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
                 systemProgram: SystemProgram.programId, 
             },
             {
-                createMetadataAccountArgsV2: {
+                createMetadataAccountArgsV3: { // ⬅️ V3 АРГУМЕНТЫ
                     data: tokenData,
                     isMutable: true,
+                    // ✅ ОБЯЗАТЕЛЬНОЕ ПОЛЕ ДЛЯ V3: 
+                    collectionDetails: null, 
                 },
             }
         );
