@@ -1,10 +1,13 @@
 // src/metadata-addition.service.js
 
 import * as web3 from '@solana/web3.js';
-import * as mpl from '@metaplex-foundation/mpl-token-metadata';
-import { getServiceKeypair, getConnection } from "./solana.service.js"; // ✅ ИСПОЛЬЗУЕМ ВАШ КЛЮЧ
+// ❌ We no longer import * as mpl to avoid the PROGRAM_ID import issue
+// We will import only what we need from Metaplex
+import { DataV2, createCreateMetadataAccountV2Instruction } from '@metaplex-foundation/mpl-token-metadata';
+import { getServiceKeypair, getConnection } from "./solana.service.js"; 
 
-const METADATA_PROGRAM_ID = new web3.PublicKey(mpl.PROGRAM_ID.toBase58());
+// ✅ HARDCODE FIX: The Public Key for the Metaplex Token Metadata Program (same across clusters)
+const METADATA_PROGRAM_ID = new web3.PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc');
 
 /**
  * Создает Metaplex Metadata Account для токена.
@@ -26,14 +29,15 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
         const [metadataAddress] = web3.PublicKey.findProgramAddressSync(
             [
                 Buffer.from("metadata"),
-                METADATA_PROGRAM_ID.toBuffer(),
+                METADATA_PROGRAM_ID.toBuffer(), // ✅ ИСПОЛЬЗУЕМ HARDCODED PROGRAM_ID
                 mintAddress.toBuffer(),
             ],
             METADATA_PROGRAM_ID
         );
 
         // --- 2. Определение данных Metaplex DataV2 ---
-        const tokenData = new mpl.DataV2({
+        // ✅ ИСПОЛЬЗУЕМ DataV2 ИМПОРТИРОВАННУЮ НАПРЯМУЮ
+        const tokenData = new DataV2({
             name: name,
             symbol: symbol,
             uri: uri,
@@ -44,7 +48,8 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
         });
 
         // --- 3. Создание инструкции ---
-        const metadataInstruction = mpl.createCreateMetadataAccountV2Instruction(
+        // ✅ ИСПОЛЬЗУЕМ createCreateMetadataAccountV2Instruction ИМПОРТИРОВАННУЮ НАПРЯМУЮ
+        const metadataInstruction = createCreateMetadataAccountV2Instruction(
             {
                 metadata: metadataAddress,
                 mint: mintAddress,
