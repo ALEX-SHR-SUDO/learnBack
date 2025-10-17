@@ -24,7 +24,7 @@ const {
 import { getServiceKeypair, getConnection } from "./solana.service.js";
 
 
-// ✅ 3. Используем адрес программы метаданных как строку, чтобы избежать ошибки при запуске.
+// ✅ 3. Используем адрес программы метаданных как строку.
 const METADATA_PROGRAM_ID_STRING = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc';
 
 
@@ -41,14 +41,20 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
     const connection = getConnection();
     const payer = serviceKeypair;
 
-    // --- Преобразуем строковый адрес в PublicKey внутри функции (ТОЛЬКО ЗДЕСЬ) ---
+    // --- Валидация, запрошенная пользователем (ОЧЕНЬ ВАЖНО) ---
+    if (!(mintAddress instanceof PublicKey)) {
+        throw new Error("Внутренняя ошибка: Mint Address не является объектом PublicKey.");
+    }
+    // -----------------------------------------------------------
+
+    // --- Преобразуем строковый адрес в PublicKey внутри функции ---
     const METADATA_PROGRAM_ID = new PublicKey(METADATA_PROGRAM_ID_STRING);
 
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress.toBase58()}`);
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        // ИСПРАВЛЕНИЕ: Используем Buffer.from("metadata") напрямую для сида.
+        // Используем Buffer.from("metadata") напрямую для сида.
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
                 Buffer.from("metadata", "utf8"),
@@ -103,6 +109,9 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
 
     } catch (error) {
         console.error("❌ Ошибка в addTokenMetadata:", error);
+        // Если проверка пройдена, но ошибка "Invalid public key input" всё равно возникает,
+        // это может быть проблема с самой функцией findProgramAddress в текущей версии web3.js
+        // или окружением Node.js.
         throw new Error(`Не удалось создать метаданные: ${error.message}`);
     }
 }
