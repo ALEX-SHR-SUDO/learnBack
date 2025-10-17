@@ -22,8 +22,6 @@ const {
 import { getServiceKeypair, getConnection } from "./solana.service.js";
 
 
-// ✅ КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Адрес программы метаданных теперь ТОЛЬКО строка на уровне модуля.
-// Инициализация PublicKey перенесена ВНУТРЬ функции.
 const METADATA_PROGRAM_ID_STRING = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc';
 
 
@@ -40,7 +38,7 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
     const connection = getConnection();
     const payer = serviceKeypair;
 
-    // 🛑 БЕЗОПАСНОЕ ИНСТАНЦИРОВАНИЕ: Создаем все PublicKey внутри функции
+    // Безопасное инстанцирование PublicKey внутри функции
     const mintAddress = new PublicKey(mintAddressString);
     const METADATA_PROGRAM_ID = new PublicKey(METADATA_PROGRAM_ID_STRING);
 
@@ -48,12 +46,14 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
+        // ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Все сиды передаются как явные объекты Buffer.
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
+                // Buffer для текстового сида
                 Buffer.from("metadata", "utf8"),
-                // Используем .toBytes() для обеспечения совместимости
-                METADATA_PROGRAM_ID.toBytes(), 
-                mintAddress.toBytes(),         
+                // Явное преобразование PublicKey в Buffer
+                METADATA_PROGRAM_ID.toBuffer(), 
+                mintAddress.toBuffer(),         
             ],
             METADATA_PROGRAM_ID
         );
@@ -103,7 +103,6 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
 
     } catch (error) {
         console.error("❌ Ошибка в addTokenMetadata:", error);
-        // Перебрасываем более информативную ошибку
         throw new Error(`Не удалось создать метаданные. Возможно, проблема с метаданными или лимитом транзакции. Причина: ${error.message}`);
     }
 }
