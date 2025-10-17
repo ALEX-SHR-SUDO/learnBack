@@ -1,32 +1,30 @@
 // src/metadata-addition.service.js
 
-// ✅ 1. ЯВНЫЙ ИМПОРТ Buffer для гарантии правильной реализации
+// ✅ 1. ЯВНЫЙ ИМПОРТ Buffer для гарантии правильной реализации в Node.js
 import { Buffer } from 'buffer';
 
-// ✅ 2. ИМПОРТЫ СТАЛИ ЕЩЕ БОЛЕЕ ПРЯМЫМИ
 import {
     PublicKey,
     SystemProgram, 
     Transaction, 
     sendAndConfirmTransaction, 
-    // В V3 часто требуется TOKEN_PROGRAM_ID, хотя явно не используется в этой инструкции
-    // Если вам это потребуется позже, можно добавить: TOKEN_PROGRAM_ID
 } from '@solana/web3.js';
-import mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
+
+// ✅ 2. Импортируем V3 Инструкцию и PROGRAM_ID напрямую, как в рабочем React-коде
+import {
+    DataV2, 
+    createCreateMetadataAccountV3Instruction,
+    PROGRAM_ID as METADATA_PROGRAM_ID, // <-- Переименовываем PROGRAM_ID
+} from '@metaplex-foundation/mpl-token-metadata';
+
 import { getServiceKeypair, getConnection } from "./solana.service.js";
 
-// Деструктурируем необходимые экспорты из полученного объекта
-// ✅ ИСПОЛЬЗУЕМ V3
-const { DataV2, createCreateMetadataAccountV3Instruction } = mplTokenMetadataPkg; 
-
-// ✅ ИНИЦИАЛИЗАЦИЯ: Ленивая (lazy) инициализация адреса Metaplex Program ID
-function getMetadataProgramId() {
-    return new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc');
-}
 
 /**
  * Создает Metaplex Metadata Account для токена (с использованием V3).
- * @param {PublicKey} mintAddress Адрес Mint-аккаунта
+ * * Мы используем этот метод, поскольку он полностью соответствует рабочему
+ * фронтенд-коду и явно включает все поля, необходимые для V3.
+ * * @param {PublicKey} mintAddress Адрес Mint-аккаунта
  * @param {string} name Имя токена
  * @param {string} symbol Символ токена
  * @param {string} uri URI метаданных
@@ -36,14 +34,13 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
     const serviceKeypair = getServiceKeypair();
     const connection = getConnection();
     const payer = serviceKeypair;
-    
-    const METADATA_PROGRAM_ID = getMetadataProgramId();
 
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress.toBase58()}`);
 
     try {
         // --- 1. Получение адреса Metadata Account PDA ---
-        // ✅ Асинхронный вызов, явный Buffer, явный Uint8Array
+        // ✅ Используем импортированный METADATA_PROGRAM_ID
+        // ✅ Явно конвертируем сид "metadata" в Buffer/Uint8Array для надёжности
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
                 new Uint8Array(Buffer.from("metadata")), 
@@ -54,6 +51,7 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
         );
 
         // --- 2. Определение данных Metaplex DataV2 ---
+        // Используем DataV2 (стандартный формат метаданных)
         const tokenData = new DataV2({
             name: name,
             symbol: symbol,
@@ -75,11 +73,10 @@ export async function addTokenMetadata(mintAddress, name, symbol, uri) {
                 systemProgram: SystemProgram.programId, 
             },
             {
-                createMetadataAccountArgsV3: { // ⬅️ V3 АРГУМЕНТЫ
+                createMetadataAccountArgsV3: { 
                     data: tokenData,
-                    isMutable: true,
-                    // ✅ ОБЯЗАТЕЛЬНОЕ ПОЛЕ ДЛЯ V3: 
-                    collectionDetails: null, 
+                    isMutable: true, // Позволяет изменять метаданные в будущем
+                    collectionDetails: null, // Обязательное поле для V3, если коллекция не используется
                 },
             }
         );
