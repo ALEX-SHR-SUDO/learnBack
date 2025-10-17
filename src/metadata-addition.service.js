@@ -1,19 +1,19 @@
 // src/metadata-addition.service.js
 
-// ✅ 1. ЯВНЫЙ ИМПОРТ Buffer для гарантии правильной реализации в Node.js
+// 1. ЯВНЫЙ ИМПОРТ Buffer для гарантии правильной реализации в Node.js
 import { Buffer } from 'buffer';
 
 import {
-    PublicKey, // Используется внутри addTokenMetadata
+    PublicKey, // Used inside addTokenMetadata
     SystemProgram, 
     Transaction, 
     sendAndConfirmTransaction, 
 } from '@solana/web3.js';
 
-// ✅ 2. ИСПОЛЬЗУЕМ DEFAULT IMPORT ДЛЯ ИНСТРУКЦИЙ И DataV2
+// 2. ИСПОЛЬЗУЕМ DEFAULT IMPORT ДЛЯ ИНСТРУКЦИЙ И DataV2
 import * as mplTokenMetadataPkg from '@metaplex-foundation/mpl-token-metadata';
 
-// Проверяем, находятся ли экспорты в свойстве .default (обход CommonJS/ESM)
+// Check if exports are under .default property (CommonJS/ESM workaround)
 const mplExports = mplTokenMetadataPkg.default || mplTokenMetadataPkg;
 
 const {
@@ -24,35 +24,47 @@ const {
 import { getServiceKeypair, getConnection } from "./solana.service.js";
 
 
-// ✅ 3. Используем адрес программы метаданных как строку.
+// 3. Используем адрес программы метаданных как строку.
 const METADATA_PROGRAM_ID_STRING = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msK8P3vc';
 
 
 /**
- * Создает Metaplex Metadata Account для токена (с использованием V3).
- * @param {string} mintAddressString Адрес Mint-аккаунта в виде строки Base58
- * @param {string} name Имя токена
- * @param {string} symbol Символ токена
- * @param {string} uri URI метаданных
- * @returns {Promise<PublicKey>} Адрес Metadata Account PDA.
+ * Creates the Metaplex Metadata Account for the token (using V3).
+ * @param {string} mintAddressString Mint account address as a Base58 string
+ * @param {string} name Token name
+ * @param {string} symbol Token symbol
+ * @param {string} uri Metadata URI
+ * @returns {Promise<PublicKey>} Address of the Metadata Account PDA.
  */
 export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
     const serviceKeypair = getServiceKeypair();
     const connection = getConnection();
     const payer = serviceKeypair;
 
-    // 🛑 КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Создаем объект PublicKey здесь из переданной строки.
-    // Это гарантирует, что мы используем правильный инстанс класса PublicKey.
-    const mintAddress = new PublicKey(mintAddressString);
+    let mintAddress; // Declared here for use inside the try/catch
 
-    // --- Преобразуем строковый адрес программы метаданных в PublicKey внутри функции ---
+    // 🛑 CRITICAL DEBUGGING BLOCK: Isolate the PublicKey creation failure
+    try {
+        console.log(`[DEBUG] Входящая строка Mint-адреса: ${mintAddressString}`);
+        
+        // Create PublicKey object here from the passed string.
+        mintAddress = new PublicKey(mintAddressString);
+
+        console.log(`[DEBUG] Объект PublicKey успешно создан: ${mintAddress.toBase58()}`);
+
+    } catch (e) {
+        console.error(`[КРИТИЧЕСКИЙ DEBUG] НЕ УДАЛОСЬ преобразовать строку в PublicKey: ${e.message}`);
+        throw new Error(`Невалидный адрес Mint: ${mintAddressString}. Причина: ${e.message}`);
+    }
+
+    // --- Convert the string metadata program address to PublicKey inside the function ---
     const METADATA_PROGRAM_ID = new PublicKey(METADATA_PROGRAM_ID_STRING);
 
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress.toBase58()}`);
 
     try {
-        // --- 1. Получение адреса Metadata Account PDA ---
-        // Используем .toBytes() для сидов.
+        // --- 1. Get Metadata Account PDA address ---
+        // Using .toBytes() for seeds.
        const [metadataAddress] = await PublicKey.findProgramAddress( 
             [
                 Buffer.from("metadata", "utf8"),
@@ -62,7 +74,7 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
             METADATA_PROGRAM_ID
         );
 
-        // --- 2. Определение данных Metaplex DataV2 ---
+        // --- 2. Define Metaplex DataV2 data ---
         const tokenData = new DataV2({
             name: name,
             symbol: symbol,
@@ -73,7 +85,7 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
             uses: null,
         });
 
-        // --- 3. Создание инструкции V3 ---
+        // --- 3. Create V3 instruction ---
         const metadataInstruction = createCreateMetadataAccountV3Instruction(
             {
                 metadata: metadataAddress,
@@ -92,7 +104,7 @@ export async function addTokenMetadata(mintAddressString, name, symbol, uri) {
             }
         );
 
-        // --- 4. Отправка транзакции ---
+        // --- 4. Send transaction ---
         const transaction = new Transaction().add(metadataInstruction);
 
         const signature = await sendAndConfirmTransaction(
