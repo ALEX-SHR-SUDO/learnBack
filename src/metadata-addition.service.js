@@ -1,12 +1,16 @@
 // src/metadata-addition.service.js
 
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
-import { 
-    createCreateMetadataAccountV3Instruction, 
-    PROGRAM_ID as METADATA_PROGRAM_ID,
-    findMetadataPda, // Импортируем Metaplex Helper
-} from "@metaplex-foundation/mpl-token-metadata";
+// Правильный импорт CommonJS-модулей в режиме ESM: импортируем все как 'metaplex'
+import * as metaplex from "@metaplex-foundation/mpl-token-metadata";
 import { Buffer } from "buffer";
+
+// Извлекаем функции и константы из импортированного объекта metaplex
+const { 
+    createCreateMetadataAccountV3Instruction, 
+    PROGRAM_ID: METADATA_PROGRAM_ID, 
+    findMetadataPda 
+} = metaplex;
 
 /**
  * Добавляет метаданные Metaplex (имя, символ, URI) к существующему Mint-аккаунту токена.
@@ -22,7 +26,8 @@ export async function addTokenMetadata(connection, payer, mintAddress, name, sym
     const mintPublicKey = new PublicKey(mintAddress);
     
     // 1. ВЫЧИСЛЕНИЕ АДРЕСА PDA МЕТАДАННЫХ
-    // Мы используем Metaplex Helper для обхода проблем с web3.js/Buffer
+    // Используем Metaplex Helper, который обходит внутренние проблемы web3.js/Buffer, 
+    // что было нашим изначальным предположением
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress}`);
     
     // findMetadataPda: [ 'metadata', METADATA_PROGRAM_ID, mint.publicKey ]
@@ -60,22 +65,23 @@ export async function addTokenMetadata(connection, payer, mintAddress, name, sym
 
     // 3. ОТПРАВКА ТРАНЗАКЦИИ
     const transaction = await connection.getLatestBlockhash();
-    const finalTransaction = new TransactionInstruction({
-        keys: instruction.keys,
-        programId: instruction.programId,
-        data: instruction.data,
-    });
+    
+    // При создании транзакции с одной инструкцией безопаснее использовать массив инструкций
+    // или создать новую транзакцию, используя .add
+    const tx = await connection.sendTransaction(
+        new TransactionInstruction({
+            keys: instruction.keys,
+            programId: instruction.programId,
+            data: instruction.data,
+        }),
+        [payer], // Подписывается только плательщик
+        { 
+            skipPreflight: false,
+            preflightCommitment: "confirmed"
+        }
+    );
 
     try {
-        const tx = await connection.sendTransaction(
-            finalTransaction, 
-            [payer], 
-            { 
-                skipPreflight: false,
-                preflightCommitment: "confirmed"
-            }
-        );
-
         console.log(`✅ [ШАГ 4] Метаданные токена созданы. Подпись: ${tx}`);
         return tx;
     } catch (error) {
