@@ -32,7 +32,7 @@ const {
 // ✅ ИСПРАВЛЕНИЕ #1: Определяем Program ID метаданных как СТРОКУ,
 // чтобы избежать немедленного вызова new PublicKey() при загрузке модуля.
 
-const TOKEN_METADATA_PROGRAM_ID_STR = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay';
+const TOKEN_METADATA_PROGRAM_ID_STR = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
 
 /**
  * [ШАГ 1, 2, 3] Создает новый Mint-аккаунт, Associated Token Account (ATA) для Mint Authority
