@@ -32,25 +32,19 @@ import { Buffer } from 'buffer';
 
 // --- НАСТРОЙКА КОНСТАНТ ---
 const METAPLEX_PROGRAM_ID_DEFAULT = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay';
-const DECIMAL_PLACES = 9; 
 
 /**
  * [ПРИВАТНАЯ ФУНКЦИЯ] Получает PublicKey программы метаданных Metaplex.
- * Использует переменную окружения, но возвращается к стандартному ID, 
- * если переменная окружения не установлена или пуста.
  * @returns {PublicKey} Адрес программы метаданных.
  */
 function _getMetadataProgramId() {
-    // Используем переменную окружения, если доступна, иначе используем стандартный ID.
     const programIdString = process.env.TOKEN_METADATA_PROGRAM_ID || METAPLEX_PROGRAM_ID_DEFAULT;
     
     if (!programIdString) {
-        // Это не должно произойти из-за константы, но это хорошая защита.
         console.error("FATAL: Metaplex Program ID is empty or invalid.");
         throw new Error("Metaplex Program ID is required and cannot be empty.");
     }
     
-    // 🛑 ИНИЦИАЛИЗАЦИЯ PUBLIC KEY ВНУТРИ ФУНКЦИИ
     const programId = new PublicKey(programIdString);
     return programId;
 }
@@ -64,7 +58,7 @@ function _getMetadataProgramId() {
  * @returns {TransactionInstruction} Инструкция по созданию метаданных.
  */
 function _createMetadataInstruction(mintPublicKey, payer, metadataDetails) {
-    const TOKEN_METADATA_PROGRAM_ID = _getMetadataProgramId(); // 🛑 Получаем Program ID здесь
+    const TOKEN_METADATA_PROGRAM_ID = _getMetadataProgramId(); 
     
     // 1. Вычисление адреса PDA метаданных
     const [metadataAddress] = PublicKey.findProgramAddressSync(
@@ -111,7 +105,7 @@ function _createMetadataInstruction(mintPublicKey, payer, metadataDetails) {
 
 /**
  * СОЗДАЕТ ТОКЕН MINT, ЧЕКАНКУЕТ ЕГО И ДОБАВЛЯЕТ МЕТАДАННЫЕ METAPLEX.
- * @param {Object} tokenDetails - Детали токена и метаданных. Должен содержать name, symbol, uri, supply.
+ * @param {Object} tokenDetails - Детали токена и метаданных. Должен содержать name, symbol, uri, supply, decimals.
  * @returns {Promise<Object>} Объект с подписью и адресом минта.
  */
 export async function createTokenAndMetadata(tokenDetails) {
@@ -120,7 +114,18 @@ export async function createTokenAndMetadata(tokenDetails) {
     const mintKeypair = Keypair.generate(); 
     const mintPublicKey = mintKeypair.publicKey;
     
-    console.log(`\n--- НАЧАЛО СОЗДАНИЯ ТОКЕНА И МЕТАДАННЫХ ---`);
+    // --- ПАРСИНГ ВХОДНЫХ ДАННЫХ ИЗ СТРОК В ЧИСЛА ---
+    const decimals = Number(tokenDetails.decimals) || 9; // По умолчанию 9
+    const supply = Number(tokenDetails.supply);
+    
+    if (isNaN(supply)) {
+        throw new Error("Supply (общий запас) должен быть числом.");
+    }
+    if (isNaN(decimals) || decimals < 0 || decimals > 9) {
+        throw new Error("Decimals (десятичные знаки) должен быть числом от 0 до 9.");
+    }
+    
+    console.log(`\n--- НАЧАЛО СОЗДАНИЯ ТОКЕНА И МЕТАДАННЫХ (D:${decimals}, S:${supply}) ---`);
     console.log(`Новый Mint Address: ${mintPublicKey.toBase58()}`);
     
     // 1. Рассчитываем необходимый рент и адрес Ассоциированного Токен Аккаунта (ATA)
@@ -156,7 +161,7 @@ export async function createTokenAndMetadata(tokenDetails) {
             payer,
             mintPublicKey,
             payer.publicKey, // Mint Authority
-            DECIMAL_PLACES,
+            decimals, // ИСПОЛЬЗУЕМ ПАРСИРОВАННОЕ ЗНАЧЕНИЕ
             mintKeypair,
             TOKEN_PROGRAM_ID,
         )
@@ -174,12 +179,15 @@ export async function createTokenAndMetadata(tokenDetails) {
     );
     
     // 4. Инструкция: Чеканка (Mint)
+    // 🛑 ИСПРАВЛЕНИЕ: ЯВНО ПРЕОБРАЗУЕМ В Number ПЕРЕД УМНОЖЕНИЕМ, ЗАТЕМ В BigInt
+    const amountInSmallestUnit = supply * (10 ** decimals);
+
     instructions.push(
         createMintToInstruction(
             mintPublicKey,
             tokenAccountAddress,
             payer.publicKey, // Mint Authority
-            BigInt(tokenDetails.supply * (10 ** DECIMAL_PLACES)), // Amount in smallest unit
+            BigInt(amountInSmallestUnit), // Amount in smallest unit
             [],
             TOKEN_PROGRAM_ID
         )
