@@ -3,7 +3,7 @@
 import { 
     getServiceWallet, 
     getConnection, 
-    getMetadataProgramId 
+    getMetadataProgramId // Этот сервис теперь просто обертка вокруг PublicKey
 } from './solana.service.js';
 
 import { 
@@ -30,7 +30,7 @@ import {
 /*
 import { 
     createCreateMetadataAccountV3Instruction, 
-    PROGRAM_ID as METAPLEX_PROGRAM_ID,
+    PROGRAM_ID as METAPLEX_PROGRAM_ID_STUB, // Переименовано, чтобы избежать конфликта с заглушкой
     DataV2
 } from '@metaplex-foundation/mpl-token-metadata';
 */
@@ -39,20 +39,28 @@ import {
 
 /**
  * Возвращает PublicKey для стандартного SPL Token Program ID.
- * Инициализируется только при вызове, чтобы избежать ошибки "Invalid public key input" при загрузке модуля.
  * @returns {PublicKey}
  */
 function getTokenProgramId() {
     return new PublicKey('TokenkegQfeZyiNwAJbNbCKSMYyzJm64FbLqxTSeiM'); 
 }
 
+/**
+ * Возвращает PublicKey для Metaplex Token Metadata Program ID.
+ * @returns {PublicKey}
+ */
+function getMetaplexProgramId() {
+    // getMetadataProgramId() должен выполнять ленивую инициализацию PublicKey
+    return getMetadataProgramId(); 
+}
+
 // ⚠️ ВРЕМЕННЫЕ ЗАГЛУШКИ ДЛЯ ИМПОРТА METAPLEX, ПОКА SDK НЕ УСТАНОВЛЕН
 // Если SDK установлен, удалите этот блок и раскомментируйте импорты выше.
 const createCreateMetadataAccountV3Instruction = (accounts, args) => {
-    console.error("❌ ОШИБКА: Metaplex SDK не импортирован. Инструкция не может быть создана.");
-    return null; // Возвращаем null, если функция SDK недоступна
+    // В реальном коде это должна быть функция из @metaplex-foundation/mpl-token-metadata
+    console.warn("⚠️ Инструкция Metaplex не была создана, так как SDK не импортирован.");
+    return null; 
 };
-const METAPLEX_PROGRAM_ID = getMetadataProgramId();
 // ------------------------------------------------------------------------
 
 
@@ -62,7 +70,8 @@ const METAPLEX_PROGRAM_ID = getMetadataProgramId();
  * @returns {PublicKey}
  */
 function getMetadataAddress(mint) {
-    const METADATA_PROGRAM_ID = getMetadataProgramId(); 
+    // Используем ленивый вызов
+    const METADATA_PROGRAM_ID = getMetaplexProgramId(); 
     
     const [metadataAddress] = PublicKey.findProgramAddressSync(
         [
@@ -84,10 +93,17 @@ function getMetadataAddress(mint) {
 function createMetaplexInstruction(params) {
     const { mint, owner, name, symbol, uri } = params;
     
+    // Проверка на то, что заглушка не будет использоваться в реальной транзакции
+    if (!createCreateMetadataAccountV3Instruction || createCreateMetadataAccountV3Instruction.name === 'createCreateMetadataAccountV3Instruction') {
+        return { 
+            metadataAddress: getMetadataAddress(mint),
+            ix: null
+        };
+    }
+
     const metadataAddress = getMetadataAddress(mint);
 
     // --- 1. Подготовка структуры данных (DataV2) ---
-    // Это ключевая структура, которую ожидает Metaplex.
     const dataV2 = {
         name: name,
         symbol: symbol,
@@ -151,7 +167,7 @@ export async function createTokenAndMetadata(tokenDetails) {
     const owner = payer.publicKey;
     const amount = BigInt(supply);
     const decimalPlaces = parseInt(decimals, 10);
-    const TOKEN_PROGRAM_ID = getTokenProgramId(); // ⬅️ Ленивая инициализация
+    const TOKEN_PROGRAM_ID = getTokenProgramId(); // Ленивая инициализация
 
     const transaction = new Transaction();
     const signers = [payer, mint]; 
