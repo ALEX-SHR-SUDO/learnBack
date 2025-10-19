@@ -8,10 +8,15 @@ import {
     PublicKey 
 } from '@solana/web3.js'; 
 import bs58 from 'bs58';
-import * as splToken from '@solana/spl-token';
-import { TOKEN_PROGRAM_ID, AccountState } from '@solana/spl-token'; // ✅ ДОБАВИТЬ ЭТОТ ИМПОРТ
+import * as splToken from '@solana/spl-token'; 
+// 🛑 УДАЛЕНО: Redundant import { TOKEN_PROGRAM_ID, AccountState } from '@solana/spl-token';
 
+// --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ (ИНИЦИАЛИЗАЦИЯ) ---
+
+// ✅ СТРОКА 14: Metaplex Token Metadata Program ID (metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay)
+// Это статическая инициализация. Если она падает, значит, проблема в другом импорте.
 export const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
+
 const CLUSTER_URL = 'https://api.devnet.solana.com';
 let connectionInstance = null;
 let serviceKeypairInstance = null;
@@ -25,7 +30,7 @@ export function getServiceKeypair() {
 
     const secretKeyBs58 = process.env.SERVICE_SECRET_KEY;
     if (!secretKeyBs58) {
-        throw new Error("SERVICE_SECRET_KEY is not defined in environment.");
+        throw new Error("SERVICE_SECRET_KEY is not defined in environment."); 
     }
     
     try {
@@ -70,26 +75,27 @@ export async function getServiceWalletBalance() {
     const connection = getConnection();
     const serviceAddress = keypair.publicKey.toBase58();
     
-    // Переменная для списка токенов
     let tokenList = [];
     
     try {
-        // --- 1. Получение баланса SOL (Остаётся без изменений) ---
+        // --- 1. Получение баланса SOL ---
         const balanceLamports = await connection.getBalance(keypair.publicKey);
         const balanceSOL = balanceLamports / LAMPORTS_PER_SOL; 
         
         // --- 2. Получение списка токенов SPL ---
         const tokenAccounts = await connection.getTokenAccountsByOwner(
             keypair.publicKey,
-            { programId: new PublicKey(TOKEN_PROGRAM_ID) } // Фильтруем по ID программы SPL Token
+            // ✅ ИСПОЛЬЗУЕМ splToken.TOKEN_PROGRAM_ID
+            { programId: splToken.TOKEN_PROGRAM_ID } 
         );
 
         tokenList = tokenAccounts.value
             .map(accountInfo => {
+                // ✅ ИСПОЛЬЗУЕМ splToken.*
                 const data = splToken.AccountLayout.decode(accountInfo.account.data);
                 
                 // Фильтруем закрытые (зануленные) аккаунты
-                if (data.state === AccountState.Initialized) {
+                if (data.state === splToken.AccountState.Initialized) {
                      return {
                         mint: data.mint.toBase58(),
                         amount: Number(data.amount), // Преобразуем BigInt в Number (для фронтенда)
@@ -97,22 +103,20 @@ export async function getServiceWalletBalance() {
                 }
                 return null;
             })
-            .filter(token => token !== null); // Удаляем нулевые записи
+            .filter(token => token !== null);
 
-        // ✅ ВОЗВРАЩАЕМ ВСЕ ДАННЫЕ
         return { 
             serviceAddress: serviceAddress,
             sol: balanceSOL,
-            tokens: tokenList // ⬅️ ВОЗВРАЩАЕМ РЕАЛЬНЫЙ СПИСОК
+            tokens: tokenList
         };
         
     } catch (error) {
-        // ... (логика обработки ошибок остается прежней: возвращаем 0 SOL, если аккаунт не найден)
         if (error.message && error.message.includes('Account not found')) {
              return { 
                 serviceAddress: serviceAddress,
                 sol: 0,
-                tokens: [] // При ошибке возвращаем пустой список
+                tokens: []
             };
         }
         
