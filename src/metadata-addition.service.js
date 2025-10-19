@@ -6,10 +6,15 @@ import {
     sendAndConfirmTransaction 
 } from '@solana/web3.js'; 
 
-import { 
-    createCreateMetadataAccountV3Instruction, 
-    findMetadataPda
-} from '@metaplex-foundation/mpl-token-metadata'; // Используем mpl-token-metadata для инструкций
+// 🛑 ИСПРАВЛЕНИЕ ОШИБКИ ESM/CommonJS: 
+// Используем import * as для пакета Metaplex, который является CJS.
+import * as mplTokenMetadata from '@metaplex-foundation/mpl-token-metadata';
+
+// Извлекаем функции из импортированного объекта. 
+// Мы проверяем и сам импортированный объект, и его .default свойство,
+// чтобы учесть все возможные структуры экспорта CommonJS в среде ESM.
+const createCreateMetadataAccountV3Instruction = mplTokenMetadata.createCreateMetadataAccountV3Instruction || (mplTokenMetadata.default && mplTokenMetadata.default.createCreateMetadataAccountV3Instruction);
+const findMetadataPda = mplTokenMetadata.findMetadataPda || (mplTokenMetadata.default && mplTokenMetadata.default.findMetadataPda);
 
 import { getConnection, getServiceWallet } from './solana.service.js';
 import { Buffer } from 'buffer'; // Нужен для findProgramAddressSync
