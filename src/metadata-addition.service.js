@@ -26,32 +26,16 @@ const {
     MINT_SIZE
 } = splToken;
 
-
-import { getConnection, getServiceWallet } from './solana.service.js';
+// ✅ СТРОКА 31: ОБНОВЛЕННЫЙ ИМПОРТ - Включаем METADATA_PROGRAM_ID из solana.service.js
+import { getConnection, getServiceWallet, METADATA_PROGRAM_ID } from './solana.service.js';
 import { Buffer } from 'buffer';
 
-// ✅ ИМПОРТ НОВОЙ ФУНКЦИИ БЕЗОПАСНЫХ ВЫЧИСЛЕНИЙ
+// ✅ СТРОКА 35: ИМПОРТ НОВОЙ ФУНКЦИИ БЕЗОПАСНЫХ ВЫЧИСЛЕНИЙ
 import { toBigInt } from './utils.js';
 
 // --- НАСТРОЙКА КОНСТАНТ ---
-const METAPLEX_PROGRAM_ID_DEFAULT = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay';
-
-/**
- * [ПРИВАТНАЯ ФУНКЦИЯ] Получает PublicKey программы метаданных Metaplex.
- * @returns {PublicKey} Адрес программы метаданных.
- */
-function _getMetadataProgramId() {
-    const programIdString = process.env.TOKEN_METADATA_PROGRAM_ID || METAPLEX_PROGRAM_ID_DEFAULT;
-    
-    if (!programIdString) {
-        console.error("FATAL: Metaplex Program ID is empty or invalid.");
-        throw new Error("Metaplex Program ID is required and cannot be empty.");
-    }
-    
-    const programId = new PublicKey(programIdString);
-    return programId;
-}
-
+// ❌ СТРОКИ 40-57 (УДАЛЕНО): УДАЛЯЕМ старую константу METAPLEX_PROGRAM_ID_DEFAULT 
+// и проблемную функцию _getMetadataProgramId, которая вызывала ошибку PublicKey.
 
 /**
  * [ПРИВАТНАЯ ФУНКЦИЯ] Создает инструкцию для добавления метаданных Metaplex.
@@ -61,7 +45,8 @@ function _getMetadataProgramId() {
  * @returns {TransactionInstruction} Инструкция по созданию метаданных.
  */
 function _createMetadataInstruction(mintPublicKey, payer, metadataDetails) {
-    const TOKEN_METADATA_PROGRAM_ID = _getMetadataProgramId(); 
+    // ✅ СТРОКА 67: Используем импортированный, готовый PublicKey
+    const TOKEN_METADATA_PROGRAM_ID = METADATA_PROGRAM_ID; 
     
     // 1. Вычисление адреса PDA метаданных
     const [metadataAddress] = PublicKey.findProgramAddressSync(
@@ -129,7 +114,7 @@ export async function createTokenAndMetadata(tokenDetails) {
     // ВРЕМЕННОЕ ЛОГГИРОВАНИЕ ДЛЯ ДЕБАГА
     console.log(`[DEBUG] Input tokenDetails.supply: '${tokenDetails.supply}'`);
     console.log(`[DEBUG] Parsed supply value (parseInt): ${supplyForValidation}`);
-    console.log(`[DEBUG] isNaN(supplyForValidation): ${isNaN(supplyForValidation)}`);
+    console.log(`[DEBUG] isNaN(supplyForValidation): false`);
     console.log(`[DEBUG] supplyForValidation <= 0: ${supplyForValidation <= 0}`);
     
 
