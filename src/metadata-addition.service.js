@@ -31,6 +31,7 @@ const {
 
 // ✅ ИСПРАВЛЕНИЕ #1: Определяем Program ID метаданных как СТРОКУ,
 // чтобы избежать немедленного вызова new PublicKey() при загрузке модуля.
+
 const TOKEN_METADATA_PROGRAM_ID_STR = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay';
 
 /**
