@@ -114,18 +114,19 @@ export async function createTokenAndMetadata(tokenDetails) {
     const mintKeypair = Keypair.generate(); 
     const mintPublicKey = mintKeypair.publicKey;
     
-    // --- ПАРСИНГ ВХОДНЫХ ДАННЫХ ИЗ СТРОК В ЧИСЛА ---
-    const decimals = Number(tokenDetails.decimals) || 9; // По умолчанию 9
-    const supply = Number(tokenDetails.supply);
+    // --- ИСПРАВЛЕНИЕ: БОЛЕЕ СТРОГИЙ ПАРСИНГ ЦЕЛЫХ ЧИСЕЛ ---
+    // Используем parseInt для явного преобразования строк в целые числа.
+    const decimals = parseInt(tokenDetails.decimals, 10);
+    const supply = parseInt(tokenDetails.supply, 10);
     
-    if (isNaN(supply)) {
-        throw new Error("Supply (общий запас) должен быть числом.");
+    // Валидация
+    if (isNaN(supply) || supply <= 0) {
+        throw new Error("Supply (общий запас) должен быть положительным целым числом.");
     }
-    if (isNaN(decimals) || decimals < 0 || decimals > 9) {
-        throw new Error("Decimals (десятичные знаки) должен быть числом от 0 до 9.");
-    }
+    // Если decimals не указан или некорректен, используем стандартное значение 9.
+    const finalDecimals = (isNaN(decimals) || decimals < 0 || decimals > 9) ? 9 : decimals;
     
-    console.log(`\n--- НАЧАЛО СОЗДАНИЯ ТОКЕНА И МЕТАДАННЫХ (D:${decimals}, S:${supply}) ---`);
+    console.log(`\n--- НАЧАЛО СОЗДАНИЯ ТОКЕНА И МЕТАДАННЫХ (D:${finalDecimals}, S:${supply}) ---`);
     console.log(`Новый Mint Address: ${mintPublicKey.toBase58()}`);
     
     // 1. Рассчитываем необходимый рент и адрес Ассоциированного Токен Аккаунта (ATA)
@@ -161,7 +162,7 @@ export async function createTokenAndMetadata(tokenDetails) {
             payer,
             mintPublicKey,
             payer.publicKey, // Mint Authority
-            decimals, // ИСПОЛЬЗУЕМ ПАРСИРОВАННОЕ ЗНАЧЕНИЕ
+            finalDecimals, // ИСПОЛЬЗУЕМ ПРОВЕРЕННОЕ ЗНАЧЕНИЕ
             mintKeypair,
             TOKEN_PROGRAM_ID,
         )
@@ -179,8 +180,8 @@ export async function createTokenAndMetadata(tokenDetails) {
     );
     
     // 4. Инструкция: Чеканка (Mint)
-    // 🛑 ИСПРАВЛЕНИЕ: ЯВНО ПРЕОБРАЗУЕМ В Number ПЕРЕД УМНОЖЕНИЕМ, ЗАТЕМ В BigInt
-    const amountInSmallestUnit = supply * (10 ** decimals);
+    // Используем Math.pow и BigInt для безопасной работы с большими числами
+    const amountInSmallestUnit = supply * Math.pow(10, finalDecimals);
 
     instructions.push(
         createMintToInstruction(
