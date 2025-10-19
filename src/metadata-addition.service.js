@@ -3,7 +3,7 @@
 import { 
     getServiceWallet, 
     getConnection, 
-    getMetadataProgramId 
+    getMetadataProgramId // <-- Импортировано из solana.service.js
 } from './solana.service.js';
 
 import { 
@@ -14,7 +14,7 @@ import {
     createMintToCheckedInstruction,
     createSetAuthorityInstruction,
     AuthorityType,
-    TOKEN_PROGRAM_ID // 🌟 ИМПОРТИРУЕМ ОФИЦИАЛЬНЫЙ CONSTANT SPL-TOKEN
+    TOKEN_PROGRAM_ID
 } from '@solana/spl-token';
 
 import { 
@@ -38,17 +38,11 @@ import {
 
 // --- КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
 
-// ❌ УДАЛЕНО: function getTokenProgramId() { return new PublicKey('TokenkegQfeZyiNwAJbNbCKSMYyzJm64FbLqxTSeiM'); }
+// ❌ УДАЛЕНА: function getTokenProgramId() { ... }
 // Теперь используем TOKEN_PROGRAM_ID, импортированный из @solana/spl-token
 
-/**
- * Возвращает PublicKey для Metaplex Token Metadata Program ID.
- * @returns {PublicKey}
- */
-function getMetaplexProgramId() {
-    // getMetadataProgramId() должен выполнять ленивую инициализацию PublicKey
-    return getMetadataProgramId(); 
-}
+// ❌ УДАЛЕНА: Redundant function getMetaplexProgramId()
+// (Теперь мы будем использовать импортированный getMetadataProgramId напрямую)
 
 // ⚠️ ВРЕМЕННЫЕ ЗАГЛУШКИ ДЛЯ ИМПОРТА METAPLEX, ПОКА SDK НЕ УСТАНОВЛЕН
 // Если SDK установлен, удалите этот блок и раскомментируйте импорты выше.
@@ -66,15 +60,28 @@ const createCreateMetadataAccountV3Instruction = (accounts, args) => {
  * @returns {PublicKey}
  */
 function getMetadataAddress(mint) {
-    const METADATA_PROGRAM_ID = getMetaplexProgramId(); 
+    let programId = getMetadataProgramId(); // Получаем из solana.service.js
+    
+    // 🛑 ИСПРАВЛЕНИЕ: Если Program ID не определен (из-за сбоя импорта),
+    // используем локальный запасной вариант, чтобы предотвратить ошибку 'toBuffer' на undefined.
+    if (!programId) {
+        console.error("⚠️ Metaplex Program ID не был загружен. Используется локальный запасной вариант.");
+        // Hardcode the Metaplex Token Metadata Program ID string and create PublicKey *here*
+        programId = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
+    }
+    
+    // Проверка на случай, если mint.toBuffer() вызовет ошибку
+    if (!mint || !(mint instanceof PublicKey)) {
+        throw new Error("Invalid or undefined Mint Public Key provided to getMetadataAddress.");
+    }
     
     const [metadataAddress] = PublicKey.findProgramAddressSync(
         [
             Buffer.from("metadata"),
-            METADATA_PROGRAM_ID.toBuffer(),
+            programId.toBuffer(),
             mint.toBuffer(),
         ],
-        METADATA_PROGRAM_ID
+        programId
     );
     return metadataAddress;
 }
