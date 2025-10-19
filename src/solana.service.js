@@ -1,6 +1,6 @@
 // src/solana.service.js
 
-// ✅ ПРЯМОЙ ИМПОРТ ВСЕХ НЕОБХОДИМЫХ КЛАССОВ И КОНСТАНТ
+// ✅ DIRECT IMPORT OF ALL NECESSARY CLASSES AND CONSTANTS
 import { 
     Connection, 
     Keypair, 
@@ -9,22 +9,27 @@ import {
 } from '@solana/web3.js'; 
 import bs58 from 'bs58';
 import * as splToken from '@solana/spl-token'; 
+// 🌟 FIX: Import the official Metaplex Program ID constant to avoid 'Invalid public key input' on startup
+import { PROGRAM_ID as METAPLEX_PROGRAM_ID } from '@metaplex-foundation/mpl-token-metadata'; 
 
-// --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ И ЛЕЙЗИ-ИНИЦИАЛИЗАЦИЯ ---
+// --- GLOBAL CONSTANTS AND LAZY INITIALIZATION ---
 
 const CLUSTER_URL = 'https://api.devnet.solana.com';
 let connectionInstance = null;
 let serviceKeypairInstance = null;
 
-// ✅ НОВЫЙ ПОДХОД: Функция для ленивой (lazy) инициализации Metaplex ID.
-// Это гарантирует, что она будет вызвана только после полной загрузки модуля.
+/**
+ * Returns the Metaplex Token Metadata Program ID.
+ * 🛑 FIX: Use the imported constant instead of new PublicKey() to bypass Node.js startup issues.
+ * @returns {PublicKey}
+ */
 export function getMetadataProgramId() {
-    return new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
+    return METAPLEX_PROGRAM_ID;
 }
 
 /**
- * Загружает Keypair из SERVICE_SECRET_KEY (Base58).
- * @returns {Keypair} Keypair сервисного кошелька
+ * Loads the Keypair from SERVICE_SECRET_KEY (Base58).
+ * @returns {Keypair} Keypair of the service wallet
  */
 export function getServiceKeypair() {
     if (serviceKeypairInstance) return serviceKeypairInstance;
@@ -37,39 +42,39 @@ export function getServiceKeypair() {
     try {
         const secretKeyBytes = bs58.decode(secretKeyBs58);
         
-        // Используем Keypair напрямую
+        // Use Keypair directly
         serviceKeypairInstance = Keypair.fromSecretKey(secretKeyBytes); 
         
         console.log(`✅ Сервисный кошелёк загружен: ${serviceKeypairInstance.publicKey.toBase58()}`);
         return serviceKeypairInstance;
     } catch (e) {
-        // Если ошибка здесь "Non-base58 character", значит, SERVICE_SECRET_KEY неверный.
+        // If the error here is "Non-base58 character", then SERVICE_SECRET_KEY is invalid.
         throw new Error(`Failed to load Keypair from SERVICE_SECRET_KEY: ${e.message}`);
     }
 }
 
 /**
- * ПСЕВДОНИМ: Возвращает Keypair сервисного кошелька.
- * @returns {Keypair} Keypair сервисного кошелька
+ * ALIAS: Returns the service wallet Keypair.
+ * @returns {Keypair} Keypair of the service wallet
  */
 export function getServiceWallet() {
     return getServiceKeypair();
 }
 
 /**
- * Возвращает Connection.
+ * Returns the Connection.
  * @returns {Connection}
  */
 export function getConnection() {
     if (!connectionInstance) {
-        // Используем Connection напрямую
+        // Use Connection directly
         connectionInstance = new Connection(CLUSTER_URL, 'confirmed'); 
     }
     return connectionInstance;
 }
 
 /**
- * Возвращает баланс сервисного кошелька (в SOL) и его адрес.
+ * Returns the balance of the service wallet (in SOL) and its address.
  */
 export async function getServiceWalletBalance() {
     const keypair = getServiceKeypair();
@@ -79,27 +84,27 @@ export async function getServiceWalletBalance() {
     let tokenList = [];
     
     try {
-        // --- 1. Получение баланса SOL ---
+        // --- 1. Fetch SOL balance ---
         const balanceLamports = await connection.getBalance(keypair.publicKey);
         const balanceSOL = balanceLamports / LAMPORTS_PER_SOL; 
         
-        // --- 2. Получение списка токенов SPL ---
+        // --- 2. Fetch SPL token list ---
         const tokenAccounts = await connection.getTokenAccountsByOwner(
             keypair.publicKey,
-            // ✅ ИСПОЛЬЗУЕМ splToken.TOKEN_PROGRAM_ID
+            // ✅ USE splToken.TOKEN_PROGRAM_ID
             { programId: splToken.TOKEN_PROGRAM_ID } 
         );
 
         tokenList = tokenAccounts.value
             .map(accountInfo => {
-                // ✅ ИСПОЛЬЗУЕМ splToken.*
+                // ✅ USE splToken.*
                 const data = splToken.AccountLayout.decode(accountInfo.account.data);
                 
-                // Фильтруем закрытые (зануленные) аккаунты
+                // Filter out closed (zeroed) accounts
                 if (data.state === splToken.AccountState.Initialized) {
                      return {
                         mint: data.mint.toBase58(),
-                        amount: Number(data.amount), // Преобразуем BigInt в Number (для фронтенда)
+                        amount: Number(data.amount), // Convert BigInt to Number (for frontend)
                     };
                 }
                 return null;
