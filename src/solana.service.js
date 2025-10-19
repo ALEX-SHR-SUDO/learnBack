@@ -9,17 +9,18 @@ import {
 } from '@solana/web3.js'; 
 import bs58 from 'bs58';
 import * as splToken from '@solana/spl-token'; 
-// 🛑 УДАЛЕНО: Redundant import { TOKEN_PROGRAM_ID, AccountState } from '@solana/spl-token';
 
-// --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ (ИНИЦИАЛИЗАЦИЯ) ---
-
-// ✅ СТРОКА 14: Metaplex Token Metadata Program ID (metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay)
-// Это статическая инициализация. Если она падает, значит, проблема в другом импорте.
-export const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
+// --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ И ЛЕЙЗИ-ИНИЦИАЛИЗАЦИЯ ---
 
 const CLUSTER_URL = 'https://api.devnet.solana.com';
 let connectionInstance = null;
 let serviceKeypairInstance = null;
+
+// ✅ НОВЫЙ ПОДХОД: Функция для ленивой (lazy) инициализации Metaplex ID.
+// Это гарантирует, что она будет вызвана только после полной загрузки модуля.
+export function getMetadataProgramId() {
+    return new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
+}
 
 /**
  * Загружает Keypair из SERVICE_SECRET_KEY (Base58).
@@ -48,7 +49,7 @@ export function getServiceKeypair() {
 }
 
 /**
- * ПСЕВДОНИМ: Возвращает Keypair сервисного кошелька. Используется в token.routes.js как "payer".
+ * ПСЕВДОНИМ: Возвращает Keypair сервисного кошелька.
  * @returns {Keypair} Keypair сервисного кошелька
  */
 export function getServiceWallet() {
