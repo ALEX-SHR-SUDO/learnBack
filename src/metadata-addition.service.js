@@ -3,7 +3,7 @@
 import { 
     getServiceWallet, 
     getConnection, 
-    getMetadataProgramId // Этот сервис теперь просто обертка вокруг PublicKey
+    getMetadataProgramId 
 } from './solana.service.js';
 
 import { 
@@ -13,7 +13,8 @@ import {
     MINT_SIZE,
     createMintToCheckedInstruction,
     createSetAuthorityInstruction,
-    AuthorityType
+    AuthorityType,
+    TOKEN_PROGRAM_ID // 🌟 ИМПОРТИРУЕМ ОФИЦИАЛЬНЫЙ CONSTANT SPL-TOKEN
 } from '@solana/spl-token';
 
 import { 
@@ -30,20 +31,15 @@ import {
 /*
 import { 
     createCreateMetadataAccountV3Instruction, 
-    PROGRAM_ID as METAPLEX_PROGRAM_ID_STUB, // Переименовано, чтобы избежать конфликта с заглушкой
+    PROGRAM_ID as METAPLEX_PROGRAM_ID_STUB, 
     DataV2
 } from '@metaplex-foundation/mpl-token-metadata';
 */
 
 // --- КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
 
-/**
- * Возвращает PublicKey для стандартного SPL Token Program ID.
- * @returns {PublicKey}
- */
-function getTokenProgramId() {
-    return new PublicKey('TokenkegQfeZyiNwAJbNbCKSMYyzJm64FbLqxTSeiM'); 
-}
+// ❌ УДАЛЕНО: function getTokenProgramId() { return new PublicKey('TokenkegQfeZyiNwAJbNbCKSMYyzJm64FbLqxTSeiM'); }
+// Теперь используем TOKEN_PROGRAM_ID, импортированный из @solana/spl-token
 
 /**
  * Возвращает PublicKey для Metaplex Token Metadata Program ID.
@@ -70,7 +66,6 @@ const createCreateMetadataAccountV3Instruction = (accounts, args) => {
  * @returns {PublicKey}
  */
 function getMetadataAddress(mint) {
-    // Используем ленивый вызов
     const METADATA_PROGRAM_ID = getMetaplexProgramId(); 
     
     const [metadataAddress] = PublicKey.findProgramAddressSync(
@@ -167,7 +162,7 @@ export async function createTokenAndMetadata(tokenDetails) {
     const owner = payer.publicKey;
     const amount = BigInt(supply);
     const decimalPlaces = parseInt(decimals, 10);
-    const TOKEN_PROGRAM_ID = getTokenProgramId(); // Ленивая инициализация
+    // 🌟 Используем импортированный TOKEN_PROGRAM_ID
 
     const transaction = new Transaction();
     const signers = [payer, mint]; 
@@ -181,7 +176,7 @@ export async function createTokenAndMetadata(tokenDetails) {
             newAccountPubkey: mint.publicKey,
             space: MINT_SIZE,
             lamports,
-            programId: TOKEN_PROGRAM_ID,
+            programId: TOKEN_PROGRAM_ID, // Используем импортированный ID
         })
     );
 
@@ -192,7 +187,7 @@ export async function createTokenAndMetadata(tokenDetails) {
             decimalPlaces,
             owner, // Mint Authority
             owner, // Freeze Authority (можно установить null)
-            TOKEN_PROGRAM_ID
+            TOKEN_PROGRAM_ID // Используем импортированный ID
         )
     );
     
@@ -201,7 +196,7 @@ export async function createTokenAndMetadata(tokenDetails) {
         mint.publicKey,
         owner,
         false, 
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID // Используем импортированный ID
     );
 
     transaction.add(
@@ -210,7 +205,7 @@ export async function createTokenAndMetadata(tokenDetails) {
             associatedTokenAddress,
             owner, // owner
             mint.publicKey, // mint
-            TOKEN_PROGRAM_ID
+            TOKEN_PROGRAM_ID // Используем импортированный ID
         )
     );
 
@@ -223,7 +218,7 @@ export async function createTokenAndMetadata(tokenDetails) {
             amount,
             decimalPlaces,
             [], 
-            TOKEN_PROGRAM_ID
+            TOKEN_PROGRAM_ID // Используем импортированный ID
         )
     );
     
@@ -235,7 +230,7 @@ export async function createTokenAndMetadata(tokenDetails) {
             AuthorityType.MintTokens,
             null, // New Authority (null = disable)
             [],
-            TOKEN_PROGRAM_ID
+            TOKEN_PROGRAM_ID // Используем импортированный ID
         )
     );
 
@@ -249,7 +244,7 @@ export async function createTokenAndMetadata(tokenDetails) {
     
     const mintAddress = mint.publicKey.toBase58();
 
-    // 7. Попытка добавления метаданных (отдельная транзакция)
+    // 7. Попытка добавления метаданных (отдельной транзакцией)
     const metadataTxSignature = await addTokenMetadata(mintAddress, { name, symbol, uri });
 
     return { 
