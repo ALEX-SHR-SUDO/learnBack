@@ -4,20 +4,18 @@ import {
     PublicKey, 
     Transaction, 
     sendAndConfirmTransaction,
-    Keypair, // <-- ДОБАВЛЕНО ДЛЯ СОЗДАНИЯ MINT
-    SystemProgram, // <-- ДОБАВЛЕНО ДЛЯ СОЗДАНИЯ MINT
-    LAMPORTS_PER_SOL // <-- ДОБАВЛЕНО
+    Keypair, 
+    SystemProgram, 
+    LAMPORTS_PER_SOL 
 } from '@solana/web3.js'; 
 
 // 🛑 ИСПРАВЛЕНИЕ ОШИБКИ ESM/CommonJS: 
-// Используем import * as для пакета Metaplex, который является CJS.
 import * as mplTokenMetadata from '@metaplex-foundation/mpl-token-metadata';
 
-// Извлекаем функции из импортированного объекта. 
 const createCreateMetadataAccountV3Instruction = mplTokenMetadata.createCreateMetadataAccountV3Instruction || (mplTokenMetadata.default && mplTokenMetadata.default.createCreateMetadataAccountV3Instruction);
 const findMetadataPda = mplTokenMetadata.findMetadataPda || (mplTokenMetadata.default && mplTokenMetadata.default.findMetadataPda);
 
-// 🛑 НОВЫЕ ИМПОРТЫ SPL-TOKEN ДЛЯ СОЗДАНИЯ ТОКЕНА
+// 🛑 НОВЫЕ ИМПОРТЫ SPL-TOKEN
 import * as splToken from '@solana/spl-token';
 const { 
     createMint, 
@@ -33,11 +31,30 @@ import { getConnection, getServiceWallet } from './solana.service.js';
 import { Buffer } from 'buffer';
 
 // --- НАСТРОЙКА КОНСТАНТ ---
+const METAPLEX_PROGRAM_ID_DEFAULT = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay';
+const DECIMAL_PLACES = 9; 
 
-const DEFAULT_METADATA_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay';
-const METADATA_PROGRAM_ID_STRING = process.env.TOKEN_METADATA_PROGRAM_ID || DEFAULT_METADATA_PROGRAM_ID;
-const TOKEN_METADATA_PROGRAM_ID = new PublicKey(METADATA_PROGRAM_ID_STRING); 
-const DECIMAL_PLACES = 9; // Стандартное число десятичных знаков для SPL токенов
+/**
+ * [ПРИВАТНАЯ ФУНКЦИЯ] Получает PublicKey программы метаданных Metaplex.
+ * Использует переменную окружения, но возвращается к стандартному ID, 
+ * если переменная окружения не установлена или пуста.
+ * @returns {PublicKey} Адрес программы метаданных.
+ */
+function _getMetadataProgramId() {
+    // Используем переменную окружения, если доступна, иначе используем стандартный ID.
+    const programIdString = process.env.TOKEN_METADATA_PROGRAM_ID || METAPLEX_PROGRAM_ID_DEFAULT;
+    
+    if (!programIdString) {
+        // Это не должно произойти из-за константы, но это хорошая защита.
+        console.error("FATAL: Metaplex Program ID is empty or invalid.");
+        throw new Error("Metaplex Program ID is required and cannot be empty.");
+    }
+    
+    // 🛑 ИНИЦИАЛИЗАЦИЯ PUBLIC KEY ВНУТРИ ФУНКЦИИ
+    const programId = new PublicKey(programIdString);
+    return programId;
+}
+
 
 /**
  * [ПРИВАТНАЯ ФУНКЦИЯ] Создает инструкцию для добавления метаданных Metaplex.
@@ -47,6 +64,8 @@ const DECIMAL_PLACES = 9; // Стандартное число десятичн�
  * @returns {TransactionInstruction} Инструкция по созданию метаданных.
  */
 function _createMetadataInstruction(mintPublicKey, payer, metadataDetails) {
+    const TOKEN_METADATA_PROGRAM_ID = _getMetadataProgramId(); // 🛑 Получаем Program ID здесь
+    
     // 1. Вычисление адреса PDA метаданных
     const [metadataAddress] = PublicKey.findProgramAddressSync(
         [
@@ -98,7 +117,7 @@ function _createMetadataInstruction(mintPublicKey, payer, metadataDetails) {
 export async function createTokenAndMetadata(tokenDetails) {
     const connection = getConnection();
     const payer = getServiceWallet();
-    const mintKeypair = Keypair.generate(); // Новый Keypair для минта
+    const mintKeypair = Keypair.generate(); 
     const mintPublicKey = mintKeypair.publicKey;
     
     console.log(`\n--- НАЧАЛО СОЗДАНИЯ ТОКЕНА И МЕТАДАННЫХ ---`);
@@ -107,7 +126,6 @@ export async function createTokenAndMetadata(tokenDetails) {
     // 1. Рассчитываем необходимый рент и адрес Ассоциированного Токен Аккаунта (ATA)
     const requiredRent = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
     
-    // ATA адрес для получателя (в данном случае - для сервисного кошелька)
     const tokenAccountAddress = getAssociatedTokenAddressSync(
         mintPublicKey,
         payer.publicKey,
@@ -179,7 +197,6 @@ export async function createTokenAndMetadata(tokenDetails) {
     try {
         const tx = new Transaction().add(...instructions);
         
-        // Транзакция подписывается: Payer и Mint Keypair (для создания аккаунта)
         const signature = await sendAndConfirmTransaction(
             connection,
             tx,
@@ -237,7 +254,6 @@ export async function addTokenMetadata(mintAddress, metadataDetails) {
     } catch (error) {
         console.error("❌ Ошибка при добавлении метаданных:", error);
         
-        // Обработка случая, когда метаданные уже существуют
         if (error.message && error.message.includes('already been executed')) {
              throw new Error("Метаданные для этого токена уже существуют.");
         }
