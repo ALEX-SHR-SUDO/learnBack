@@ -35,8 +35,16 @@ import {
 } from '@metaplex-foundation/mpl-token-metadata';
 */
 
-// --- КОНСТАНТЫ ---
-const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbCKSMYyzJm64FbLqxTSeiM'); 
+// --- КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
+
+/**
+ * Возвращает PublicKey для стандартного SPL Token Program ID.
+ * Инициализируется только при вызове, чтобы избежать ошибки "Invalid public key input" при загрузке модуля.
+ * @returns {PublicKey}
+ */
+function getTokenProgramId() {
+    return new PublicKey('TokenkegQfeZyiNwAJbNbCKSMYyzJm64FbLqxTSeiM'); 
+}
 
 // ⚠️ ВРЕМЕННЫЕ ЗАГЛУШКИ ДЛЯ ИМПОРТА METAPLEX, ПОКА SDK НЕ УСТАНОВЛЕН
 // Если SDK установлен, удалите этот блок и раскомментируйте импорты выше.
@@ -143,7 +151,8 @@ export async function createTokenAndMetadata(tokenDetails) {
     const owner = payer.publicKey;
     const amount = BigInt(supply);
     const decimalPlaces = parseInt(decimals, 10);
-    
+    const TOKEN_PROGRAM_ID = getTokenProgramId(); // ⬅️ Ленивая инициализация
+
     const transaction = new Transaction();
     const signers = [payer, mint]; 
 
