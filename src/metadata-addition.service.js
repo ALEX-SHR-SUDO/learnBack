@@ -64,10 +64,10 @@ function _createMetadataInstruction(mintPublicKey, payer, metadataDetails) {
     const [metadataAddress] = PublicKey.findProgramAddressSync(
         [
             Buffer.from("metadata"),
-            TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+            TOKEN_METAPLEX_PROGRAM_ID.toBuffer(),
             mintPublicKey.toBuffer(),
         ],
-        TOKEN_METADATA_PROGRAM_ID
+        TOKEN_METAPLEX_PROGRAM_ID
     );
     
     console.log(`Адрес PDA метаданных: ${metadataAddress.toBase58()}`);
@@ -96,7 +96,7 @@ function _createMetadataInstruction(mintPublicKey, payer, metadataDetails) {
                 collectionDetails: null,
             },
         },
-        TOKEN_METADATA_PROGRAM_ID
+        TOKEN_METAPLEX_PROGRAM_ID
     );
     
     return instruction;
@@ -116,13 +116,26 @@ export async function createTokenAndMetadata(tokenDetails) {
     
     // --- ИСПРАВЛЕНИЕ: БОЛЕЕ СТРОГИЙ ПАРСИНГ ЦЕЛЫХ ЧИСЕЛ ---
     // Используем parseInt для явного преобразования строк в целые числа.
-    const decimals = parseInt(tokenDetails.decimals, 10);
-    const supply = parseInt(tokenDetails.supply, 10);
     
+    const decimalsString = tokenDetails.decimals || '9'; 
+    const supplyString = tokenDetails.supply || '0';     
+
+    const decimals = parseInt(decimalsString, 10);
+    const supply = parseInt(supplyString, 10);
+    
+    // ВРЕМЕННОЕ ЛОГГИРОВАНИЕ ДЛЯ ДЕБАГА
+    console.log(`[DEBUG] Input tokenDetails.supply: '${tokenDetails.supply}'`);
+    console.log(`[DEBUG] Parsed supply value (parseInt): ${supply}`);
+    console.log(`[DEBUG] isNaN(supply): ${isNaN(supply)}`);
+    console.log(`[DEBUG] supply <= 0: ${supply <= 0}`);
+    
+
     // Валидация
+    // Теперь, если что-то не так, мы точно увидим причину в логах
     if (isNaN(supply) || supply <= 0) {
         throw new Error("Supply (общий запас) должен быть положительным целым числом.");
     }
+    
     // Если decimals не указан или некорректен, используем стандартное значение 9.
     const finalDecimals = (isNaN(decimals) || decimals < 0 || decimals > 9) ? 9 : decimals;
     
