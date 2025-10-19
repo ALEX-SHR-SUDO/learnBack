@@ -149,10 +149,13 @@ async function addTokenMetadata(connection, payer, mintAddress, name, symbol, ur
     console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress}`);
     
     // Передаем явно созданный Program ID
-    const [metadataAddress] = findMetadataPda({
+    const pdaResult = findMetadataPda({
         mint: mintPublicKey,
         programId: tokenMetadataProgramId, 
     });
+    
+    // Единственная декларация metadataAddress
+    const metadataAddress = pdaResult[0];
 
     console.log(`[ШАГ 4] Адрес PDA метаданных успешно вычислен: ${metadataAddress.toBase58()}`);
 
