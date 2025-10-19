@@ -1,169 +1,87 @@
 // src/metadata-addition.service.js
-// Низкоуровневый сервис для создания SPL Token и метаданных Metaplex.
 
-import {
-  Connection,
-  Keypair,
-  PublicKey,
-  Transaction,
-  SystemProgram,
-} from "@solana/web3.js";
+import { 
+    Connection, 
+    Keypair, 
+    Transaction, 
+    PublicKey, 
+    sendAndConfirmTransaction, 
+    SystemProgram
+} from '@solana/web3.js';
+import * as splToken from '@solana/spl-token';
+import { getServiceWallet, getConnection } from './solana.service.js'; // Предполагается, что этот импорт существует
+import { toBigInt } from './utils.js'; // Предполагается, что этот импорт существует
 
-import {
-  MINT_SIZE,
-  TOKEN_PROGRAM_ID,
-  createInitializeMintInstruction,
-  getMinimumBalanceForRentExemptMint,
-  createAssociatedTokenAccountInstruction,
-  createMintToCheckedInstruction,
-  getAssociatedTokenAddress,
-} from "@solana/spl-token";
+// =========================================================================
+// ✅ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ METAPLEX: ДИНАМИЧЕСКИЙ ASYNC IMPORT
+// -------------------------------------------------------------------------
 
-// ✅ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ИМПОРТА METAPLEX
-const metaplex = require('@metaplex-foundation/mpl-token-metadata');
+// 1. Объявляем переменные, которые будут присвоены после динамического импорта.
+// В ESM-файле 'require()' запрещен (ReferenceError), поэтому используем async/await import().
+let createCreateMetadataAccountV3Instruction;
+let findMetadataPda;
 
-// Извлекаем функции из объекта Metaplex, который может быть либо корнем,
-// либо свойством 'default', как это часто бывает с CommonJS-пакетами.
-// Мы проверим, есть ли функции на корневом объекте 'metaplex',
-// и если нет, то берем их из 'metaplex.default'.
-const moduleExports = metaplex.findMetadataPda ? metaplex : metaplex.default;
+// 2. Выполняем динамический импорт (Top-level await поддерживается в Node 22)
+// Этот метод является наиболее надежным для CommonJS-пакетов в ESM-среде.
+console.log('Инициализация Metaplex через динамический импорт...');
+try {
+    // Dynamic import возвращает Promise, который разрешается в объект модуля
+    const metaplexModule = await import('@metaplex-foundation/mpl-token-metadata');
+    
+    // Пакет Metaplex является CommonJS, поэтому функции могут быть в корне или в .default
+    const exportsToUse = metaplexModule.default || metaplexModule;
 
-const {
-    createCreateMetadataAccountV3Instruction,
-    findMetadataPda
-} = moduleExports;
+    // 3. Присваиваем функции глобальным переменным
+    findMetadataPda = exportsToUse.findMetadataPda;
+    createCreateMetadataAccountV3Instruction = exportsToUse.createCreateMetadataAccountV3Instruction;
+    
+    // Дополнительная проверка на случай глубокой вложенности
+    if (!findMetadataPda && exportsToUse.default) {
+        findMetadataPda = exportsToUse.default.findMetadataPda;
+        createCreateMetadataAccountV3Instruction = exportsToUse.default.createCreateMetadataAccountV3Instruction;
+    }
 
-// ✅ ИСПРАВЛЕНИЕ #1: Определяем Program ID метаданных как СТРОКУ,
-// чтобы избежать немедленного вызова new PublicKey() при загрузке модуля.
+    if (findMetadataPda) {
+        console.log('✅ Инициализация Metaplex завершена успешно.');
+    } else {
+        console.error("КРИТИЧЕСКАЯ ОШИБКА: Metaplex-функции не найдены после динамического импорта.");
+    }
 
-const TOKEN_METADATA_PROGRAM_ID_STR = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
-
-/**
- * [ШАГ 1, 2, 3] Создает новый Mint-аккаунт, Associated Token Account (ATA) для Mint Authority
- * и чеканит начальное предложение.
- * @param {Connection} connection Соединение с Solana.
- * @param {Keypair} payer Кошелек, оплачивающий транзакцию и являющийся Mint Authority.
- * @param {number} supply Общее начальное предложение токена (в виде целого числа).
- * @param {number} decimals Количество знаков после запятой.
- * @returns {Promise<{ mint: string, ata: string, mintKeypair: Keypair }>} Адреса Mint-аккаунта, ATA и Keypair Mint.
- */
-async function createTokenAndMint(connection, payer, supply, decimals) {
-  // 1. Создаем Mint-аккаунт
-  const mintKeypair = Keypair.generate();
-  const rentExempt = await getMinimumBalanceForRentExemptMint(connection);
-
-  // Инструкция 1: Добавляем инструкцию для оплаты аренды за Mint-аккаунт
-  const createMintAccountInstruction = SystemProgram.createAccount({
-        fromPubkey: payer.publicKey,
-        newAccountPubkey: mintKeypair.publicKey,
-        lamports: rentExempt,
-        space: MINT_SIZE,
-        programId: TOKEN_PROGRAM_ID,
-    });
-  
-  // Инструкция 2: Инициализируем Mint
-  const initializeMintInstruction = createInitializeMintInstruction(
-      mintKeypair.publicKey,
-      decimals,
-      payer.publicKey, // Mint Authority
-      payer.publicKey, // Freeze Authority (используем тот же Keypair для простоты)
-      TOKEN_PROGRAM_ID
-  );
-
-  const createMintTx = new Transaction().add(
-    createMintAccountInstruction,
-    initializeMintInstruction
-  );
-
-  console.log('[ШАГ 1] Попытка создать Mint-аккаунт.');
-  // Для создания Mint нужны подписи Payer и MintKeypair
-  const mintSignature = await connection.sendTransaction(createMintTx, [payer, mintKeypair], { skipPreflight: false });
-  await connection.confirmTransaction(mintSignature, 'confirmed');
-  
-  const mintAddress = mintKeypair.publicKey.toBase58();
-  console.log(`✅ [ШАГ 1] Mint-аккаунт создан: ${mintAddress}`);
-
-  // 2. Создаем Associated Token Account (ATA)
-  const associatedTokenAccount = await getAssociatedTokenAddress(
-    mintKeypair.publicKey,
-    payer.publicKey
-  );
-
-  const createAtaTx = new Transaction().add(
-    createAssociatedTokenAccountInstruction(
-      payer.publicKey,
-      associatedTokenAccount,
-      payer.publicKey,
-      mintKeypair.publicKey
-    )
-  );
-
-  console.log('[ШАГ 2] Попытка создать Associated Token Account (ATA).');
-  const ataSignature = await connection.sendTransaction(createAtaTx, [payer]);
-  await connection.confirmTransaction(ataSignature, 'confirmed');
-  
-  const ataAddress = associatedTokenAccount.toBase58();
-  console.log(`✅ [ШАГ 2] Associated Token Account (ATA) создан: ${ataAddress}`);
-  
-
-  // 3. Чеканим начальное предложение (Mint to)
-  // Приведение к BigInt для безопасных расчетов больших чисел
-  const mintAmount = BigInt(supply) * BigInt(10 ** decimals); 
-
-  const mintToTx = new Transaction().add(
-    createMintToCheckedInstruction(
-      mintKeypair.publicKey,
-      associatedTokenAccount,
-      payer.publicKey, // Mint Authority
-      mintAmount, 
-      decimals,
-      [], // Signers for the Mint Authority
-      TOKEN_PROGRAM_ID
-    )
-  );
-  
-  console.log('[ШАГ 3] Попытка отчеканить начальное предложение.');
-  // Подписывает Payer, который является Mint Authority
-  const mintToSignature = await connection.sendTransaction(mintToTx, [payer]);
-  await connection.confirmTransaction(mintToSignature, 'confirmed');
-  
-  console.log(`✅ [ШАГ 3] Начальное предложение ${supply} токенов отчеканено.`);
-
-  // Возвращаем MintKeypair для возможности обновления
-  return { mint: mintAddress, ata: ataAddress, mintKeypair }; 
+} catch (error) {
+    console.error('❌ Ошибка при динамическом импорте Metaplex:', error.message);
 }
 
-/**
- * [ШАГ 4] Добавляет метаданные Metaplex (имя, символ, URI) к существующему Mint-аккаунту токена.
- * @param {Connection} connection Соединение с Solana.
- * @param {Keypair} payer Кошелек, оплачивающий транзакцию и являющийся Mint Authority.
- * @param {string} mintAddress Адрес Mint-аккаунта токена.
- * @param {string} name Название токена.
- * @param {string} symbol Символ токена.
- * @param {string} uri Ссылка на JSON-файл метаданных.
- * @returns {Promise<string>} Подпись транзакции.
- */
-async function addTokenMetadata(connection, payer, mintAddress, name, symbol, uri) {
-    const mintPublicKey = new PublicKey(mintAddress);
-    
-    // ✅ ИСПРАВЛЕНИЕ #2: Создаем PublicKey здесь, во время выполнения функции (runtime).
-    const tokenMetadataProgramId = new PublicKey(TOKEN_METADATA_PROGRAM_ID_STR);
+// =========================================================================
 
-    // 1. ВЫЧИСЛЕНИЕ АДРЕСА PDA МЕТАДАННЫХ
-    console.log(`[ШАГ 4] Попытка создать метаданные для ${mintAddress}`);
+// Константы Metaplex
+const TOKEN_METADATA_PROGRAM_ID_STR = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay';
+const TOKEN_METADATA_PROGRAM_ID = new PublicKey(TOKEN_METADATA_PROGRAM_ID_STR);
+
+
+/**
+ * Шаг 4: Добавление метаданных Metaplex к Mint-аккаунту.
+ * @param {PublicKey} mintPublicKey - Публичный ключ Mint-аккаунта.
+ * @param {Keypair} payer - Кошелек, оплачивающий комиссию и являющийся Mint-Authority.
+ * @param {object} details - Детали метаданных (name, symbol, uri).
+ */
+export async function addTokenMetadata(mintPublicKey, payer, details) {
+    if (!findMetadataPda || !createCreateMetadataAccountV3Instruction) {
+        throw new Error("Не удалось инициализировать Metaplex-функции. Отмена создания метаданных.");
+    }
     
-    // Передаем явно созданный Program ID
-    const pdaResult = findMetadataPda({
+    const tokenMetadataProgramId = TOKEN_METADATA_PROGRAM_ID;
+
+    // 1. Найти адрес Program Derived Address (PDA) для метаданных
+    // ИСПОЛЬЗУЕМ ИМПОРТИРОВАННУЮ ФУНКЦИЮ findMetadataPda
+    const [metadataAddress] = findMetadataPda({
         mint: mintPublicKey,
         programId: tokenMetadataProgramId, 
     });
-    
-    // Единственная декларация metadataAddress
-    const metadataAddress = pdaResult[0];
 
-    console.log(`[ШАГ 4] Адрес PDA метаданных успешно вычислен: ${metadataAddress.toBase58()}`);
+    console.log(`Адрес PDA метаданных успешно вычислен: ${metadataAddress.toBase58()}`);
 
-    // 2. ФОРМИРОВАНИЕ ИНСТРУКЦИИ
+    // 2. Создание инструкции V3
+    // ИСПОЛЬЗУЕМ ИМПОРТИРОВАННУЮ ФУНКЦИЮ createCreateMetadataAccountV3Instruction
     const instruction = createCreateMetadataAccountV3Instruction(
         {
             metadata: metadataAddress,
@@ -171,92 +89,147 @@ async function addTokenMetadata(connection, payer, mintAddress, name, symbol, ur
             mintAuthority: payer.publicKey,
             payer: payer.publicKey,
             updateAuthority: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+            rent: splToken.ASSOCIATED_TOKEN_PROGRAM_ID, // Rent is usually handled by SystemProgram, but in some versions, this field is required and ignored
         },
         {
             createMetadataAccountArgsV3: {
                 data: {
-                    name: name,
-                    symbol: symbol,
-                    uri: uri,
+                    name: details.name,
+                    symbol: details.symbol,
+                    uri: details.uri,
                     sellerFeeBasisPoints: 0,
                     creators: null,
                     collection: null,
                     uses: null,
                 },
                 isMutable: true,
-                collectionDetails: null,
+                collectionDetails: null, // Оставляем null для обычного токена
             },
         },
-        // Передаем явно определенный Program ID
         tokenMetadataProgramId
     );
 
-    // 3. ОТПРАВКА ТРАНЗАКЦИИ
-    try {
-        // УЛУЧШЕНИЕ: Запрашиваем свежий blockhash непосредственно перед отправкой
-        const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    // 3. Отправка транзакции
+    const connection = getConnection();
+    const { blockhash } = await connection.getLatestBlockhash();
+    
+    const transaction = new Transaction({ 
+        recentBlockhash: blockhash,
+        feePayer: payer.publicKey,
+    }).add(instruction);
 
-        const txSignature = await connection.sendTransaction(
-            new Transaction({ 
-                recentBlockhash: blockhash,
-                feePayer: payer.publicKey,
-            }).add(instruction),
-            [payer], // Подписывается только плательщик (Mint Authority)
+    try {
+        const txSignature = await sendAndConfirmTransaction(
+            connection,
+            transaction,
+            [payer],
             { 
                 skipPreflight: false,
                 preflightCommitment: "confirmed"
             }
         );
 
-        await connection.confirmTransaction({ signature: txSignature, blockhash: blockhash, lastValidBlockHeight: (await connection.getLatestBlockhash('confirmed')).lastValidBlockHeight }, 'confirmed');
-
-
-        console.log(`✅ [ШАГ 4] Метаданные токена созданы. Подпись: ${txSignature}`);
+        console.log(`✅ [ШАГ 4] Метаданные созданы. Подпись: ${txSignature}`);
         return txSignature;
     } catch (error) {
-        console.error("❌ Ошибка при добавлении метаданных токена:", error);
-        throw new Error("Ошибка при добавлении метаданных токена: " + error.message);
+        console.error(`❌ Ошибка на ШАГЕ 4 (Метаданные): ${error.message}`);
+        throw error;
     }
 }
 
+
 /**
- * Главная функция-оркестратор, которая выполняет весь процесс создания токена.
- * @param {Connection} connection Соединение с Solana.
- * @param {Keypair} payer Кошелек, оплачивающий транзакцию и являющийся Mint Authority.
- * @param {string} name Название токена.
- * @param {string} symbol Символ токена.
- * @param {string} uri Ссылка на JSON-файл метаданных.
- * @param {string} supply Общее начальное предложение токена (строка).
- * @param {string} decimals Количество знаков после запятой (строка).
- * @returns {Promise<{ mint: string, ata: string, metadataTx: string }>} Результаты создания.
+ * Создает новый токен SPL, минтит начальную эмиссию и добавляет метаданные.
+ * @param {string} name - Название токена.
+ * @param {string} symbol - Символ токена.
+ * @param {string} uri - URI метаданных (Pinata).
+ * @param {string} supplyStr - Начальное предложение (строка).
+ * @param {string} decimalsStr - Количество десятичных знаков (строка).
+ * @returns {object} Объект с адресом Mint и подписью транзакции.
  */
-export async function createTokenAndMetadata(connection, payer, name, symbol, uri, supply, decimals) {
+export async function createTokenAndMetadata(name, symbol, uri, supplyStr, decimalsStr) {
+    const connection = getConnection();
+    const payer = getServiceWallet();
+    const mintKeypair = Keypair.generate();
+    
+    const decimals = parseInt(decimalsStr, 10);
+    // Преобразуем начальное предложение в BigInt
+    const initialSupply = toBigInt(supplyStr, decimals); 
+
+    console.log("Начинаем ШАГ 1-4: createTokenAndMetadata (полный процесс)");
+
+    // --- ШАГ 1: Создание Mint-аккаунта ---
     try {
-        const numDecimals = parseInt(decimals);
-        const numSupply = parseInt(supply);
-
-        // ШАГ 1-3: Создание Mint-аккаунта, ATA и чеканка
-        // Получаем MintKeypair, хотя он не нужен для следующего шага, это хорошая практика.
-        const { mint, ata } = await createTokenAndMint(
+        console.log(`[ШАГ 1] Попытка создать Mint-аккаунт.`);
+        
+        const mintTxSignature = await splToken.createMint(
             connection,
             payer,
-            numSupply,
-            numDecimals
+            payer.publicKey, // Mint Authority
+            payer.publicKey, // Freeze Authority
+            decimals,
+            mintKeypair,
+            null, // Transaction
+            splToken.TOKEN_PROGRAM_ID
         );
 
-        // ШАГ 4: Добавление метаданных 
-        const metadataTx = await addTokenMetadata(
+        const mintPublicKey = mintKeypair.publicKey;
+        console.log(`✅ [ШАГ 1] Mint-аккаунт создан: ${mintPublicKey.toBase58()}`);
+
+        // --- ШАГ 2: Создание Associated Token Account (ATA) ---
+        console.log(`[ШАГ 2] Попытка создать Associated Token Account (ATA).`);
+        
+        const ataPublicKey = await splToken.getOrCreateAssociatedTokenAccount(
             connection,
             payer,
-            mint,
-            name,
-            symbol,
-            uri
+            mintPublicKey,
+            payer.publicKey,
+            false, // Allow owner off curve
+            splToken.TOKEN_PROGRAM_ID,
+            splToken.ASSOCIATED_TOKEN_PROGRAM_ID
         );
 
-        return { mint, ata, metadataTx };
+        console.log(`✅ [ШАГ 2] Associated Token Account (ATA) создан: ${ataPublicKey.address.toBase58()}`);
+
+        // --- ШАГ 3: Минт начального предложения ---
+        console.log(`[ШАГ 3] Попытка отчеканить начальное предложение.`);
+        
+        const mintToTxSignature = await splToken.mintTo(
+            connection,
+            payer,
+            mintPublicKey,
+            ataPublicKey.address,
+            payer, // Mint Authority
+            initialSupply,
+            [], // MultiSigners
+            null, // Transaction
+            splToken.TOKEN_PROGRAM_ID
+        );
+
+        console.log(`✅ [ШАГ 3] Начальное предложение ${supplyStr} токенов отчеканено.`);
+
+        // --- ШАГ 4: Добавление метаданных ---
+        console.log(`[ШАГ 4] Попытка создать метаданные для ${mintPublicKey.toBase58()}`);
+        
+        const metadataTxSignature = await addTokenMetadata(
+            mintPublicKey,
+            payer,
+            { name, symbol, uri }
+        );
+        
+        return {
+            mintAddress: mintPublicKey.toBase58(),
+            ataAddress: ataPublicKey.address.toBase58(),
+            metadataTx: metadataTxSignature
+        };
+
     } catch (error) {
-        console.error("❌ Ошибка при создании токена и метаданных:", error);
-        throw error;
+        console.error(`❌ Ошибка при создании токена и метаданных: ${error.message}`);
+        // Дополнительный лог для трассировки
+        console.error(error.stack); 
+        
+        // Перебрасываем ошибку для обработки в маршруте
+        throw new Error(`Ошибка при создании токена: ${error.message}`);
     }
 }
