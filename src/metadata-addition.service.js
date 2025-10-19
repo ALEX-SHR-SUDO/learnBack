@@ -1,11 +1,12 @@
 // src/metadata-addition.service.js
+// Низкоуровневый сервис для создания SPL Token и метаданных Metaplex.
 
 import {
   Connection,
   Keypair,
   PublicKey,
   Transaction,
-  SystemProgram, // <-- Добавлен импорт SystemProgram
+  SystemProgram,
 } from "@solana/web3.js";
 
 import {
@@ -19,7 +20,8 @@ import {
 } from "@solana/spl-token";
 
 import * as metaplex from "@metaplex-foundation/mpl-token-metadata";
-import { Buffer } from "buffer";
+// Buffer не нужен, если вы используете @solana/web3.js, который включает его полифилл.
+// import { Buffer } from "buffer"; 
 
 // Извлекаем необходимые функции Metaplex
 const {
@@ -28,7 +30,7 @@ const {
 } = metaplex;
 
 // ✅ ИСПРАВЛЕНИЕ #1: Определяем Program ID метаданных как СТРОКУ,
-// чтобы избежать немедленного вызова new PublicKey() при загрузке модуля (строка ~31).
+// чтобы избежать немедленного вызова new PublicKey() при загрузке модуля.
 const TOKEN_METADATA_PROGRAM_ID_STR = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay';
 
 /**
@@ -38,7 +40,7 @@ const TOKEN_METADATA_PROGRAM_ID_STR = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay
  * @param {Keypair} payer Кошелек, оплачивающий транзакцию и являющийся Mint Authority.
  * @param {number} supply Общее начальное предложение токена (в виде целого числа).
  * @param {number} decimals Количество знаков после запятой.
- * @returns {Promise<{ mint: string, ata: string }>} Адреса Mint-аккаунта и ATA.
+ * @returns {Promise<{ mint: string, ata: string, mintKeypair: Keypair }>} Адреса Mint-аккаунта, ATA и Keypair Mint.
  */
 async function createTokenAndMint(connection, payer, supply, decimals) {
   // 1. Создаем Mint-аккаунт
@@ -58,8 +60,8 @@ async function createTokenAndMint(connection, payer, supply, decimals) {
   const initializeMintInstruction = createInitializeMintInstruction(
       mintKeypair.publicKey,
       decimals,
-      payer.publicKey,
-      payer.publicKey, // Freeze Authority не используется, поэтому ставим Mint Authority
+      payer.publicKey, // Mint Authority
+      payer.publicKey, // Freeze Authority (используем тот же Keypair для простоты)
       TOKEN_PROGRAM_ID
   );
 
@@ -69,6 +71,7 @@ async function createTokenAndMint(connection, payer, supply, decimals) {
   );
 
   console.log('[ШАГ 1] Попытка создать Mint-аккаунт.');
+  // Для создания Mint нужны подписи Payer и MintKeypair
   const mintSignature = await connection.sendTransaction(createMintTx, [payer, mintKeypair], { skipPreflight: false });
   await connection.confirmTransaction(mintSignature, 'confirmed');
   
@@ -106,19 +109,23 @@ async function createTokenAndMint(connection, payer, supply, decimals) {
     createMintToCheckedInstruction(
       mintKeypair.publicKey,
       associatedTokenAccount,
-      payer.publicKey,
-      mintAmount, // Передаем BigInt
-      decimals
+      payer.publicKey, // Mint Authority
+      mintAmount, 
+      decimals,
+      [], // Signers for the Mint Authority
+      TOKEN_PROGRAM_ID
     )
   );
   
   console.log('[ШАГ 3] Попытка отчеканить начальное предложение.');
+  // Подписывает Payer, который является Mint Authority
   const mintToSignature = await connection.sendTransaction(mintToTx, [payer]);
   await connection.confirmTransaction(mintToSignature, 'confirmed');
   
   console.log(`✅ [ШАГ 3] Начальное предложение ${supply} токенов отчеканено.`);
 
-  return { mint: mintAddress, ata: ataAddress };
+  // Возвращаем MintKeypair для возможности обновления
+  return { mint: mintAddress, ata: ataAddress, mintKeypair }; 
 }
 
 /**
@@ -178,19 +185,23 @@ async function addTokenMetadata(connection, payer, mintAddress, name, symbol, ur
 
     // 3. ОТПРАВКА ТРАНЗАКЦИИ
     try {
-        const { blockhash } = await connection.getLatestBlockhash();
+        // УЛУЧШЕНИЕ: Запрашиваем свежий blockhash непосредственно перед отправкой
+        const { blockhash } = await connection.getLatestBlockhash('confirmed');
 
         const txSignature = await connection.sendTransaction(
             new Transaction({ 
                 recentBlockhash: blockhash,
                 feePayer: payer.publicKey,
             }).add(instruction),
-            [payer], // Подписывается только плательщик
+            [payer], // Подписывается только плательщик (Mint Authority)
             { 
                 skipPreflight: false,
                 preflightCommitment: "confirmed"
             }
         );
+
+        await connection.confirmTransaction({ signature: txSignature, blockhash: blockhash, lastValidBlockHeight: (await connection.getLatestBlockhash('confirmed')).lastValidBlockHeight }, 'confirmed');
+
 
         console.log(`✅ [ШАГ 4] Метаданные токена созданы. Подпись: ${txSignature}`);
         return txSignature;
@@ -217,6 +228,7 @@ export async function createTokenAndMetadata(connection, payer, name, symbol, ur
         const numSupply = parseInt(supply);
 
         // ШАГ 1-3: Создание Mint-аккаунта, ATA и чеканка
+        // Получаем MintKeypair, хотя он не нужен для следующего шага, это хорошая практика.
         const { mint, ata } = await createTokenAndMint(
             connection,
             payer,
@@ -224,7 +236,7 @@ export async function createTokenAndMetadata(connection, payer, name, symbol, ur
             numDecimals
         );
 
-        // ШАГ 4: Добавление метаданных (используя наш исправленный код)
+        // ШАГ 4: Добавление метаданных 
         const metadataTx = await addTokenMetadata(
             connection,
             payer,
