@@ -19,15 +19,11 @@ import {
   getAssociatedTokenAddress,
 } from "@solana/spl-token";
 
-import * as metaplex from "@metaplex-foundation/mpl-token-metadata";
-// Buffer не нужен, если вы используете @solana/web3.js, который включает его полифилл.
-// import { Buffer } from "buffer"; 
-
-// Извлекаем необходимые функции Metaplex
-const {
+// ✅ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ИМПОРТА METAPLEX
+import {
     createCreateMetadataAccountV3Instruction,
     findMetadataPda
-} = metaplex;
+} from "@metaplex-foundation/mpl-token-metadata";
 
 // ✅ ИСПРАВЛЕНИЕ #1: Определяем Program ID метаданных как СТРОКУ,
 // чтобы избежать немедленного вызова new PublicKey() при загрузке модуля.
