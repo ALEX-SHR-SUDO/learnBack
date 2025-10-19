@@ -9,8 +9,11 @@ import {
 } from '@solana/web3.js'; 
 import bs58 from 'bs58';
 import * as splToken from '@solana/spl-token'; 
-// 🌟 FIX: Import the official Metaplex Program ID constant to avoid 'Invalid public key input' on startup
-import { PROGRAM_ID as METAPLEX_PROGRAM_ID } from '@metaplex-foundation/mpl-token-metadata'; 
+
+// 🌟 ФИКС: Используем импорт по умолчанию, чтобы избежать ошибки CommonJS/ESM
+import pkg from '@metaplex-foundation/mpl-token-metadata'; 
+const { PROGRAM_ID: METAPLEX_PROGRAM_ID } = pkg;
+// Теперь METAPLEX_PROGRAM_ID гарантированно загружена корректно.
 
 // --- GLOBAL CONSTANTS AND LAZY INITIALIZATION ---
 
