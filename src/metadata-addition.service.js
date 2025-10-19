@@ -20,18 +20,14 @@ import {
 } from "@solana/spl-token";
 
 // ✅ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ИМПОРТА METAPLEX
-// Импортируем CommonJS-модуль Metaplex как объект
-import * as metaplex from "@metaplex-foundation/mpl-token-metadata";
+// Используем импорт дефолтного экспорта (pkg)
+import pkg from "@metaplex-foundation/mpl-token-metadata";
 
-// Поскольку findMetadataPda может находиться либо в корне объекта,
-// либо в свойстве 'default' (для CommonJS в ESM), мы используем оба варианта.
-const metaplexModule = metaplex.default || metaplex;
-
-// Устанавливаем переменные, которые вы хотите использовать в коде
+// Извлекаем нужные функции из дефолтного экспорта
 const {
     createCreateMetadataAccountV3Instruction,
     findMetadataPda
-} = metaplexModule;
+} = pkg;
 
 // ✅ ИСПРАВЛЕНИЕ #1: Определяем Program ID метаданных как СТРОКУ,
 // чтобы избежать немедленного вызова new PublicKey() при загрузке модуля.
