@@ -28,7 +28,10 @@ import {
 } from '@solana/web3.js';
 
 // ✅ ИСПРАВЛЕНИЕ CJS/ESM: Импортируем весь модуль Metaplex как объект 'mpl'
-import * as mpl from '@metaplex-foundation/mpl-token-metadata';
+import {
+  createCreateMetadataAccountV3Instruction,
+  PROGRAM_ID,
+} from "@metaplex-foundation/mpl-token-metadata";
 
 
 // --- КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
@@ -113,7 +116,7 @@ function createMetaplexInstruction(params) {
 
     // --- 2. Создание самой инструкции ---
     // Используем mpl.createCreateMetadataAccountV3Instruction
-    let ix = mpl.createCreateMetadataAccountV3Instruction(
+    let ix = createCreateMetadataAccountV3Instruction(
         {
             metadata: metadataAddress,
             mint: mint,
