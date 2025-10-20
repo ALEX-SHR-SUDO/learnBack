@@ -1,6 +1,6 @@
 // src/metadata-addition.controller.js
 
-import { createTokenAndMetadata, addTokenMetadata } from './metadata-addition.service.js';
+import { createTokenAndMetadata } from './metadata-addition.service.js';
 
 /**
  * Обрабатывает запрос на создание нового токена, чеканку и добавление метаданных.
