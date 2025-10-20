@@ -77,13 +77,13 @@ function createMetaplexInstruction(params) {
     const metadataAddress = getMetadataAddress(mint);
 
     // --- 1. Подготовка структуры данных (DataV2) ---
-    const dataV2 = new DataV2({
+    const dataV2 = new mpl.DataV2({
         name: name,
         symbol: symbol,
         uri: uri,
         sellerFeeBasisPoints: 0,
         creators: [
-            new Creator({
+            new mpl.Creator({
                 address: owner,
                 verified: true,
                 share: 100
