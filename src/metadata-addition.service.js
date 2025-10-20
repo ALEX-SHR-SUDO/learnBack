@@ -1,6 +1,6 @@
 // src/metadata-addition.service.js
 
-import { Buffer } from 'buffer'; // <--- ДОБАВЛЕНО: Явный импорт Buffer для работы в ESM-среде
+import { Buffer } from 'buffer'; // <-- Явный импорт Buffer для работы в ESM-среде
 
 import { 
     getServiceWallet, 
@@ -27,12 +27,8 @@ import {
     PublicKey
 } from '@solana/web3.js';
 
-// ✅ ШАГ 1: Раскомментируйте эти импорты после установки Metaplex SDK (npm install @metaplex-foundation/mpl-token-metadata)
-import { 
-    createCreateMetadataAccountV3Instruction, 
-    PROGRAM_ID as METAPLEX_PROGRAM_ID_STUB, 
-    DataV2
-} from '@metaplex-foundation/mpl-token-metadata';
+// ✅ ИСПРАВЛЕНИЕ CJS/ESM: Импортируем весь модуль Metaplex как объект 'mpl'
+import * as mpl from '@metaplex-foundation/mpl-token-metadata';
 
 
 // --- КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
@@ -53,24 +49,20 @@ function getFallbackProgramId() {
     return fallbackProgramIdCache;
 }
 
-// ❌ ШАГ 2: Удалены временные заглушки, так как импорты выше теперь работают.
-
-
 /**
  * Возвращает адрес Public Key для адреса метаданных (PDA).
  * @param {PublicKey} mint - Mint Public Key.
  * @returns {PublicKey}
  */
 function getMetadataAddress(mint) {
-    // 1. Пытаемся получить Program ID из solana.service.js (который теперь должен быть импортирован)
+    // 1. Пытаемся получить Program ID из solana.service.js 
     let programId = getMetadataProgramId(); 
     
-    // 2. Если импорт не удался (проблема CommonJS/ESM), используем наш ленивый запасной вариант.
+    // 2. Если импорт не удался, используем наш ленивый запасной вариант.
     if (!programId) {
         console.warn("⚠️ Metaplex Program ID не был загружен. Используется локальный, лениво инициализированный запасной вариант.");
         programId = getFallbackProgramId();
     } else {
-        // Для отладки: если SDK импортирован, мы должны попасть сюда
         console.log("✅ Metaplex Program ID успешно загружен из SDK.");
     }
     
@@ -102,7 +94,7 @@ function createMetaplexInstruction(params) {
     const metadataAddress = getMetadataAddress(mint);
 
     // --- 1. Подготовка структуры данных (DataV2) ---
-    // Используем DataV2 из Metaplex SDK
+    // Мы создаем объект, который соответствует интерфейсу mpl.DataV2
     const dataV2 = {
         name: name,
         symbol: symbol,
@@ -120,8 +112,8 @@ function createMetaplexInstruction(params) {
     };
 
     // --- 2. Создание самой инструкции ---
-    // createCreateMetadataAccountV3Instruction теперь доступен из SDK
-    let ix = createCreateMetadataAccountV3Instruction(
+    // Используем mpl.createCreateMetadataAccountV3Instruction
+    let ix = mpl.createCreateMetadataAccountV3Instruction(
         {
             metadata: metadataAddress,
             mint: mint,
@@ -304,4 +296,3 @@ export async function addTokenMetadata(mintAddress, metadata) {
         throw error;
     }
 }
-
