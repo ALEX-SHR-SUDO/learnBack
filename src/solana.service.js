@@ -10,10 +10,12 @@ import {
 import bs58 from 'bs58';
 import * as splToken from '@solana/spl-token'; 
 
-// 🌟 ФИКС: Используем импорт по умолчанию, чтобы избежать ошибки CommonJS/ESM
-import pkg from '@metaplex-foundation/mpl-token-metadata'; 
-const { PROGRAM_ID: METAPLEX_PROGRAM_ID } = pkg;
-// Теперь METAPLEX_PROGRAM_ID гарантированно загружена корректно.
+// --- ИСПРАВЛЕНИЕ METAPLEX PROGRAM ID ---
+// ⚠️ Мы удаляем импорт '@metaplex-foundation/mpl-token-metadata' и жестко
+// прописываем константный ID, чтобы гарантировать корректную инициализацию PublicKey.
+// Это решает проблему "Invalid public key input".
+const METADATA_PROGRAM_ID_STRING = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msC8hEzNqQ';
+// ----------------------------------------
 
 // --- GLOBAL CONSTANTS AND LAZY INITIALIZATION ---
 
@@ -23,11 +25,11 @@ let serviceKeypairInstance = null;
 
 /**
  * Returns the Metaplex Token Metadata Program ID.
- * 🛑 FIX: Use the imported constant instead of new PublicKey() to bypass Node.js startup issues.
+ * ✅ ИСПРАВЛЕНИЕ: Создаем PublicKey из гарантированно корректной строки.
  * @returns {PublicKey}
  */
 export function getMetadataProgramId() {
-    return METAPLEX_PROGRAM_ID;
+    return new PublicKey(METADATA_PROGRAM_ID_STRING);
 }
 
 /**
@@ -132,3 +134,4 @@ export async function getServiceWalletBalance() {
         throw new Error(`Failed to fetch service wallet balance: ${error.message}`);
     }
 }
+
