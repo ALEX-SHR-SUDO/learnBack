@@ -1,5 +1,7 @@
 // src/metadata-addition.service.js
 
+import { Buffer } from 'buffer'; // <--- ДОБАВЛЕНО: Явный импорт Buffer для работы в ESM-среде
+
 import { 
     getServiceWallet, 
     getConnection, 
@@ -25,44 +27,33 @@ import {
     PublicKey
 } from '@solana/web3.js';
 
-// 🛑 ВАЖНО: ДЛЯ ТОГО ЧТОБЫ ЭТИ СТРОКИ РАБОТАЛИ, 
-// ВЫ ДОЛЖНЫ УСТАНОВИТЬ: npm install @metaplex-foundation/mpl-token-metadata
-// Затем вы должны раскомментировать эти импорты:
-/*
+// ✅ ШАГ 1: Раскомментируйте эти импорты после установки Metaplex SDK (npm install @metaplex-foundation/mpl-token-metadata)
 import { 
     createCreateMetadataAccountV3Instruction, 
     PROGRAM_ID as METAPLEX_PROGRAM_ID_STUB, 
     DataV2
 } from '@metaplex-foundation/mpl-token-metadata';
-*/
+
 
 // --- КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
-
-// ❌ УДАЛЕНО: const METADATA_PROGRAM_ID_FALLBACK = new PublicKey(...); // Это вызывало сбой при загрузке модуля!
 
 let fallbackProgramIdCache = null;
 
 /**
  * Генерирует и кеширует запасной Program ID только при первом вызове.
- * Это предотвращает сбой PublicKey() во время инициализации модуля.
+ * Этот запасной вариант используется, ТОЛЬКО ЕСЛИ Program ID не импортирован из SDK.
  * @returns {PublicKey}
  */
 function getFallbackProgramId() {
     if (!fallbackProgramIdCache) {
-        // Создаём PublicKey только внутри функции, чтобы избежать проблем при старте Node.js
+        // Мы вызываем new PublicKey(string) только здесь, как последнюю меру 
+        // против неожиданных сбоев при загрузке модуля.
         fallbackProgramIdCache = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
     }
     return fallbackProgramIdCache;
 }
 
-// ⚠️ ВРЕМЕННЫЕ ЗАГЛУШКИ ДЛЯ ИМПОРТА METAPLEX, ПОКА SDK НЕ УСТАНОВЛЕН
-// Если SDK установлен, удалите этот блок и раскомментируйте импорты выше.
-const createCreateMetadataAccountV3Instruction = (accounts, args) => {
-    // В реальном коде это должна быть функция из @metaplex-foundation/mpl-token-metadata
-    console.warn("⚠️ Инструкция Metaplex не была создана, так как SDK не импортирован.");
-    return null; 
-};
-// ------------------------------------------------------------------------
+// ❌ ШАГ 2: Удалены временные заглушки, так как импорты выше теперь работают.
 
 
 /**
@@ -71,20 +62,23 @@ const createCreateMetadataAccountV3Instruction = (accounts, args) => {
  * @returns {PublicKey}
  */
 function getMetadataAddress(mint) {
-    // 1. Пытаемся получить Program ID из solana.service.js (где он должен быть импортирован)
+    // 1. Пытаемся получить Program ID из solana.service.js (который теперь должен быть импортирован)
     let programId = getMetadataProgramId(); 
     
     // 2. Если импорт не удался (проблема CommonJS/ESM), используем наш ленивый запасной вариант.
     if (!programId) {
-        console.error("⚠️ Metaplex Program ID не был загружен. Используется локальный, лениво инициализированный запасной вариант.");
+        console.warn("⚠️ Metaplex Program ID не был загружен. Используется локальный, лениво инициализированный запасной вариант.");
         programId = getFallbackProgramId();
+    } else {
+        // Для отладки: если SDK импортирован, мы должны попасть сюда
+        console.log("✅ Metaplex Program ID успешно загружен из SDK.");
     }
     
-    // Проверка на случай, если mint.toBuffer() вызовет ошибку
     if (!mint || !(mint instanceof PublicKey)) {
         throw new Error("Invalid or undefined Mint Public Key provided to getMetadataAddress.");
     }
     
+    // ВАЖНО: Buffer используется для создания буферов 'metadata' и 'mint.toBuffer()'.
     const [metadataAddress] = PublicKey.findProgramAddressSync(
         [
             Buffer.from("metadata"),
@@ -100,22 +94,15 @@ function getMetadataAddress(mint) {
 /**
  * Создает инструкцию для создания метаданных Metaplex V3.
  * * @param {object} params - { mint, owner, name, symbol, uri }
- * @returns {object} - Инструкция (или null) и адрес метаданных.
+ * @returns {object} - Инструкция и адрес метаданных.
  */
 function createMetaplexInstruction(params) {
     const { mint, owner, name, symbol, uri } = params;
     
-    // Проверка на то, что заглушка не будет использоваться в реальной транзакции
-    if (!createCreateMetadataAccountV3Instruction || createCreateMetadataAccountV3Instruction.name === 'createCreateMetadataAccountV3Instruction') {
-        return { 
-            metadataAddress: getMetadataAddress(mint),
-            ix: null
-        };
-    }
-
     const metadataAddress = getMetadataAddress(mint);
 
     // --- 1. Подготовка структуры данных (DataV2) ---
+    // Используем DataV2 из Metaplex SDK
     const dataV2 = {
         name: name,
         symbol: symbol,
@@ -133,7 +120,7 @@ function createMetaplexInstruction(params) {
     };
 
     // --- 2. Создание самой инструкции ---
-    // Если Metaplex SDK установлен, этот вызов создаст корректную инструкцию.
+    // createCreateMetadataAccountV3Instruction теперь доступен из SDK
     let ix = createCreateMetadataAccountV3Instruction(
         {
             metadata: metadataAddress,
@@ -179,7 +166,7 @@ export async function createTokenAndMetadata(tokenDetails) {
     const owner = payer.publicKey;
     const amount = BigInt(supply);
     const decimalPlaces = parseInt(decimals, 10);
-    // 🌟 Используем импортированный TOKEN_PROGRAM_ID
+    // Используем импортированный TOKEN_PROGRAM_ID
 
     const transaction = new Transaction();
     const signers = [payer, mint]; 
@@ -252,23 +239,28 @@ export async function createTokenAndMetadata(tokenDetails) {
     );
 
     // 6. Отправка и подтверждение транзакции (Создание токена и чеканка)
-    const signature = await sendAndConfirmTransaction(
-        connection,
-        transaction,
-        signers,
-        { commitment: 'confirmed' }
-    );
-    
-    const mintAddress = mint.publicKey.toBase58();
+    try {
+        const signature = await sendAndConfirmTransaction(
+            connection,
+            transaction,
+            signers,
+            { commitment: 'confirmed' }
+        );
+        
+        const mintAddress = mint.publicKey.toBase58();
 
-    // 7. Попытка добавления метаданных (отдельной транзакцией)
-    const metadataTxSignature = await addTokenMetadata(mintAddress, { name, symbol, uri });
+        // 7. Попытка добавления метаданных (отдельной транзакцией)
+        const metadataTxSignature = await addTokenMetadata(mintAddress, { name, symbol, uri });
 
-    return { 
-        mintAddress: mintAddress, 
-        ata: associatedTokenAddress.toBase58(),
-        metadataTx: metadataTxSignature
-    };
+        return { 
+            mintAddress: mintAddress, 
+            ata: associatedTokenAddress.toBase58(),
+            metadataTx: metadataTxSignature
+        };
+    } catch (error) {
+        console.error("❌ Ошибка при создании или чеканке токена:", error.message);
+        throw error;
+    }
 }
 
 
@@ -290,21 +282,26 @@ export async function addTokenMetadata(mintAddress, metadata) {
     });
 
     if (!ix) {
-        // Возвращаем специальную сигнатуру, если инструкция не была создана
-        console.warn("⚠️ Инструкция Metaplex не была создана. Убедитесь, что Metaplex SDK установлен.");
-        return "Metadata_Not_Applied_No_Metaplex_SDK";
+        // Этого не должно произойти, если SDK установлен и импортирован
+        console.error("❌ Фатальная ошибка: Metaplex Instruction не была создана. Проверьте импорты SDK.");
+        return "Metadata_Application_Failed";
     }
 
     // Если инструкция создана (т.е. SDK был импортирован), отправляем:
-    const transaction = new Transaction().add(ix);
-    
-    const signature = await sendAndConfirmTransaction(
-        connection,
-        transaction,
-        [payer],
-        { commitment: 'confirmed' }
-    );
-    
-    return signature;
+    try {
+        const transaction = new Transaction().add(ix);
+        
+        const signature = await sendAndConfirmTransaction(
+            connection,
+            transaction,
+            [payer],
+            { commitment: 'confirmed' }
+        );
+        
+        return signature;
+    } catch (error) {
+        console.error("❌ Ошибка при отправке транзакции метаданных:", error.message);
+        throw error;
+    }
 }
 
