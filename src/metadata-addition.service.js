@@ -28,11 +28,12 @@ import {
 } from '@solana/web3.js';
 
 // ✅ ИСПРАВЛЕНИЕ CJS/ESM: Импортируем весь модуль Metaplex как объект 'mpl'
-import {
-  createCreateMetadataAccountV3Instruction,
-  PROGRAM_ID,
-} from "@metaplex-foundation/mpl-token-metadata";
-
+import * as mpl from '@metaplex-foundation/mpl-token-metadata'; 
+const { 
+    createCreateMetadataAccountV3Instruction, 
+    DataV2, 
+    Creator 
+} = mpl;
 
 // --- КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
 

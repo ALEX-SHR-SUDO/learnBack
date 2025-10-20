@@ -11,6 +11,7 @@ import {
     sendAndConfirmTransaction, 
     ComputeBudgetProgram, // Добавлено для надежности транзакции
 } from '@solana/web3.js';
+import bs58 from 'bs58';
 // Добавлено getConnection для выполнения транзакции
 import { getMetadataProgramId, getServiceWallet, getConnection } from './solana.service.js'; 
 import * as splToken from '@solana/spl-token';
