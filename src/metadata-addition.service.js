@@ -37,21 +37,8 @@ const {
 
 // --- КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
 
-let fallbackProgramIdCache = null;
-
-/**
- * Генерирует и кеширует запасной Program ID только при первом вызове.
- * Этот запасной вариант используется, ТОЛЬКО ЕСЛИ Program ID не импортирован из SDK.
- * @returns {PublicKey}
- */
-function getFallbackProgramId() {
-    if (!fallbackProgramIdCache) {
-        // Мы вызываем new PublicKey(string) только здесь, как последнюю меру 
-        // против неожиданных сбоев при загрузке модуля.
-        fallbackProgramIdCache = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
-    }
-    return fallbackProgramIdCache;
-}
+// ❌ УДАЛЕНО: Убираем getFallbackProgramId и fallbackProgramIdCache,
+// поскольку getMetadataProgramId должен быть надежным.
 
 /**
  * Возвращает адрес Public Key для адреса метаданных (PDA).
@@ -59,17 +46,14 @@ function getFallbackProgramId() {
  * @returns {PublicKey}
  */
 function getMetadataAddress(mint) {
-    // 1. Пытаемся получить Program ID из solana.service.js 
+    // 1. Получаем Program ID из solana.service.js 
     let programId = getMetadataProgramId(); 
     
-    // 2. Если импорт не удался, используем наш ленивый запасной вариант.
+    // ❌ УДАЛЕНО: Убираем логику запасного варианта, просто проверяем.
     if (!programId) {
-        console.warn("⚠️ Metaplex Program ID не был загружен. Используется локальный, лениво инициализированный запасной вариант.");
-        programId = getFallbackProgramId();
-    } else {
-        console.log("✅ Metaplex Program ID успешно загружен из SDK.");
+         throw new Error("❌ Metaplex Program ID не был загружен. Проверьте solana.service.js");
     }
-    
+
     if (!mint || !(mint instanceof PublicKey)) {
         throw new Error("Invalid or undefined Mint Public Key provided to getMetadataAddress.");
     }
@@ -98,22 +82,23 @@ function createMetaplexInstruction(params) {
     const metadataAddress = getMetadataAddress(mint);
 
     // --- 1. Подготовка структуры данных (DataV2) ---
-    // Мы создаем объект, который соответствует интерфейсу mpl.DataV2
-    const dataV2 = {
+    // ✅ ИСПРАВЛЕНИЕ: Используем конструкторы DataV2 и Creator,
+    // чтобы обеспечить правильную сериализацию данных Metaplex.
+    const dataV2 = new DataV2({
         name: name,
         symbol: symbol,
         uri: uri,
         sellerFeeBasisPoints: 0,
         creators: [
-            {
+            new Creator({
                 address: owner,
                 verified: true,
                 share: 100
-            }
+            })
         ],
         collection: null,
         uses: null
-    };
+    });
 
     // --- 2. Создание самой инструкции ---
     // Используем mpl.createCreateMetadataAccountV3Instruction
@@ -125,7 +110,7 @@ function createMetaplexInstruction(params) {
             payer: owner,
             updateAuthority: owner,
             systemProgram: SystemProgram.programId,
-            rent: SystemProgram.programId, // Используется как SystemProgram
+            // ❌ УДАЛЕНО: Поле `rent` больше не используется в v3 и вызывает ошибку
         },
         {
             createMetadataAccountArgsV3: {
@@ -160,10 +145,11 @@ export async function createTokenAndMetadata(tokenDetails) {
     // --- ПОДГОТОВКА ---
     const mint = Keypair.generate();
     const owner = payer.publicKey;
-    const amount = BigInt(supply);
     const decimalPlaces = parseInt(decimals, 10);
-    // Используем импортированный TOKEN_PROGRAM_ID
-
+    
+    // ✅ ИСПРАВЛЕНИЕ: Правильный расчет окончательного количества токенов (BigInt)
+    const amount = BigInt(supply) * BigInt(10 ** decimalPlaces);
+    
     const transaction = new Transaction();
     const signers = [payer, mint]; 
 
@@ -186,7 +172,7 @@ export async function createTokenAndMetadata(tokenDetails) {
             mint.publicKey,
             decimalPlaces,
             owner, // Mint Authority
-            owner, // Freeze Authority (можно установить null)
+            owner, // Freeze Authority
             TOKEN_PROGRAM_ID // Используем импортированный ID
         )
     );
@@ -215,7 +201,7 @@ export async function createTokenAndMetadata(tokenDetails) {
             mint.publicKey, 
             associatedTokenAddress,
             owner, // Mint Authority
-            amount,
+            amount, // ✅ ИСПРАВЛЕНО: Количество (уже с учетом десятичных знаков)
             decimalPlaces,
             [], 
             TOKEN_PROGRAM_ID // Используем импортированный ID
@@ -299,4 +285,5 @@ export async function addTokenMetadata(mintAddress, metadata) {
         console.error("❌ Ошибка при отправке транзакции метаданных:", error.message);
         throw error;
     }
-}
+} 
+

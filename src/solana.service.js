@@ -1,7 +1,7 @@
 // src/metadata-addition.service.js
 
 // ✅ ИСПРАВЛЕННЫЕ ИМПОРТЫ
-import { createCreateMetadataAccountV3Instruction, DataV2, Creator } from '@metaplex-foundation/mpl-token-metadata';
+
 import { 
     PublicKey, 
     TransactionInstruction, 
