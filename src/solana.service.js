@@ -1,174 +1,115 @@
-// src/metadata-addition.service.js
-
-// ✅ ИСПРАВЛЕННЫЕ ИМПОРТЫ
+// src/solana.service.js
 
 import { 
-    PublicKey, 
-    TransactionInstruction, 
-    SystemProgram, 
-    Keypair,
-    Transaction, 
-    sendAndConfirmTransaction, 
-    ComputeBudgetProgram, // Добавлено для надежности транзакции
-} from '@solana/web3.js';
+    Connection, 
+    Keypair, 
+    LAMPORTS_PER_SOL,
+    PublicKey 
+} from '@solana/web3.js'; 
 import bs58 from 'bs58';
-// Добавлено getConnection для выполнения транзакции
-import { getMetadataProgramId, getServiceWallet, getConnection } from './solana.service.js'; 
-import * as splToken from '@solana/spl-token';
+import * as splToken from '@solana/spl-token'; 
 
+// --- КОНСТАНТЫ ПРОГРАММЫ ---
+// Program ID для Metaplex Token Metadata
+const METAPLEX_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msC8hEzNqQ'); 
+// ----------------------------
+
+// --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
+const CLUSTER_URL = 'https://api.devnet.solana.com';
+const WALLET_SECRET_KEY = process.env.SERVICE_SECRET_KEY; // Предполагаемый ключ
+let connectionInstance = null;
+let serviceWalletInstance = null;
 
 /**
- * Создает инструкцию для создания счета метаданных Metaplex.
- * @param {PublicKey} mint - Public Key токена (Mint Account).
- * @param {string} name - Имя токена.
- * @param {string} symbol - Символ токена.
- * @param {string} uri - URI метаданных (JSON).
- * @returns {TransactionInstruction} Инструкция Metaplex.
+ * Возвращает Program ID для Metaplex Token Metadata.
+ * @returns {PublicKey}
  */
-export function createMetaplexInstruction(mint, name, symbol, uri) {
-    const owner = getServiceWallet().publicKey;
-    const programId = getMetadataProgramId();
-    
-    // Получение адреса метаданных через PDA
-    const [metadataAddress] = PublicKey.findProgramAddressSync(
-        [
-            Buffer.from('metadata'),
-            programId.toBuffer(),
-            mint.toBuffer(),
-        ],
-        programId
-    );
-    
-    // Создание объекта DataV2 (Metaplex format)
-    const dataV2 = new DataV2({
-        name: name,
-        symbol: symbol,
-        uri: uri,
-        sellerFeeBasisPoints: 0,
-        creators: [
-            new Creator({
-                address: owner,
-                share: 100,
-                verified: true,
-            }),
-        ],
-        collection: null,
-        uses: null,
-    });
-    
-    // --- 2. Создание самой инструкции ---
-    // ✅ ИСПРАВЛЕНИЕ: Вызываем функцию createCreateMetadataAccountV3Instruction напрямую.
-    const ix = createCreateMetadataAccountV3Instruction(
-        {
-            metadata: metadataAddress,
-            mint: mint,
-            mintAuthority: owner,
-            payer: owner,
-            updateAuthority: owner,
-            systemProgram: SystemProgram.programId,
-        },
-        {
-            createMetadataAccountArgsV3: {
-                data: dataV2,
-                isMutable: true, // Разрешить изменять метаданные в будущем
-                collectionDetails: null 
-            }
-        }
-    );
-
-    return ix;
+export function getMetadataProgramId() {
+    return METAPLEX_PROGRAM_ID;
 }
 
+/**
+ * Возвращает объект Connection.
+ * @returns {Connection}
+ */
+export function getConnection() {
+    if (!connectionInstance) {
+        connectionInstance = new Connection(CLUSTER_URL, 'confirmed');
+        console.log(`✅ Подключение к кластеру: ${CLUSTER_URL}`);
+    }
+    return connectionInstance;
+}
 
 /**
- * Шаг 1-4. Создает Mint Account, Mint ATA, чеканит токены и добавляет метаданные Metaplex.
- * Это основная функция, которая объединяет весь процесс создания токена.
- * * @param {string} name - Имя токена.
- * @param {string} symbol - Символ токена.
- * @param {string} uri - URI метаданных (JSON).
- * @param {string} supply - Общее количество токенов (как строка).
- * @param {string} decimals - Количество десятичных знаков (как строка).
- * @returns {Promise<{ mintAddress: string, txSignature: string }>} Адрес нового токена и подпись транзакции.
+ * Загружает Keypair из SERVICE_SECRET_KEY (Base58).
+ * @returns {Keypair} Keypair of the service wallet
  */
-export async function createTokenAndMetadata(name, symbol, uri, supply, decimals) {
+export function getServiceWallet() {
+    if (serviceWalletInstance) return serviceWalletInstance;
+
+    if (!WALLET_SECRET_KEY) {
+        throw new Error("SERVICE_SECRET_KEY is not defined in environment.");
+    }
+    try {
+        const secretKeyUint8 = bs58.decode(WALLET_SECRET_KEY);
+        serviceWalletInstance = Keypair.fromSecretKey(secretKeyUint8);
+        console.log(`✅ Сервисный кошелёк загружен: ${serviceWalletInstance.publicKey.toBase58()}`);
+        return serviceWalletInstance;
+    } catch (e) {
+        throw new Error(`Failed to load Keypair from SERVICE_SECRET_KEY: ${e.message}`);
+    }
+}
+
+/**
+ * Возвращает баланс сервисного кошелька (в SOL) и список токенов.
+ */
+export async function getServiceWalletBalance() {
+    const keypair = getServiceWallet();
     const connection = getConnection();
-    const serviceWallet = getServiceWallet();
-    const owner = serviceWallet.publicKey;
+    const serviceAddress = keypair.publicKey.toBase58();
     
-    // Новая пара ключей для Mint Account
-    const mintKeypair = Keypair.generate();
-    const mintAddress = mintKeypair.publicKey;
-
-    // Конвертация входных данных
-    const parsedDecimals = parseInt(decimals, 10);
-    const parsedSupply = BigInt(supply);
-    const initialSupply = parsedSupply * BigInt(10 ** parsedDecimals);
-
-    // 1. Создание ATA для чеканки токенов (владелец: serviceWallet)
-    const tokenAccount = splToken.getAssociatedTokenAddressSync(
-        mintAddress,
-        owner,
-        false,
-        splToken.TOKEN_PROGRAM_ID,
-        splToken.ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-
-    // 2. Инструкции для создания токена
-    const instructions = [
-        // Опционально: Добавляем инструкцию для увеличения бюджета
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 300000 }), 
-        
-        // 2a. Создание Mint Account
-        splToken.createMintToInstruction(
-            mintAddress,
-            tokenAccount,
-            owner, // Mint Authority
-            initialSupply,
-            splToken.TOKEN_PROGRAM_ID
-        ),
-
-        // 2b. Создание Associated Token Account (ATA) для владельца
-        splToken.createAssociatedTokenAccountInstruction(
-            owner, // Payer
-            tokenAccount, // Associated Token Account
-            owner, // Owner (Wallet)
-            mintAddress, // Mint
-            splToken.TOKEN_PROGRAM_ID,
-            splToken.ASSOCIATED_TOKEN_PROGRAM_ID
-        ),
-        
-        // 2c. Чеканка токенов в ATA
-        splToken.createMint(
-            connection,
-            serviceWallet,
-            owner, // Mint Authority
-            owner, // Freeze Authority
-            parsedDecimals,
-            mintKeypair,
-            splToken.TOKEN_PROGRAM_ID,
-        ),
-        
-        // 3. Добавление инструкции Metaplex Metadata
-        createMetaplexInstruction(mintAddress, name, symbol, uri),
-    ];
-
-    // 4. Отправка транзакции
-    const transaction = new Transaction().add(...instructions);
+    let tokenList = [];
     
     try {
-        const txSignature = await sendAndConfirmTransaction(
-            connection,
-            transaction,
-            [serviceWallet, mintKeypair], // Подписывают сервис-кошелек и Mint Keypair
-            { commitment: 'confirmed' }
+        // Fetch SOL balance
+        const balanceLamports = await connection.getBalance(keypair.publicKey);
+        const balanceSOL = balanceLamports / LAMPORTS_PER_SOL;
+        
+        // Fetch SPL token list
+        const tokenAccounts = await connection.getTokenAccountsByOwner(
+            keypair.publicKey,
+            { programId: splToken.TOKEN_PROGRAM_ID } 
         );
 
+        tokenList = tokenAccounts.value
+            .map(accountInfo => {
+                const data = splToken.AccountLayout.decode(accountInfo.account.data);
+                
+                if (data.state === splToken.AccountState.Initialized) {
+                     return {
+                        mint: data.mint.toBase58(),
+                        amount: Number(data.amount),
+                    };
+                }
+                return null;
+            })
+            .filter(token => token !== null);
+
         return { 
-            mintAddress: mintAddress.toBase58(), 
-            txSignature: txSignature 
+            serviceAddress: serviceAddress,
+            sol: balanceSOL,
+            tokens: tokenList
         };
+        
     } catch (error) {
-        console.error("❌ Ошибка при выполнении транзакции:", error);
-        throw new Error(`Ошибка при создании токена: ${error.message}`);
+        if (error.message && error.message.includes('Account not found')) {
+             return { 
+                serviceAddress: serviceAddress,
+                sol: 0,
+                tokens: []
+            };
+        }
+        
+        throw new Error(`Failed to fetch service wallet balance: ${error.message}`);
     }
 }
