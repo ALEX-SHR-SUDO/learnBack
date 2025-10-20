@@ -27,13 +27,12 @@ import {
     PublicKey
 } from '@solana/web3.js';
 
-// ✅ ИСПРАВЛЕНИЕ CJS/ESM: Импортируем весь модуль Metaplex как объект 'mpl'
-import * as mpl from '@metaplex-foundation/mpl-token-metadata'; 
-const { 
+// ✅ ИСПРАВЛЕНИЕ CJS/ESM: Импортируем весь модуль Metaplex как объект 'mpl' 
+import { 
     createCreateMetadataAccountV3Instruction, 
     DataV2, 
     Creator 
-} = mpl.default || mpl;
+} from '@metaplex-foundation/mpl-token-metadata';
 
 // --- ФУНКЦИИ ---
 
