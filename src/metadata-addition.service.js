@@ -38,11 +38,9 @@ import {
 
 // --- КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
 
-// ❌ УДАЛЕНА: function getTokenProgramId() { ... }
-// Теперь используем TOKEN_PROGRAM_ID, импортированный из @solana/spl-token
-
-// ❌ УДАЛЕНА: Redundant function getMetaplexProgramId()
-// (Теперь мы будем использовать импортированный getMetadataProgramId напрямую)
+// 🌟 НОВОЕ ИСПРАВЛЕНИЕ: Предварительно инициализированный Program ID.
+// Мы создаем его один раз и полагаемся на него.
+const METADATA_PROGRAM_ID_FALLBACK = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
 
 // ⚠️ ВРЕМЕННЫЕ ЗАГЛУШКИ ДЛЯ ИМПОРТА METAPLEX, ПОКА SDK НЕ УСТАНОВЛЕН
 // Если SDK установлен, удалите этот блок и раскомментируйте импорты выше.
@@ -60,14 +58,13 @@ const createCreateMetadataAccountV3Instruction = (accounts, args) => {
  * @returns {PublicKey}
  */
 function getMetadataAddress(mint) {
-    let programId = getMetadataProgramId(); // Получаем из solana.service.js
+    // 1. Пытаемся получить Program ID из solana.service.js (где он должен быть импортирован)
+    let programId = getMetadataProgramId(); 
     
-    // 🛑 ИСПРАВЛЕНИЕ: Если Program ID не определен (из-за сбоя импорта),
-    // используем локальный запасной вариант, чтобы предотвратить ошибку 'toBuffer' на undefined.
+    // 2. Если импорт не удался (проблема CommonJS/ESM), используем наш предсозданный запасной вариант.
     if (!programId) {
-        console.error("⚠️ Metaplex Program ID не был загружен. Используется локальный запасной вариант.");
-        // Hardcode the Metaplex Token Metadata Program ID string and create PublicKey *here*
-        programId = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6z8BXgZay');
+        console.error("⚠️ Metaplex Program ID не был загружен. Используется локальный, предварительно инициализированный запасной вариант.");
+        programId = METADATA_PROGRAM_ID_FALLBACK;
     }
     
     // Проверка на случай, если mint.toBuffer() вызовет ошибку
@@ -297,3 +294,4 @@ export async function addTokenMetadata(mintAddress, metadata) {
     
     return signature;
 }
+
