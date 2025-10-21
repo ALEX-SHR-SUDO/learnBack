@@ -17,7 +17,7 @@ dotenv.config();
 // --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
 // Получаем URL из .env, чтобы кластер можно было менять
 const CLUSTER_URL = process.env.SOLANA_CLUSTER_URL || 'https://api.devnet.solana.com';
-const WALLET_SECRET_KEY = process.env.SERVICE_SECRET_KEY_BASE58; // Исправлено имя переменной согласно .env
+const WALLET_SECRET_KEY = process.env.SERVICE_SECRET_KEY; // Исправлено имя переменной согласно .env
 let connectionInstance: Connection | null = null;
 let serviceWalletInstance: Keypair | null = null;
 
