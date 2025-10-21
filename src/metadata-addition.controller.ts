@@ -3,7 +3,7 @@
 import { Request, Response } from "express";
 
 // Удаляем суффикс .js и импортируем функции сервиса
-import { createTokenAndMetadata, addTokenMetadata } from './metadata-addition.service';
+import { createTokenAndMetadata, addTokenMetadata } from './metadata-addition.service.js';
 
 // --- ИНТЕРФЕЙСЫ ДЛЯ ВХОДЯЩИХ ДАННЫХ ---
 
