@@ -27,14 +27,14 @@ import {
     PublicKey
 } from '@solana/web3.js';
 
-// ❌ УДАЛЕНО: Статический импорт Metaplex. Мы будем использовать динамический импорт.
-// import * as mpl from '@metaplex-foundation/mpl-token-metadata';
+// --- Инициализация Metaplex через динамический импорт ---
 
-// --- ГЛОБАЛЬНЫЙ КЭШ ДЛЯ METAPLEX ---
 let mplCache = null;
 
 /**
- * 💡 АСИНХРОННАЯ ФУНКЦИЯ: Динамически импортирует Metaplex, кэшируя результат.
+ * 💡 АСИНХРОННАЯ ФУНКЦИЯ: Динамически импортирует Metaplex с явным разрешением CJS/ESM экспортов.
+ * Этот метод использует явную проверку .default и основного объекта для устранения 
+ * проблемы 'Creator is not a constructor'.
  * @returns {object} - Объект, содержащий DataV2, Creator и инструкцию.
  */
 async function getMetaplexExports() {
@@ -43,15 +43,21 @@ async function getMetaplexExports() {
     // Динамический импорт для обхода проблем CJS/ESM
     const mpl = await import('@metaplex-foundation/mpl-token-metadata');
     
-    // В зависимости от того, как Node.js обрабатывает CJS, экспорты могут быть в .default
-    const exports = mpl.default || mpl; 
+    // Явная проверка и приоритезация экспортов: 
+    // 1. Прямой импорт (mpl.Creator) 
+    // 2. Импорт через 'default' (mpl.default.Creator)
+    
+    const Creator = mpl.Creator || mpl.default?.Creator;
+    const DataV2 = mpl.DataV2 || mpl.default?.DataV2;
+    const createCreateMetadataAccountV3Instruction = mpl.createCreateMetadataAccountV3Instruction || mpl.default?.createCreateMetadataAccountV3Instruction;
 
-    // Кэшируем и возвращаем необходимые компоненты
-    mplCache = {
-        createCreateMetadataAccountV3Instruction: exports.createCreateMetadataAccountV3Instruction,
-        DataV2: exports.DataV2,
-        Creator: exports.Creator
-    };
+    if (!Creator || !DataV2) {
+        // Если разрешение не удалось, логируем ошибку, чтобы понять, какой путь не сработал
+        console.error("❌ Фатальная ошибка импорта Metaplex: Не удалось найти конструкторы Creator/DataV2.");
+        throw new Error("Failed to load Metaplex Constructors (Creator/DataV2). Check CJS/ESM resolution.");
+    }
+
+    mplCache = { Creator, DataV2, createCreateMetadataAccountV3Instruction };
     
     return mplCache;
 }
@@ -61,7 +67,8 @@ async function getMetaplexExports() {
 
 /**
  * Возвращает адрес Public Key для адреса метаданных (PDA).
- * ... (без изменений)
+ * @param {PublicKey} mint - Mint Public Key.
+ * @returns {PublicKey}
  */
 function getMetadataAddress(mint) {
     let programId = getMetadataProgramId(); 
@@ -95,6 +102,7 @@ function getMetadataAddress(mint) {
 async function createMetaplexInstruction(params) {
     const { mint, owner, name, symbol, uri } = params;
     
+    // Деструктурируем конструкторы и функцию инструкции
     const { createCreateMetadataAccountV3Instruction, DataV2, Creator } = await getMetaplexExports();
     
     const metadataAddress = getMetadataAddress(mint);
@@ -107,7 +115,7 @@ async function createMetaplexInstruction(params) {
         uri: uri,
         sellerFeeBasisPoints: 0,
         creators: [
-            new Creator({
+            new Creator({ 
                 address: owner,
                 verified: true,
                 share: 100
@@ -290,7 +298,6 @@ export async function addTokenMetadata(mintAddress, metadata) {
         console.error("❌ Фатальная ошибка: Metaplex Instruction не была создана.");
         return "Metadata_Application_Failed";
     }
-    
 
     try {
         const transaction = new Transaction().add(ix);
