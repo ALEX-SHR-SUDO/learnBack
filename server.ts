@@ -10,8 +10,8 @@ dotenv.config();
 // 2. Импорт роутов и сервисов
 // Теперь импорты ссылаются на .ts файлы (или ожидается, что они будут скомпилированы из .ts),
 // поэтому суффикс .js удален.
-import tokenRoutes from "./src/token.routes"; 
-import * as solanaService from "./src/solana.service"; 
+import tokenRoutes from "./src/token.routes.js"; 
+import * as solanaService from "./src/solana.service.js"; 
 
 const app = express();
 // Порт берется из .env, или используется 3000 по умолчанию
