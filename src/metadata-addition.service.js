@@ -290,6 +290,7 @@ export async function addTokenMetadata(mintAddress, metadata) {
         console.error("❌ Фатальная ошибка: Metaplex Instruction не была создана.");
         return "Metadata_Application_Failed";
     }
+    
 
     try {
         const transaction = new Transaction().add(ix);
