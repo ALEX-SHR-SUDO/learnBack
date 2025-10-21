@@ -1,6 +1,8 @@
 // src/metadata-addition.controller.js
+//
+// Обрабатывает запросы и использует сервис для работы с токенами и метаданными Metaplex Umi SDK.
 
-import { createTokenAndMetadata } from './metadata-addition.service.js';
+import { createTokenAndMetadata, addTokenMetadata } from './metadata-addition.service.js';
 
 /**
  * Обрабатывает запрос на создание нового токена, чеканку и добавление метаданных.
@@ -15,36 +17,39 @@ import { createTokenAndMetadata } from './metadata-addition.service.js';
  */
 export async function handleCreateTokenAndMetadata(req, res) {
     try {
-        // --- КРИТИЧНОЕ ИСПРАВЛЕНИЕ: ПРАВИЛЬНАЯ ДЕСТРУКТУРИЗАЦИЯ ВСЕХ ПОЛЕЙ ---
         const { name, symbol, uri, supply, decimals } = req.body;
 
         console.log("Req Body Received:", req.body);
         
-        // Создаем объект со всеми необходимыми данными для сервиса
         const tokenDetails = {
             name, 
             symbol, 
             uri,
-            supply,   // Убедитесь, что supply передается
-            decimals  // Убедитесь, что decimals передается
+            supply,   
+            decimals  
         };
 
-        // Логирование для отслеживания того, что будет передано в сервис
         console.log("Destructured values to be passed to service:", tokenDetails);
         
-        // Дополнительная проверка на наличие всех полей
         if (!name || !symbol || !uri || !supply || !decimals) {
             return res.status(400).json({ error: "Missing required fields: name, symbol, uri, supply, or decimals." });
         }
 
         console.log("Начинаем ШАГ 1-4: createTokenAndMetadata (полный процесс)");
+        
+        // --- ИСПРАВЛЕНИЕ #1: Деструктуризация результата из Umi SDK ---
+        // Umi service возвращает объект с mintAddress, ata и metadataTx. 
+        // metadataTx содержит подпись транзакции создания.
         const result = await createTokenAndMetadata(tokenDetails);
         
+        // Используем mintAddress и metadataTx (которое является подписью транзакции) для ответа
         res.status(200).json({
             message: "Token and metadata successfully created.",
             mintAddress: result.mintAddress,
-            transactionSignature: result.signature,
-            explorerLink: `https://explorer.solana.com/tx/${result.signature}?cluster=devnet`
+            // metadataTx содержит подпись транзакции, созданной Umi.
+            transactionSignature: result.metadataTx, 
+            explorerLink: `https://explorer.solana.com/tx/${result.metadataTx}?cluster=devnet`,
+            ataAddress: result.ata // Добавляем ATA (Associated Token Account) для полноты
         });
 
     } catch (error) {

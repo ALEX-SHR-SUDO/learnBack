@@ -1,5 +1,4 @@
 // src/solana.service.js
-
 import { 
     Connection, 
     Keypair, 
@@ -9,24 +8,15 @@ import {
 import bs58 from 'bs58';
 import * as splToken from '@solana/spl-token'; 
 
-// --- КОНСТАНТЫ ПРОГРАММЫ ---
-// Program ID для Metaplex Token Metadata
-const METAPLEX_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6msC8hEzNqQ'); 
-// ----------------------------
-
 // --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
 const CLUSTER_URL = 'https://api.devnet.solana.com';
-const WALLET_SECRET_KEY = process.env.SERVICE_SECRET_KEY; // Предполагаемый ключ
+// Ключ берется из переменной окружения, как и ранее
+const WALLET_SECRET_KEY = process.env.SERVICE_SECRET_KEY; 
 let connectionInstance = null;
 let serviceWalletInstance = null;
 
-/**
- * Возвращает Program ID для Metaplex Token Metadata.
- * @returns {PublicKey}
- */
-export function getMetadataProgramId() {
-    return METAPLEX_PROGRAM_ID;
-}
+// Примечание: Функция getMetadataProgramId() удалена, так как Umi SDK 
+// не требует ее явной передачи.
 
 /**
  * Возвращает объект Connection.
