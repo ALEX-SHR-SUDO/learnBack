@@ -2,7 +2,7 @@
   "name": "my-backend",
   "version": "1.0.0",
   "description": "Backend for minting and managing SPL tokens on Solana with Metaplex Umi SDK.",
-  "main": "server.ts",
+  "main": "dist/server.js",
   "license": "MIT",
   "type": "module",
   "scripts": {
