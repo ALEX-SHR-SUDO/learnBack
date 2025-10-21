@@ -8,7 +8,7 @@ const router = express.Router();
 import { 
     handleCreateTokenAndMetadata, 
     handleAddTokenMetadata 
-} from "./metadata-addition.controller"; 
+} from "./metadata-addition.controller.js"; 
 
 // Импорт сервисов для вспомогательных функций (balance, ping)
 // Удален суффикс .js
@@ -16,7 +16,7 @@ import {
     getConnection, 
     getServiceWalletBalance, 
     getServiceWallet 
-} from "./solana.service"; 
+} from "./solana.service.js"; 
 
 // ---------------------------------------------
 // --- Проверка соединения ---
