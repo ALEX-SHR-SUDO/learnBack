@@ -1,27 +1,44 @@
-// src/metadata-addition.controller.js
-//
-// Обрабатывает запросы и использует сервис для работы с токенами и метаданными Metaplex Umi SDK.
+// src/metadata-addition.controller.ts
 
-import { createTokenAndMetadata, addTokenMetadata } from './metadata-addition.service.js';
+import { Request, Response } from "express";
+
+// Удаляем суффикс .js и импортируем функции сервиса
+import { createTokenAndMetadata, addTokenMetadata } from './metadata-addition.service';
+
+// --- ИНТЕРФЕЙСЫ ДЛЯ ВХОДЯЩИХ ДАННЫХ ---
+
+interface CreateTokenRequest {
+    name: string;
+    symbol: string;
+    uri: string;
+    supply: string; // Строка, так как JSON не всегда сохраняет большую точность
+    decimals: string; // Строка
+}
+
+interface AddMetadataRequest {
+    mintAddress: string;
+    name: string;
+    symbol: string;
+    uri: string;
+}
+
 
 /**
  * Обрабатывает запрос на создание нового токена, чеканку и добавление метаданных.
- * * Ожидаемый JSON Body:
- * {
- * "name": "Token Name",
- * "symbol": "SYM",
- * "uri": "http://uri-to-metadata.json",
- * "supply": "1000000000", // Общее количество токенов (строка)
- * "decimals": "9"          // Количество десятичных знаков (строка)
- * }
+ * * Ожидаемый JSON Body: CreateTokenRequest
  */
-export async function handleCreateTokenAndMetadata(req, res) {
+export async function handleCreateTokenAndMetadata(req: Request<any, any, CreateTokenRequest>, res: Response) {
     try {
         const { name, symbol, uri, supply, decimals } = req.body;
 
         console.log("Req Body Received:", req.body);
         
-        const tokenDetails = {
+        // Проверка наличия обязательных полей
+        if (!name || !symbol || !uri || !supply || !decimals) {
+            return res.status(400).json({ error: "Missing required fields: name, symbol, uri, supply, or decimals." });
+        }
+
+        const tokenDetails: CreateTokenRequest = {
             name, 
             symbol, 
             uri,
@@ -29,17 +46,9 @@ export async function handleCreateTokenAndMetadata(req, res) {
             decimals  
         };
 
-        console.log("Destructured values to be passed to service:", tokenDetails);
-        
-        if (!name || !symbol || !uri || !supply || !decimals) {
-            return res.status(400).json({ error: "Missing required fields: name, symbol, uri, supply, or decimals." });
-        }
-
         console.log("Начинаем ШАГ 1-4: createTokenAndMetadata (полный процесс)");
         
-        // --- ИСПРАВЛЕНИЕ #1: Деструктуризация результата из Umi SDK ---
-        // Umi service возвращает объект с mintAddress, ata и metadataTx. 
-        // metadataTx содержит подпись транзакции создания.
+        // Вызов сервисной функции
         const result = await createTokenAndMetadata(tokenDetails);
         
         // Используем mintAddress и metadataTx (которое является подписью транзакции) для ответа
@@ -53,9 +62,10 @@ export async function handleCreateTokenAndMetadata(req, res) {
         });
 
     } catch (error) {
-        console.error(`❌ Ошибка при создании токена: ${error.message}`, error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        console.error(`❌ Ошибка при создании токена: ${errorMessage}`, error);
         res.status(500).json({ 
-            error: error.message, 
+            error: errorMessage, 
             details: "An error occurred during token creation or metadata addition." 
         });
     }
@@ -63,15 +73,9 @@ export async function handleCreateTokenAndMetadata(req, res) {
 
 /**
  * Обрабатывает запрос на добавление метаданных к существующему токену.
- * Ожидаемый JSON Body:
- * {
- * "mintAddress": "...",
- * "name": "Token Name",
- * "symbol": "SYM",
- * "uri": "http://uri-to-metadata.json"
- * }
+ * Ожидаемый JSON Body: AddMetadataRequest
  */
-export async function handleAddTokenMetadata(req, res) {
+export async function handleAddTokenMetadata(req: Request<any, any, AddMetadataRequest>, res: Response) {
     try {
         const { mintAddress, name, symbol, uri } = req.body;
 
@@ -82,6 +86,7 @@ export async function handleAddTokenMetadata(req, res) {
         const metadataDetails = { name, symbol, uri };
 
         console.log("Начинаем ШАГ 5: addTokenMetadata");
+        // Вызов сервисной функции
         const signature = await addTokenMetadata(mintAddress, metadataDetails);
         
         res.status(200).json({
@@ -91,9 +96,10 @@ export async function handleAddTokenMetadata(req, res) {
         });
 
     } catch (error) {
-        console.error(`❌ Ошибка при добавлении метаданных: ${error.message}`, error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        console.error(`❌ Ошибка при добавлении метаданных: ${errorMessage}`, error);
         res.status(500).json({ 
-            error: error.message, 
+            error: errorMessage, 
             details: "An error occurred while adding metadata." 
         });
     }

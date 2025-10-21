@@ -1,33 +1,45 @@
-// src/token.routes.js
+// src/token.routes.ts
 
-import express from "express";
+import express, { Request, Response } from "express";
 const router = express.Router();
 
 // ✅ ИМПОРТ ФУНКЦИЙ КОНТРОЛЛЕРА
+// Удален суффикс .js, так как теперь мы используем .ts файлы
 import { 
     handleCreateTokenAndMetadata, 
     handleAddTokenMetadata 
-} from "./metadata-addition.controller.js"; 
+} from "./metadata-addition.controller"; 
 
 // Импорт сервисов для вспомогательных функций (balance, ping)
+// Удален суффикс .js
 import { 
     getConnection, 
     getServiceWalletBalance, 
     getServiceWallet 
-} from "./solana.service.js"; 
+} from "./solana.service"; 
 
 // ---------------------------------------------
 // --- Проверка соединения ---
 // ---------------------------------------------
-router.get("/ping", async (req, res) => {
+// Добавлена явная типизация Request и Response
+router.get("/ping", async (req: Request, res: Response) => {
   try {
     const connection = getConnection();
     if (!connection) throw new Error("Solana connection failed.");
       
     const version = await connection.getVersion(); 
-    res.json({ ok: true, solana: version });
+    // Возвращаем публичный ключ сервисного кошелька для удобства
+    const serviceAddress = getServiceWallet().publicKey.toBase58();
+
+    res.json({ 
+        ok: true, 
+        cluster: connection.rpcEndpoint, 
+        solana: version,
+        serviceAddress: serviceAddress
+    });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.toString() });
+    // Явно приводим ошибку к строке
+    res.status(500).json({ ok: false, error: e instanceof Error ? e.message : "Unknown error during ping" });
   }
 });
 
@@ -47,13 +59,16 @@ router.post("/add-metadata", handleAddTokenMetadata);
 // ---------------------------------------------
 // --- Баланс сервисного кошелька + токены ---
 // ---------------------------------------------
-router.get("/balance", async (req, res) => {
+// Добавлена явная типизация Request и Response
+router.get("/balance", async (req: Request, res: Response) => {
   try {
     const balanceData = await getServiceWalletBalance(); 
     res.json(balanceData);
   } catch (err) {
-    console.error("❌ Ошибка при получении баланса:", err.toString());
-    res.status(500).json({ error: err.message || "Ошибка сервера при получении баланса" });
+    // Корректный вывод ошибки и статуса
+    const errorMessage = err instanceof Error ? err.message : "Ошибка сервера при получении баланса";
+    console.error("❌ Ошибка при получении баланса:", errorMessage);
+    res.status(500).json({ error: errorMessage });
   }
 });
 

@@ -1,18 +1,40 @@
-// src/metadata-addition.service.js
-//
-// Использует Metaplex Umi SDK для создания токенов и метаданных.
-// Umi SDK является современным и рекомендуемым решением.
+// src/metadata-addition.service.ts
 
 // --- ИМПОРТ UMI И PLUGINS ---
-import { createUmi } from "@metaplex-foundation/umi";
+import { createUmi, Umi, PublicKey as UmiPublicKey } from "@metaplex-foundation/umi";
 import { web3JsEddsa, web3JsPublicKey, web3JsKeypair } from "@metaplex-foundation/umi-bundle-defaults";
-import { findAssociatedTokenPda, createAndMint, updateV1, createV1 } from "@metaplex-foundation/mpl-token-metadata";
-import { Umi } from "@metaplex-foundation/umi";
+import { 
+    findAssociatedTokenPda, 
+    createV1, 
+    updateV1,
+    TokenStandard,
+    mplTokenMetadata
+} from "@metaplex-foundation/mpl-token-metadata";
+import { generateSigner } from "@metaplex-foundation/umi";
 
-// --- ИМПОРТ SOLANA SERVICE ---
-import { getConnection, getServiceWallet } from "./solana.service.js";
-import { toBigInt } from "./utils.js";
-import { PublicKey } from "@solana/web3.js";
+
+// --- ИМПОРТ SOLANA SERVICE и UTILS ---
+import { getConnection, getServiceWallet } from "./solana.service";
+import { toBigInt } from "./utils";
+
+
+// ==========================================================
+// --- ТИПЫ ДЛЯ КОНТРОЛЛЕРА ---
+// ==========================================================
+
+interface TokenDetails {
+    name: string;
+    symbol: string;
+    uri: string;
+    supply: string;
+    decimals: string;
+}
+
+interface MetadataDetails {
+    name: string;
+    symbol: string;
+    uri: string;
+}
 
 // ==========================================================
 // --- UMI ИНИЦИАЛИЗАЦИЯ ---
@@ -20,27 +42,29 @@ import { PublicKey } from "@solana/web3.js";
 
 /**
  * Инициализирует и настраивает Umi-инстанс.
- * @returns {Umi} Настроенный Umi-инстанс.
+ * @returns Настроенный Umi-инстанс.
  */
-function getUmiInstance() {
+function getUmiInstance(): Umi {
     // Получаем текущее соединение (Connection)
     const connection = getConnection();
     if (!connection) {
         throw new Error("Solana connection is not established.");
     }
     
-    // Получаем Keypair
+    // Получаем Keypair для оплаты транзакций
     const payerKeypair = getServiceWallet();
 
     // 1. Инициализация Umi с URL кластера (взято из Connection)
     const umi = createUmi(connection.rpcEndpoint)
-        // 2. Применение бандла по умолчанию (включает web3.js/spl-token)
+        // 2. Применение бандла по умолчанию (web3.js adapters)
         .use(web3JsEddsa())
         .use(web3JsPublicKey())
-        .use(web3JsKeypair());
+        .use(web3JsKeypair())
+        // 3. Плагин для Token Metadata
+        .use(mplTokenMetadata());
         
-    // 3. Установка Keypair для оплаты транзакций
-    umi.use(web3JsKeypair(payerKeypair));
+    // 4. Установка Keypair для оплаты транзакций
+    umi.use(web3JsKeypair(payerKeypair, true)); // true = make it the payer
     
     return umi;
 }
@@ -50,33 +74,43 @@ function getUmiInstance() {
 // ==========================================================
 
 /**
- * [ОБЪЕДИНЕННЫЙ СЕРВИС] Создает Mint токена, Mint Authority, Account, 
- * чеканит supply и прикрепляет метаданные Metaplex (все за 1-2 транзакции).
- * @param {Object} tokenDetails - Детали токена (name, symbol, uri, supply, decimals).
- * @returns {Promise<Object>} Mint Address, ATA, и транзакция метаданных.
+ * [ОБЪЕДИНЕННЫЙ СЕРВИС] Создает Mint токена, чеканит supply и прикрепляет метаданные Metaplex.
+ * @param tokenDetails - Детали токена (name, symbol, uri, supply, decimals).
+ * @returns Promise<Object> Mint Address, ATA, и подпись транзакции.
  */
-export async function createTokenAndMetadata(tokenDetails) {
+export async function createTokenAndMetadata(tokenDetails: TokenDetails) {
     const umi = getUmiInstance();
-    const payerPublicKey = umi.payer.publicKey;
     
     const { name, symbol, uri, supply, decimals } = tokenDetails;
 
+    const decimalCount = parseInt(decimals, 10);
+
     // Преобразуем строковое количество в BigInt в наименьших единицах
-    const initialSupply = toBigInt(supply, parseInt(decimals, 10));
+    const initialSupply = toBigInt(supply, decimalCount);
 
     try {
         console.log(`Umi: Начинаем создание токена ${symbol} с запасом ${supply}.`);
 
+        // Генерируем новый Mint Address
+        const mintSigner = generateSigner(umi);
+
+        // Расчет ATA для сервисного кошелька (он же получатель, Mint Authority и Freeze Authority)
+        const associatedTokenAddress = findAssociatedTokenPda(umi, {
+            mint: mintSigner.publicKey, 
+            owner: umi.payer.publicKey,
+        });
+
         // Используем Umi createV1 для создания токена, чеканки и метаданных.
-        const { mint, associatedToken } = await createV1(umi, {
-            // Права
+        const result = await createV1(umi, {
+            // Права и участники
             payer: umi.payer,
-            authority: umi.payer.publicKey, // Update Authority
+            mint: mintSigner, // Новый Mint Address
+            authority: umi.payer.publicKey, // Mint Authority
+            updateAuthority: umi.payer, // Update Authority (Signer)
             
             // Токен
-            mint: umi.eddsa.generateKeypair(), // Генерируем новый Mint Address
-            decimals: parseInt(decimals, 10),
-            tokenStandard: 0, // Fungible
+            decimals: decimalCount,
+            tokenStandard: TokenStandard.Fungible,
 
             // Метаданные
             name: name,
@@ -85,24 +119,23 @@ export async function createTokenAndMetadata(tokenDetails) {
             
             // Начальная чеканка (Mint to associatedToken)
             amount: initialSupply,
-            associatedToken: findAssociatedTokenPda(umi, {
-                mint: umi.keys.publicKey(umi.publicKey), 
-                owner: umi.publicKey,
-            }),
+            destination: associatedTokenAddress,
             
-            // Другие параметры
+            // Дополнительные параметры
             isMutable: true,
             sellerFeeBasisPoints: 0,
             
         }).sendAndConfirm(umi);
 
+        // Подпись транзакции
+        const metadataTx = umi.transactions.toString(result.signature);
 
-        console.log(`✅ Umi: Токен создан. Mint: ${umi.publicKeys.toString(mint)}`);
+        console.log(`✅ Umi: Токен создан. Mint: ${umi.publicKeys.toString(mintSigner.publicKey)}`);
         
         return {
-            mintAddress: umi.publicKeys.toString(mint),
-            ata: umi.publicKeys.toString(associatedToken),
-            metadataTx: "Handled by createV1 transaction",
+            mintAddress: umi.publicKeys.toString(mintSigner.publicKey),
+            ata: umi.publicKeys.toString(associatedTokenAddress),
+            metadataTx: metadataTx,
         };
 
     } catch (error) {
@@ -118,11 +151,11 @@ export async function createTokenAndMetadata(tokenDetails) {
 
 /**
  * Добавляет или обновляет метаданные к СУЩЕСТВУЮЩЕМУ токену (UpdateV1).
- * @param {string} mintAddress - Mint Address существующего токена.
- * @param {Object} details - name, symbol, uri.
- * @returns {Promise<string>} - Подпись транзакции.
+ * @param mintAddress - Mint Address существующего токена.
+ * @param details - name, symbol, uri.
+ * @returns Promise<string> - Подпись транзакции.
  */
-export async function addTokenMetadata(mintAddress, details) {
+export async function addTokenMetadata(mintAddress: string, details: MetadataDetails) {
     const umi = getUmiInstance();
     
     // Преобразование строкового Mint Address в Umi PublicKey
@@ -134,17 +167,14 @@ export async function addTokenMetadata(mintAddress, details) {
         // Используем updateV1 для обновления метаданных существующего токена
         const signature = await updateV1(umi, {
             mint: mint,
-            authority: umi.payer,
+            authority: umi.payer, // Update Authority - это Keypair, установленный в getUmiInstance().
             data: {
                 name: details.name,
                 symbol: details.symbol,
                 uri: details.uri,
-                sellerFeeBasisPoints: 0, // Оставляем 0 для Fungible
-                creators: umi.options.creators, // Передача креаторов, если они нужны
-                collection: umi.options.collection,
-                uses: umi.options.uses,
+                sellerFeeBasisPoints: 0, 
+                // Опционально: можно добавить creators, collection и т.д.
             },
-            // Заметка: Update Authority - это Keypair, установленный в getUmiInstance().
         }).sendAndConfirm(umi);
 
         const txSignature = umi.transactions.toString(signature);

@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    /* Project Options */
+    "target": "ES2022",                                  /* Указывает версию ECMAScript для целевой среды. */
+    "module": "NodeNext",                                /* Устанавливает систему модулей для Node.js с поддержкой 'import'/'export'. */
+    "moduleResolution": "NodeNext",                      /* Указывает стратегию разрешения модулей (важно для ESM). */
+    "outDir": "./dist",                                  /* Каталог для вывода скомпилированных файлов. */
+    "rootDir": "./",                                     /* Корневой каталог исходных файлов. */
+    "esModuleInterop": true,                             /* Позволяет использовать 'import x from y' для модулей, которые используют 'export ='. */
+    "forceConsistentCasingInFileNames": true,            /* Обеспечивает согласованность регистра в именах файлов. */
+
+    /* Type Checking */
+    "strict": true,                                      /* Включает все строгие флаги проверки типов. Рекомендуется для новых проектов. */
+    "skipLibCheck": true,                                /* Пропускает проверку типов файлов объявлений. */
+    "resolveJsonModule": true,                           /* Позволяет импортировать файлы .json как модули. */
+
+    /* Source Maps */
+    "sourceMap": true,                                   /* Генерирует соответствующие .map файлы. */
+
+    /* Additional Settings */
+    "lib": ["ES2022"],                                   /* Включает библиотечные файлы (ESM-окружение). */
+    "types": ["node", "express"]                         /* Явно включает типы Node.js и Express. */
+  },
+  "include": ["server.ts", "src/**/*.ts"],               /* Включает только эти файлы для компиляции. */
+  "exclude": ["node_modules"]                            /* Исключает папку зависимостей. */
+}
