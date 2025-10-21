@@ -6,7 +6,7 @@ import {
     LAMPORTS_PER_SOL,
     PublicKey 
 } from '@solana/web3.js'; 
-import bs58 from 'bs58';
+import bs58 from "bs58";
 import * as splToken from '@solana/spl-token'; 
 import dotenv from 'dotenv';
 
