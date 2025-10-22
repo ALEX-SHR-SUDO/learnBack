@@ -5,9 +5,10 @@ percentAmount, // Используем для установки процент�
 // поскольку они должны быть импортированы из mpl-token-metadata.
  } from "@metaplex-foundation/umi";
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
-// **ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ TS2307:** Явно указываем путь к CJS-модулю (`dist/cjs/index.js`), 
-// чтобы обойти проблемы с разрешением типов в NodeNext. Это часто самый надежный способ.
-import * as mplTokenMetadata from "@metaplex-foundation/mpl-token-metadata/dist/cjs/index.js";
+// **ИСПРАВЛЕНИЕ TS2307:** Возвращаемся к стандартному импорту пакета.
+// Явное указание пути к файлу часто сбивает с толку TypeScript при поиске .d.ts.
+// Стандартный импорт должен позволить компилятору правильно найти декларации типов.
+import * as mplTokenMetadata from "@metaplex-foundation/mpl-token-metadata";
 import { PublicKey as Web3JsPublicKey } from "@solana/web3.js";
 // Локальные импорты - КРИТИЧЕСКИ ВАЖНО: используем .js для NodeNext
 import { getServiceWallet, getConnection } from './solana.service.js';
