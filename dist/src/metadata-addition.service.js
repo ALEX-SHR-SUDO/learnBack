@@ -3,9 +3,10 @@ import { createUmi, publicKey as umiPublicKey, keypairIdentity, generateSigner, 
 percentAmount, // Используем для установки процентов
  } from "@metaplex-foundation/umi";
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
-// **ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ TS2307:** Импортируем только необходимые экспорты по имени.
-// Это часто обходит проблемы с разрешением именных пространств (import * as ...).
-import { createAndMint, TokenStandard, findAssociatedTokenPda, findMetadataPda, createMetadata } from "@metaplex-foundation/mpl-token-metadata";
+// **ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ TS2307:** Импортируем только необходимые экспорты по имени,
+// включая функцию плагина mplTokenMetadata.
+import { createAndMint, TokenStandard, findAssociatedTokenPda, findMetadataPda, createMetadata, mplTokenMetadata // <--- Добавлен импорт функции плагина
+ } from "@metaplex-foundation/mpl-token-metadata";
 import { PublicKey as Web3JsPublicKey } from "@solana/web3.js";
 // Локальные импорты - КРИТИЧЕСКИ ВАЖНО: используем .js для NodeNext
 import { getServiceWallet, getConnection } from './solana.service.js';
@@ -20,6 +21,9 @@ function initializeUmi() {
     const umi = createUmi();
     // defaultPlugins теперь принимает RPC endpoint
     umi.use(defaultPlugins(connection.rpcEndpoint));
+    // **ВАЖНОЕ УЛУЧШЕНИЕ**: Применяем плагин Metaplex Token Metadata.
+    // Это гарантирует, что UMI знает, как взаимодействовать с нужными программами.
+    umi.use(mplTokenMetadata());
     return umi;
 }
 /**
@@ -137,4 +141,3 @@ export async function addTokenMetadata(mintAddress, details) {
         throw new Error(`Failed to add metadata: ${error.message || error}`);
     }
 }
-// --- END OF FILE ---
