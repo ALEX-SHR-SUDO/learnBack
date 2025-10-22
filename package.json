@@ -5,9 +5,9 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "start": "node --loader ts-node/esm ./src/service.ts",
-    "build": "echo 'Build step bypassed for deployment reliability'",
-    "dev": "nodemon --exec 'node --loader ts-node/esm' src/service.ts",
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "dev": "nodemon --exec 'node --loader ts-node/esm' server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

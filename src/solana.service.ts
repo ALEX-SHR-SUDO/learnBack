@@ -6,18 +6,22 @@ import {
     LAMPORTS_PER_SOL,
     PublicKey 
 } from '@solana/web3.js'; 
-import * as bs58 from "bs58";
-import * as splToken from '@solana/spl-token'; 
+import bs58 from "bs58";
+import { 
+    AccountLayout,
+    TOKEN_PROGRAM_ID
+    // ✅ ИСПРАВЛЕНО: AccountState удален, так как он больше не экспортируется
+} from '@solana/spl-token';  
 import dotenv from 'dotenv';
 
 // Дополнительный вызов dotenv.config(), чтобы сервис мог работать автономно 
-// (например, при тестировании) и не зависеть только от server.ts.
+
 dotenv.config();
 
 // --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
 // Получаем URL из .env, чтобы кластер можно было менять
 const CLUSTER_URL = process.env.SOLANA_CLUSTER_URL || 'https://api.devnet.solana.com';
-const WALLET_SECRET_KEY = process.env.SERVICE_SECRET_KEY; // Исправлено имя переменной согласно .env
+const WALLET_SECRET_KEY = process.env.SERVICE_SECRET_KEY;
 let connectionInstance: Connection | null = null;
 let serviceWalletInstance: Keypair | null = null;
 
@@ -34,25 +38,24 @@ export function getConnection(): Connection {
 }
 
 /**
- * Загружает Keypair из SERVICE_SECRET_KEY_BASE58.
+ * Загружает Keypair из SERVICE_SECRET_KEY.
  * @returns {Keypair} Keypair of the service wallet
  */
 export function getServiceWallet(): Keypair {
     if (serviceWalletInstance) return serviceWalletInstance;
 
     if (!WALLET_SECRET_KEY) {
-        throw new Error("SERVICE_SECRET_KEY_BASE58 is not defined in environment. Check your .env file.");
+        throw new Error("SERVICE_SECRET_KEY is not defined in environment. Check your .env file.");
     }
     try {
-        // Мы ожидаем, что ключ Base58 будет без ошибок, 
-        // иначе произойдет сбой, который мы отлавливаем ниже.
+
         const secretKeyUint8 = bs58.decode(WALLET_SECRET_KEY);
-        // Keypair.fromSecretKey принимает Uint8Array (64 байта)
+
         serviceWalletInstance = Keypair.fromSecretKey(secretKeyUint8);
         console.log(`✅ Сервисный кошелёк загружен: ${serviceWalletInstance.publicKey.toBase58()}`);
         return serviceWalletInstance;
     } catch (e) {
-        throw new Error(`Failed to load Keypair from SERVICE_SECRET_KEY_BASE58: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        throw new Error(`Failed to load Keypair from SERVICE_SECRET_KEY: ${e instanceof Error ? e.message : 'Unknown error'}`);
     }
 }
 
@@ -75,22 +78,26 @@ export async function getServiceWalletBalance(): Promise<{ serviceAddress: strin
         // Fetch SPL token list
         const tokenAccounts = await connection.getTokenAccountsByOwner(
             keypair.publicKey,
-            { programId: splToken.TOKEN_PROGRAM_ID } 
+            // ✅ ИСПРАВЛЕНО: Убран префикс splToken
+            { programId: TOKEN_PROGRAM_ID } 
         );
 
         tokenList = tokenAccounts.value
             .map(accountInfo => {
-                const data = splToken.AccountLayout.decode(accountInfo.account.data);
+                // ✅ ИСПРАВЛЕНО: Убран префикс splToken
+                const data = AccountLayout.decode(accountInfo.account.data);
                 
-                // Проверяем, что аккаунт инициализирован и имеет ненулевой баланс
-                if (data.state === splToken.AccountState.Initialized && data.amount > 0) {
+                // ✅ ИСПРАВЛЕНО: Заменен splToken.AccountState.Initialized на 1.
+                if (data.state === 1 && data.amount > 0) { // 1 = Initialized
                      return {
                         mint: data.mint.toBase58(),
-                        amount: Number(data.amount) / Math.pow(10, 9), // Предполагаем 9 десятичных знаков для простоты
+                        // Предполагается 9 десятичных знаков для отображения
+                        amount: Number(data.amount) / Math.pow(10, 9), 
                     };
                 }
                 return null;
             })
+            // Улучшена фильтрация для TS
             .filter((token): token is { mint: string, amount: number } => token !== null);
 
         return { 
@@ -100,8 +107,7 @@ export async function getServiceWalletBalance(): Promise<{ serviceAddress: strin
         };
         
     } catch (error) {
-        // Если кошелек еще не имеет активности, он может быть "не найден". 
-        // Возвращаем дефолтные значения.
+        
         if (error instanceof Error && error.message.includes('Account not found')) {
              const address = getServiceWallet().publicKey.toBase58();
              return { 
@@ -115,12 +121,3 @@ export async function getServiceWalletBalance(): Promise<{ serviceAddress: strin
     }
 }
 
-// --- ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ---
-// ВАЖНО: ЭТОТ БЛОК УДАЛЕН.
-// try {
-//     getServiceWallet();
-// } catch (e) {
-//     console.error("🚨 КРИТИЧЕСКАЯ ОШИБКА ИНИЦИАЛИЗАЦИИ КОШЕЛЬКА:", e instanceof Error ? e.message : 'Unknown error');
-//     console.error("Убедитесь, что SERVICE_SECRET_KEY_BASE58 указан в файле .env.");
-//     // Мы не останавливаем процесс, чтобы Express мог запуститься, но логгируем ошибку.
-// }

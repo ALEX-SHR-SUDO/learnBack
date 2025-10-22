@@ -1,8 +1,14 @@
 // src/metadata-addition.service.ts
+//
+// Использует Metaplex Umi SDK для создания токенов и метаданных.
+// Umi SDK является современным и рекомендуемым решением.
 
 // --- ИМПОРТ UMI И PLUGINS ---
-import { createUmi, Umi, PublicKey as UmiPublicKey } from "@metaplex-foundation/umi";
-import { web3JsEddsa, web3JsPublicKey, web3JsKeypair } from "@metaplex-foundation/umi-bundle-defaults";
+// --- ИМПОРТ UMI И PLUGINS ---
+import { createUmi, Umi, PublicKey as UmiPublicKey, Signer } from "@metaplex-foundation/umi";
+// ✅ ИСПРАВЛЕНИЕ TS: Заменен деструктурирующий импорт на импорт со звездочкой, 
+// чтобы обойти ошибку с неэкспортируемыми членами в пакете umi-bundle-defaults.
+import * as UmiAdapters from "@metaplex-foundation/umi-bundle-defaults"; 
 import { 
     findAssociatedTokenPda, 
     createV1, 
@@ -19,7 +25,7 @@ import { toBigInt } from "./utils";
 
 
 // ==========================================================
-// --- ТИПЫ ДЛЯ КОНТРОЛЛЕРА ---
+// --- ТИПЫ ДЛЯ СЕРВИСА ---
 // ==========================================================
 
 interface TokenDetails {
@@ -45,7 +51,6 @@ interface MetadataDetails {
  * @returns Настроенный Umi-инстанс.
  */
 function getUmiInstance(): Umi {
-    // Получаем текущее соединение (Connection)
     const connection = getConnection();
     if (!connection) {
         throw new Error("Solana connection is not established.");
@@ -54,27 +59,29 @@ function getUmiInstance(): Umi {
     // Получаем Keypair для оплаты транзакций
     const payerKeypair = getServiceWallet();
 
-    // 1. Инициализация Umi с URL кластера (взято из Connection)
+    // 1. Инициализация Umi с URL кластера
     const umi = createUmi(connection.rpcEndpoint)
         // 2. Применение бандла по умолчанию (web3.js adapters)
-        .use(web3JsEddsa())
-        .use(web3JsPublicKey())
-        .use(web3JsKeypair())
+        // ✅ ИСПРАВЛЕНО: Используем методы через алиас UmiAdapters
+        .use(UmiAdapters.web3JsEddsa())
+        .use(UmiAdapters.web3JsPublicKey())
+        .use(UmiAdapters.web3JsKeypair())
         // 3. Плагин для Token Metadata
         .use(mplTokenMetadata());
         
     // 4. Установка Keypair для оплаты транзакций
-    umi.use(web3JsKeypair(payerKeypair, true)); // true = make it the payer
+    // ✅ ИСПРАВЛЕНО: Передаем ключпару из service.ts
+    umi.use(UmiAdapters.web3JsKeypair(payerKeypair, true)); // true = make it the payer and signer
     
     return umi;
 }
 
 // ==========================================================
-// --- ЭКСПОРТИРУЕМАЯ ЛОГИКА (ОБЪЕДИНЕННЫЙ СЕРВИС) ---
+// --- ЭКСПОРТИРУЕМАЯ ЛОГИКА ---
 // ==========================================================
 
 /**
- * [ОБЪЕДИНЕННЫЙ СЕРВИС] Создает Mint токена, чеканит supply и прикрепляет метаданные Metaplex.
+ * Создает Mint токена, чеканит supply и прикрепляет метаданные Metaplex.
  * @param tokenDetails - Детали токена (name, symbol, uri, supply, decimals).
  * @returns Promise<Object> Mint Address, ATA, и подпись транзакции.
  */
@@ -84,8 +91,6 @@ export async function createTokenAndMetadata(tokenDetails: TokenDetails) {
     const { name, symbol, uri, supply, decimals } = tokenDetails;
 
     const decimalCount = parseInt(decimals, 10);
-
-    // Преобразуем строковое количество в BigInt в наименьших единицах
     const initialSupply = toBigInt(supply, decimalCount);
 
     try {
@@ -94,7 +99,7 @@ export async function createTokenAndMetadata(tokenDetails: TokenDetails) {
         // Генерируем новый Mint Address
         const mintSigner = generateSigner(umi);
 
-        // Расчет ATA для сервисного кошелька (он же получатель, Mint Authority и Freeze Authority)
+        // Расчет ATA для сервисного кошелька (он же получатель)
         const associatedTokenAddress = findAssociatedTokenPda(umi, {
             mint: mintSigner.publicKey, 
             owner: umi.payer.publicKey,
@@ -104,7 +109,7 @@ export async function createTokenAndMetadata(tokenDetails: TokenDetails) {
         const result = await createV1(umi, {
             // Права и участники
             payer: umi.payer,
-            mint: mintSigner, // Новый Mint Address
+            mint: mintSigner, // Новый Mint Address (Signer)
             authority: umi.payer.publicKey, // Mint Authority
             updateAuthority: umi.payer, // Update Authority (Signer)
             
@@ -127,7 +132,6 @@ export async function createTokenAndMetadata(tokenDetails: TokenDetails) {
             
         }).sendAndConfirm(umi);
 
-        // Подпись транзакции
         const metadataTx = umi.transactions.toString(result.signature);
 
         console.log(`✅ Umi: Токен создан. Mint: ${umi.publicKeys.toString(mintSigner.publicKey)}`);
@@ -140,11 +144,10 @@ export async function createTokenAndMetadata(tokenDetails: TokenDetails) {
 
     } catch (error) {
         console.error("❌ Umi Create Token Error:", error);
-        // Добавление логов Umi для лучшей отладки
-        if (error.logs) {
-            console.error("Umi Simulation Logs:", error.logs);
+        if ((error as any).logs) {
+            console.error("Umi Simulation Logs:", (error as any).logs);
         }
-        throw new Error(`Ошибка при создании токена через Umi: ${error.message}`);
+        throw new Error(`Ошибка при создании токена через Umi: ${(error as Error).message}`);
     }
 }
 
@@ -173,7 +176,6 @@ export async function addTokenMetadata(mintAddress: string, details: MetadataDet
                 symbol: details.symbol,
                 uri: details.uri,
                 sellerFeeBasisPoints: 0, 
-                // Опционально: можно добавить creators, collection и т.д.
             },
         }).sendAndConfirm(umi);
 
@@ -184,9 +186,9 @@ export async function addTokenMetadata(mintAddress: string, details: MetadataDet
 
     } catch (error) {
         console.error("❌ Umi Add Metadata Error:", error);
-        if (error.logs) {
-            console.error("Umi Simulation Logs:", error.logs);
+        if ((error as any).logs) {
+            console.error("Umi Simulation Logs:", (error as any).logs);
         }
-        throw new Error(`Ошибка при добавлении метаданных через Umi: ${error.message}`);
+        throw new Error(`Ошибка при добавлении метаданных через Umi: ${(error as Error).message}`);
     }
 }

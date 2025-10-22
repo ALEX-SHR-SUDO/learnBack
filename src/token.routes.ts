@@ -1,17 +1,15 @@
 // src/token.routes.ts
 
-import express, { Request, Response } from "express";
+import express, { Request, Response } from "express"; // Импортируем типы для Express
 const router = express.Router();
 
 // ✅ ИМПОРТ ФУНКЦИЙ КОНТРОЛЛЕРА
-// Удален суффикс .js, так как теперь мы используем .ts файлы
 import { 
     handleCreateTokenAndMetadata, 
     handleAddTokenMetadata 
 } from "./metadata-addition.controller.js"; 
 
 // Импорт сервисов для вспомогательных функций (balance, ping)
-// Удален суффикс .js
 import { 
     getConnection, 
     getServiceWalletBalance, 
@@ -21,54 +19,43 @@ import {
 // ---------------------------------------------
 // --- Проверка соединения ---
 // ---------------------------------------------
-// Добавлена явная типизация Request и Response
 router.get("/ping", async (req: Request, res: Response) => {
   try {
     const connection = getConnection();
     if (!connection) throw new Error("Solana connection failed.");
       
     const version = await connection.getVersion(); 
-    // Возвращаем публичный ключ сервисного кошелька для удобства
-    const serviceAddress = getServiceWallet().publicKey.toBase58();
-
-    res.json({ 
-        ok: true, 
-        cluster: connection.rpcEndpoint, 
-        solana: version,
-        serviceAddress: serviceAddress
-    });
+    res.json({ ok: true, solana: version });
   } catch (e) {
-    // Явно приводим ошибку к строке
-    res.status(500).json({ ok: false, error: e instanceof Error ? e.message : "Unknown error during ping" });
+    // ✅ ИСПРАВЛЕНИЕ TS: Проверяем, является ли ошибка объектом Error, чтобы безопасно получить сообщение
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ ok: false, error: errorMessage });
   }
 });
 
 // ---------------------------------------------
 // --- 1. Создание токена с метаданными (ОБЪЕДИНЕННЫЙ ШАГ) ---
 // ---------------------------------------------
-// ✅ Используем функцию контроллера для обработки логики запроса/ответа
 router.post("/create-token", handleCreateTokenAndMetadata);
 
 // ---------------------------------------------
 // --- 2. Добавление метаданных к существующему токену ---
 // ---------------------------------------------
-// ✅ Добавляем маршрут для добавления метаданных 
 router.post("/add-metadata", handleAddTokenMetadata);
 
 
 // ---------------------------------------------
 // --- Баланс сервисного кошелька + токены ---
 // ---------------------------------------------
-// Добавлена явная типизация Request и Response
 router.get("/balance", async (req: Request, res: Response) => {
   try {
     const balanceData = await getServiceWalletBalance(); 
     res.json(balanceData);
   } catch (err) {
-    // Корректный вывод ошибки и статуса
-    const errorMessage = err instanceof Error ? err.message : "Ошибка сервера при получении баланса";
+    // ✅ ИСПРАВЛЕНИЕ TS: Проверяем тип 'err' для безопасного доступа к 'message'
+    const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("❌ Ошибка при получении баланса:", errorMessage);
-    res.status(500).json({ error: errorMessage });
+    res.status(500).json({ error: errorMessage || "Ошибка сервера при получении баланса" });
   }
 });
 
