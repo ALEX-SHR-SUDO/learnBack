@@ -8,18 +8,19 @@ import {
     sol, // Используется для безопасного сравнения SOL-сумм
     Signer,
     Keypair as UmiKeypair, 
+    TransactionSignature, // ИСПРАВЛЕНИЕ: Используем тип UMI для подписи
+    percentAmount, // ИСПРАВЛЕНИЕ: Используем для установки процентов
+    // ИСПРАВЛЕНИЕ: Эти функции перемещены в корневой UMI пакет
+    createMetadata, 
+    findAssociatedTokenPda, 
+    findMetadataPda, 
 } from "@metaplex-foundation/umi";
 
-// ИСПРАВЛЕНИЕ #1: web3JsRpc больше не экспортируется. defaultPlugins принимает endpoint.
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
-import { 
-    createAndMint, 
-    createMetadata, 
-    findMetadataPda, 
-    findAssociatedTokenPda, 
-    TokenStandard
-} from "@metaplex-foundation/mpl-token-metadata";
-// ИСПРАВЛЕНИЕ #2: Используем Web3JsPublicKey для корректного типа при вызове getBalance
+// ИСПРАВЛЕНИЕ TS2307: Используем wildcard import, чтобы обойти проблемы 
+// с разрешением путей NodeNext для mpl-token-metadata.
+import * as mplTokenMetadata from "@metaplex-foundation/mpl-token-metadata/dist/esm/index.js"; // ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Принудительное разрешение пути для NodeNext
+
 import { PublicKey as Web3JsPublicKey } from "@solana/web3.js";
 
 // Локальные импорты - КРИТИЧЕСКИ ВАЖНО: используем .js для NodeNext
@@ -51,8 +52,7 @@ function initializeUmi(): any {
     
     const umi = createUmi();
 
-    // ИСПРАВЛЕНИЕ #3: defaultPlugins теперь принимает RPC endpoint (TS2554)
-    // Это автоматически подключает все необходимые адаптеры, включая web3.js
+    // defaultPlugins теперь принимает RPC endpoint
     umi.use(defaultPlugins(connection.rpcEndpoint)); 
     
     return umi;
@@ -82,9 +82,9 @@ function getUmiSigner(umi: any): Signer {
 /**
  * Создает новый токен, чеканит его на сервисный кошелек и добавляет метаданные.
  * @param {TokenDetails} details - Детали токена (имя, символ, URI, саплай, десятичные знаки).
- * @returns {Promise<{ mintAddress: string, ata: string, metadataTx: string }>} 
+ * @returns {Promise<{ mintAddress: string, ata: string, metadataTx: TransactionSignature }>} 
  */
-export async function createTokenAndMetadata(details: TokenDetails): Promise<{ mintAddress: string, ata: string, metadataTx: string }> {
+export async function createTokenAndMetadata(details: TokenDetails): Promise<{ mintAddress: string, ata: string, metadataTx: TransactionSignature }> {
     const umi = initializeUmi();
     const payer = getUmiSigner(umi); 
 
@@ -95,35 +95,35 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         // Проверяем баланс для оплаты комиссий.
         const solanaConnection = getConnection();
         
-        // ИСПРАВЛЕНИЕ #4: Конвертируем UMI.PublicKey в Web3Js.PublicKey для getBalance (TS2345)
+        // Конвертируем UMI.PublicKey в Web3Js.PublicKey для getBalance
         const web3JsPayerPublicKey = new Web3JsPublicKey(payer.publicKey.toString());
         const balance = await solanaConnection.getBalance(web3JsPayerPublicKey);
 
-        // ИСПРАВЛЕНИЕ #5: sol().basisPoints возвращает BigInt. Конвертируем в Number для сравнения с балансом (TS2339)
+        // sol().basisPoints возвращает BigInt. Конвертируем в Number для сравнения с балансом
         const requiredBalance = Number(sol(0.01).basisPoints); 
 
         if (balance < requiredBalance) { 
-            // ИСПРАВЛЕНИЕ #6: Используем .toString() для UMI PublicKey (TS2339)
             throw new Error(`Недостаточно SOL на кошельке ${payer.publicKey.toString()}. Требуется минимум 0.01 SOL.`);
         }
         
         const mint = generateSigner(umi); 
 
         // Используем Metaplex's simplified `createAndMint`
-        const transaction = await createAndMint(umi, {
+        const transaction = await mplTokenMetadata.createAndMint(umi, { // ИСПРАВЛЕНО: используем mplTokenMetadata.createAndMint
             mint,
             authority: payer, // Mint и Freeze authority
             payer: payer,
             name: details.name,
             symbol: details.symbol,
             uri: details.uri,
-            sellerFeeBasisPoints: 0, 
+            // ИСПРАВЛЕНИЕ: Используем percentAmount для sellerFeeBasisPoints
+            sellerFeeBasisPoints: percentAmount(0), 
             isMutable: true,
             decimals: decimalsNumber,
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
             // Указываем, что это Fungible токен
-            tokenStandard: TokenStandard.Fungible, 
+            tokenStandard: mplTokenMetadata.TokenStandard.Fungible, // ИСПРАВЛЕНО: используем mplTokenMetadata.TokenStandard
         }).sendAndConfirm(umi);
 
         // Используем standard toString()
@@ -135,7 +135,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             owner: payer.publicKey,
         });
 
-        // transaction.signature уже является строкой (Base58)
+        // transaction.signature теперь имеет тип TransactionSignature, который мы возвращаем
         return {
             mintAddress: mintPublicKey,
             ata: associatedTokenAccountPda[0].toString(), 
@@ -153,9 +153,9 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
  * Добавляет метаданные к уже существующему токену.
  * @param {string} mintAddress - Публичный ключ Mint-аккаунта токена.
  * @param {MetadataDetails} details - Детали метаданных (имя, символ, URI).
- * @returns {Promise<string>} - Подпись транзакции.
+ * @returns {Promise<TransactionSignature>} - Подпись транзакции.
  */
-export async function addTokenMetadata(mintAddress: string, details: MetadataDetails): Promise<string> {
+export async function addTokenMetadata(mintAddress: string, details: MetadataDetails): Promise<TransactionSignature> {
     const umi = initializeUmi();
     const payer = getUmiSigner(umi); // Устанавливает Identity/Payer
     
@@ -176,14 +176,15 @@ export async function addTokenMetadata(mintAddress: string, details: MetadataDet
                 name: details.name,
                 symbol: details.symbol,
                 uri: details.uri,
-                sellerFeeBasisPoints: 0, 
+                // ИСПРАВЛЕНИЕ: Используем percentAmount для sellerFeeBasisPoints
+                sellerFeeBasisPoints: percentAmount(0), 
                 creators: null,
                 collection: null,
                 uses: null,
             },
             isMutable: true,
             collectionDetails: null,
-            tokenStandard: TokenStandard.Fungible,
+            tokenStandard: mplTokenMetadata.TokenStandard.Fungible, // ИСПРАВЛЕНО: используем mplTokenMetadata.TokenStandard
         }).sendAndConfirm(umi);
 
         // Возвращаем подпись напрямую
