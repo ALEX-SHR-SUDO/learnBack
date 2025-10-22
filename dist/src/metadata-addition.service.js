@@ -5,9 +5,9 @@ percentAmount, // Используем для установки процент�
 // поскольку они должны быть импортированы из mpl-token-metadata.
  } from "@metaplex-foundation/umi";
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
-// **ИСПРАВЛЕНИЕ TS2307:** Возвращаем импорт к стандартному пути.
-// Функции createMetadata, findAssociatedTokenPda, findMetadataPda теперь будут доступны через этот импорт.
-import * as mplTokenMetadata from "@metaplex-foundation/mpl-token-metadata";
+// **ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ TS2307:** Явно указываем путь к CJS-модулю (`dist/cjs/index.js`), 
+// чтобы обойти проблемы с разрешением типов в NodeNext. Это часто самый надежный способ.
+import * as mplTokenMetadata from "@metaplex-foundation/mpl-token-metadata/dist/cjs/index.js";
 import { PublicKey as Web3JsPublicKey } from "@solana/web3.js";
 // Локальные импорты - КРИТИЧЕСКИ ВАЖНО: используем .js для NodeNext
 import { getServiceWallet, getConnection } from './solana.service.js';
@@ -81,7 +81,7 @@ export async function createTokenAndMetadata(details) {
         }).sendAndConfirm(umi);
         // Используем standard toString()
         const mintPublicKey = mint.publicKey.toString();
-        // **ИСПРАВЛЕНИЕ TS2305:** Используем findAssociatedTokenPda из mplTokenMetadata
+        // Используем findAssociatedTokenPda из mplTokenMetadata
         const associatedTokenAccountPda = mplTokenMetadata.findAssociatedTokenPda(umi, {
             mint: mint.publicKey,
             owner: payer.publicKey,
@@ -109,11 +109,11 @@ export async function addTokenMetadata(mintAddress, details) {
     const payer = getUmiSigner(umi); // Устанавливает Identity/Payer
     try {
         const mintPublicKey = umiPublicKey(mintAddress);
-        // **ИСПРАВЛЕНИЕ TS2305:** Используем findMetadataPda из mplTokenMetadata
+        // Используем findMetadataPda из mplTokenMetadata
         const metadataPda = mplTokenMetadata.findMetadataPda(umi, {
             mint: mintPublicKey
         });
-        // **ИСПРАВЛЕНИЕ TS2305:** Используем createMetadata из mplTokenMetadata
+        // Используем createMetadata из mplTokenMetadata
         const transaction = await mplTokenMetadata.createMetadata(umi, {
             metadata: metadataPda,
             mint: mintPublicKey,
