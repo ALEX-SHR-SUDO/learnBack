@@ -1,32 +1,37 @@
 {
   "compilerOptions": {
     /* Project Options */
-    "target": "ES2022",                                  /* Указывает версию ECMAScript для целевой среды. */
-    "module": "NodeNext",                                /* Устанавливает систему модулей для Node.js с поддержкой 'import'/'export'. */
-    "moduleResolution": "NodeNext",                      /* Указывает стратегию разрешения модулей (важно для ESM). */
-    "outDir": "./dist",                                  /* Каталог для вывода скомпилированных файлов. */
-    "rootDir": "./",                                     /* Корневой каталог исходных файлов. */
-    "esModuleInterop": true,                             /* Позволяет использовать 'import x from y' для модулей, которые используют 'export ='. */
-    "forceConsistentCasingInFileNames": true,            /* Обеспечивает согласованность регистра в именах файлов. */
-    "allowJs": true,                                     /* ✅ Разрешает компилировать JavaScript-файлы. */
-    "checkJs": true,                                     /* ✅ Проверяет типы в JavaScript-файлах (рекомендуется). */
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "./dist",
+    "rootDir": "./",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": true,
+    "checkJs": true,
+
+    /* --- ИСПРАВЛЕНИЕ: Добавляем paths для разрешения модулей NodeNext --- */
+    "paths": {
+      "@metaplex-foundation/*": ["./node_modules/@metaplex-foundation/*"]
+    },
 
     /* Type Checking */
-    "strict": true,                                      /* Включает все строгие флаги проверки типов. Рекомендуется для новых проектов. */
-    "skipLibCheck": true,                                /* Пропускает проверку типов файлов объявлений. */
-    "resolveJsonModule": true,                           /* Позволяет импортировать файлы .json как модули. */
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
 
     /* Source Maps */
-    "sourceMap": false,                                  /* Отключаем .map файлы для упрощения производственной сборки. */
+    "sourceMap": false,
 
     /* Additional Settings */
-    "lib": ["ES2022"],                                   /* Включает библиотечные файлы (ESM-окружение). */
-    "types": ["node", "express"]                         /* Явно включает типы Node.js и Express. */
+    "lib": ["ES2022"],
+    "types": ["node", "express"]
   },
   "include": [
-    "server.ts",                                         /* Главный файл. */
-    "src/**/*.js",                                       /* Включаем существующие JS-файлы. */
-    "src/**/*.ts"                                        /* Включаем новые TS-файлы. */
+    "server.ts",
+    "src/**/*.js",
+    "src/**/*.ts"
   ],
-  "exclude": ["node_modules"]                            /* Исключает папку зависимостей. */
+  "exclude": ["node_modules"]
 }
