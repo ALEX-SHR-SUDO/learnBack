@@ -8,11 +8,10 @@ import {
     sol, // Используется для безопасного сравнения SOL-сумм
     Signer,
     Keypair as UmiKeypair, 
-    // Keypair - импортируем только для типов, но не используем явно в логике
 } from "@metaplex-foundation/umi";
 
-// Подключаем весь необходимый функционал Metaplex из бандла по умолчанию
-import { defaultPlugins, web3JsRpc } from "@metaplex-foundation/umi-bundle-defaults";
+// ИСПРАВЛЕНИЕ #1: web3JsRpc больше не экспортируется. defaultPlugins принимает endpoint.
+import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 import { 
     createAndMint, 
     createMetadata, 
@@ -20,6 +19,7 @@ import {
     findAssociatedTokenPda, 
     TokenStandard
 } from "@metaplex-foundation/mpl-token-metadata";
+// ИСПРАВЛЕНИЕ #2: Используем Web3JsPublicKey для корректного типа при вызове getBalance
 import { PublicKey as Web3JsPublicKey } from "@solana/web3.js";
 
 // Локальные импорты - КРИТИЧЕСКИ ВАЖНО: используем .js для NodeNext
@@ -49,12 +49,11 @@ interface MetadataDetails {
 function initializeUmi(): any {
     const connection = getConnection();
     
-    // ИСПРАВЛЕНИЕ #1: createUmi() теперь не принимает аргументов.
     const umi = createUmi();
 
-    // ИСПРАВЛЕНИЕ #2: RPC endpoint передается через плагин web3JsRpc
-    // Подключаем все стандартные плагины UMI (включает web3.js адаптеры)
-    umi.use(defaultPlugins()).use(web3JsRpc(connection.rpcEndpoint)); 
+    // ИСПРАВЛЕНИЕ #3: defaultPlugins теперь принимает RPC endpoint (TS2554)
+    // Это автоматически подключает все необходимые адаптеры, включая web3.js
+    umi.use(defaultPlugins(connection.rpcEndpoint)); 
     
     return umi;
 }
@@ -68,7 +67,6 @@ function getUmiSigner(umi: any): Signer {
     const web3JsKeypair = getServiceWallet(); // Получаем Web3JsKeypair
     
     // Конвертируем Web3.js Keypair (Uint8Array) в Umi Keypair
-    // Требуется Buffer, который мы предполагаем доступен в Node.js среде.
     const secretKey = Buffer.from(web3JsKeypair.secretKey);
     const umiKeypair = umi.eddsa.createKeypairFromSecretKey(secretKey);
 
@@ -96,10 +94,17 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
 
         // Проверяем баланс для оплаты комиссий.
         const solanaConnection = getConnection();
-        // Используем sol() и toNumber() для безопасного сравнения
-        const balance = await solanaConnection.getBalance(payer.publicKey);
-        if (balance < sol(0.01).basisPoints.toNumber()) { 
-            throw new Error(`Недостаточно SOL на кошельке ${payer.publicKey.toBase58()}. Требуется минимум 0.01 SOL.`);
+        
+        // ИСПРАВЛЕНИЕ #4: Конвертируем UMI.PublicKey в Web3Js.PublicKey для getBalance (TS2345)
+        const web3JsPayerPublicKey = new Web3JsPublicKey(payer.publicKey.toString());
+        const balance = await solanaConnection.getBalance(web3JsPayerPublicKey);
+
+        // ИСПРАВЛЕНИЕ #5: sol().basisPoints возвращает BigInt. Конвертируем в Number для сравнения с балансом (TS2339)
+        const requiredBalance = Number(sol(0.01).basisPoints); 
+
+        if (balance < requiredBalance) { 
+            // ИСПРАВЛЕНИЕ #6: Используем .toString() для UMI PublicKey (TS2339)
+            throw new Error(`Недостаточно SOL на кошельке ${payer.publicKey.toString()}. Требуется минимум 0.01 SOL.`);
         }
         
         const mint = generateSigner(umi); 
@@ -121,7 +126,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             tokenStandard: TokenStandard.Fungible, 
         }).sendAndConfirm(umi);
 
-        // ИСПРАВЛЕНИЕ #3: Используем standard toString()
+        // Используем standard toString()
         const mintPublicKey = mint.publicKey.toString();
         
         // Вычисляем ATA для возврата (findAssociatedTokenPda возвращает [Pda, number])
@@ -130,7 +135,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             owner: payer.publicKey,
         });
 
-        // ИСПРАВЛЕНИЕ #4: transaction.signature уже является строкой (Base58), не нужно вызывать toString на umi.transactions
+        // transaction.signature уже является строкой (Base58)
         return {
             mintAddress: mintPublicKey,
             ata: associatedTokenAccountPda[0].toString(), 
@@ -181,7 +186,7 @@ export async function addTokenMetadata(mintAddress: string, details: MetadataDet
             tokenStandard: TokenStandard.Fungible,
         }).sendAndConfirm(umi);
 
-        // ИСПРАВЛЕНИЕ #5: Возвращаем подпись напрямую
+        // Возвращаем подпись напрямую
         return transaction.signature;
 
     } catch (error: any) {
