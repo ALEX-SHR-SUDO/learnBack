@@ -10,16 +10,19 @@ import {
     Keypair as UmiKeypair, 
     TransactionSignature, // Используем тип UMI для подписи
     percentAmount, // Используем для установки процентов
-    // **ИСПРАВЛЕНИЕ TS2305:** Функции создания метаданных удалены из UMI,
-    // поскольку они должны быть импортированы из mpl-token-metadata.
 } from "@metaplex-foundation/umi";
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-// **ИСПРАВЛЕНИЕ TS2307:** Возвращаемся к стандартному импорту пакета.
-// Явное указание пути к файлу часто сбивает с толку TypeScript при поиске .d.ts.
-// Стандартный импорт должен позволить компилятору правильно найти декларации типов.
-import * as mplTokenMetadata from "@metaplex-foundation/mpl-token-metadata";
+// **ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ TS2307:** Импортируем только необходимые экспорты по имени.
+// Это часто обходит проблемы с разрешением именных пространств (import * as ...).
+import { 
+    createAndMint, 
+    TokenStandard, 
+    findAssociatedTokenPda, 
+    findMetadataPda, 
+    createMetadata 
+} from "@metaplex-foundation/mpl-token-metadata";
 
 import { PublicKey as Web3JsPublicKey } from "@solana/web3.js";
 
@@ -110,8 +113,8 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         
         const mint = generateSigner(umi); 
 
-        // Используем Metaplex's simplified `createAndMint`
-        const transaction = await mplTokenMetadata.createAndMint(umi, {
+        // Используем Metaplex's simplified `createAndMint` (теперь импортирован напрямую)
+        const transaction = await createAndMint(umi, {
             mint,
             authority: payer, // Mint и Freeze authority
             payer: payer,
@@ -124,14 +127,14 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
             // Указываем, что это Fungible токен
-            tokenStandard: mplTokenMetadata.TokenStandard.Fungible,
+            tokenStandard: TokenStandard.Fungible,
         }).sendAndConfirm(umi);
 
         // Используем standard toString()
         const mintPublicKey = mint.publicKey.toString();
         
-        // Используем findAssociatedTokenPda из mplTokenMetadata
-        const associatedTokenAccountPda = mplTokenMetadata.findAssociatedTokenPda(umi, {
+        // Используем findAssociatedTokenPda (теперь импортирован напрямую)
+        const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
             mint: mint.publicKey,
             owner: payer.publicKey,
         });
@@ -163,13 +166,13 @@ export async function addTokenMetadata(mintAddress: string, details: MetadataDet
     try {
         const mintPublicKey = umiPublicKey(mintAddress);
 
-        // Используем findMetadataPda из mplTokenMetadata
-        const metadataPda = mplTokenMetadata.findMetadataPda(umi, {
+        // Используем findMetadataPda (теперь импортирован напрямую)
+        const metadataPda = findMetadataPda(umi, {
             mint: mintPublicKey
         });
 
-        // Используем createMetadata из mplTokenMetadata
-        const transaction = await mplTokenMetadata.createMetadata(umi, {
+        // Используем createMetadata (теперь импортирован напрямую)
+        const transaction = await createMetadata(umi, {
             metadata: metadataPda,
             mint: mintPublicKey,
             updateAuthority: payer,
@@ -184,7 +187,7 @@ export async function addTokenMetadata(mintAddress: string, details: MetadataDet
             },
             isMutable: true,
             collectionDetails: null,
-            tokenStandard: mplTokenMetadata.TokenStandard.Fungible,
+            tokenStandard: TokenStandard.Fungible,
         }).sendAndConfirm(umi);
 
         // Возвращаем подпись напрямую
@@ -195,3 +198,4 @@ export async function addTokenMetadata(mintAddress: string, details: MetadataDet
         throw new Error(`Failed to add metadata: ${error.message || error}`);
     }
 }
+// --- END OF FILE ---
