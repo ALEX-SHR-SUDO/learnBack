@@ -14,15 +14,14 @@ import {
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-// **ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ TS2307:** Импортируем только необходимые экспорты по имени,
-// включая функцию плагина mplTokenMetadata.
+// **ИСПРАВЛЕНИЕ: Используем стандартный путь.** // Благодаря явному 'paths' в tsconfig.json, TSc теперь должен найти типы правильно.
 import { 
     createAndMint, 
     TokenStandard, 
     findAssociatedTokenPda, 
     findMetadataPda, 
     createMetadata,
-    mplTokenMetadata // <--- Добавлен импорт функции плагина
+    mplTokenMetadata 
 } from "@metaplex-foundation/mpl-token-metadata";
 
 import { PublicKey as Web3JsPublicKey } from "@solana/web3.js";
@@ -59,8 +58,7 @@ function initializeUmi(): any {
     // defaultPlugins теперь принимает RPC endpoint
     umi.use(defaultPlugins(connection.rpcEndpoint)); 
     
-    // **ВАЖНОЕ УЛУЧШЕНИЕ**: Применяем плагин Metaplex Token Metadata.
-    // Это гарантирует, что UMI знает, как взаимодействовать с нужными программами.
+    // ВАЖНО: Применяем плагин Metaplex Token Metadata.
     umi.use(mplTokenMetadata()); 
     
     return umi;
