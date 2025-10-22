@@ -59,10 +59,11 @@ function initializeUmi(): any {
     
     const umi = createUmi();
 
-    // defaultPlugins теперь принимает RPC endpoint
+    // Загружаем основные плагины (RPC, Broadcaster, Downloader и т.д.)
     umi.use(defaultPlugins(connection.rpcEndpoint)); 
     
-    // ВАЖНО: Применяем плагин Metaplex Token Metadata.
+    // ВАЖНО: Регистрируем плагин Metaplex Token Metadata (mplTokenMetadata()).
+    // Это реализует логику, необходимую для createAndMint, findMetadataPda и т.д.
     umi.use(mplTokenMetadata()); 
     
     return umi;
