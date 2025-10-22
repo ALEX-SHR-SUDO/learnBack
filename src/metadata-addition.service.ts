@@ -14,15 +14,19 @@ import {
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-// **ИСПРАВЛЕНИЕ: Используем стандартный путь.** // Благодаря явному 'paths' в tsconfig.json, TSc теперь должен найти типы правильно.
-import { 
+// **КРИТИЧЕСКИЙ ФИКС РАБОТЫ В NODE.JS (ESM/CJS INTEROP)**
+// Импортируем Metaplex Token Metadata через импорт по умолчанию (как рекомендуется для CJS модулей в ESM).
+import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
+
+// Затем деструктурируем необходимые экспорты из этого объекта.
+const { 
     createAndMint, 
     TokenStandard, 
     findAssociatedTokenPda, 
     findMetadataPda, 
     createMetadata,
     mplTokenMetadata 
-} from "@metaplex-foundation/mpl-token-metadata";
+} = mplTokenMetadataExports;
 
 import { PublicKey as Web3JsPublicKey } from "@solana/web3.js";
 
