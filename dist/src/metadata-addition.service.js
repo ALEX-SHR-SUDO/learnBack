@@ -1,12 +1,13 @@
 // src/metadata-addition.service.ts
-import { createUmi, publicKey as umiPublicKey, keypairIdentity, generateSigner, sol, // ИСПРАВЛЕНИЕ: Используем тип UMI для подписи
-percentAmount, // ИСПРАВЛЕНИЕ: Используем для установки процентов
-// ИСПРАВЛЕНИЕ: Эти функции перемещены в корневой UMI пакет
-createMetadata, findAssociatedTokenPda, findMetadataPda, } from "@metaplex-foundation/umi";
+import { createUmi, publicKey as umiPublicKey, keypairIdentity, generateSigner, sol, // Используем тип UMI для подписи
+percentAmount, // Используем для установки процентов
+// **ИСПРАВЛЕНИЕ TS2305:** Функции создания метаданных удалены из UMI,
+// поскольку они должны быть импортированы из mpl-token-metadata.
+ } from "@metaplex-foundation/umi";
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
-// ИСПРАВЛЕНИЕ TS2307: Используем wildcard import, чтобы обойти проблемы 
-// с разрешением путей NodeNext для mpl-token-metadata.
-import * as mplTokenMetadata from "@metaplex-foundation/mpl-token-metadata/dist/esm/index.js"; // ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Принудительное разрешение пути для NodeNext
+// **ИСПРАВЛЕНИЕ TS2307:** Возвращаем импорт к стандартному пути.
+// Функции createMetadata, findAssociatedTokenPda, findMetadataPda теперь будут доступны через этот импорт.
+import * as mplTokenMetadata from "@metaplex-foundation/mpl-token-metadata";
 import { PublicKey as Web3JsPublicKey } from "@solana/web3.js";
 // Локальные импорты - КРИТИЧЕСКИ ВАЖНО: используем .js для NodeNext
 import { getServiceWallet, getConnection } from './solana.service.js';
@@ -29,6 +30,8 @@ function initializeUmi() {
  * @returns {Signer} Umi Signer.
  */
 function getUmiSigner(umi) {
+    // ВНИМАНИЕ: Предполагается, что './solana.service.js' экспортирует функцию getServiceWallet(),
+    // которая возвращает Keypair из '@solana/web3.js'.
     const web3JsKeypair = getServiceWallet(); // Получаем Web3JsKeypair
     // Конвертируем Web3.js Keypair (Uint8Array) в Umi Keypair
     const secretKey = Buffer.from(web3JsKeypair.secretKey);
@@ -68,19 +71,18 @@ export async function createTokenAndMetadata(details) {
             name: details.name,
             symbol: details.symbol,
             uri: details.uri,
-            // ИСПРАВЛЕНИЕ: Используем percentAmount для sellerFeeBasisPoints
             sellerFeeBasisPoints: percentAmount(0),
             isMutable: true,
             decimals: decimalsNumber,
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
             // Указываем, что это Fungible токен
-            tokenStandard: mplTokenMetadata.TokenStandard.Fungible, // ИСПРАВЛЕНО: используем mplTokenMetadata.TokenStandard
+            tokenStandard: mplTokenMetadata.TokenStandard.Fungible,
         }).sendAndConfirm(umi);
         // Используем standard toString()
         const mintPublicKey = mint.publicKey.toString();
-        // Вычисляем ATA для возврата (findAssociatedTokenPda возвращает [Pda, number])
-        const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
+        // **ИСПРАВЛЕНИЕ TS2305:** Используем findAssociatedTokenPda из mplTokenMetadata
+        const associatedTokenAccountPda = mplTokenMetadata.findAssociatedTokenPda(umi, {
             mint: mint.publicKey,
             owner: payer.publicKey,
         });
@@ -107,12 +109,12 @@ export async function addTokenMetadata(mintAddress, details) {
     const payer = getUmiSigner(umi); // Устанавливает Identity/Payer
     try {
         const mintPublicKey = umiPublicKey(mintAddress);
-        // Вычисляем адрес PDA метаданных
-        const metadataPda = findMetadataPda(umi, {
+        // **ИСПРАВЛЕНИЕ TS2305:** Используем findMetadataPda из mplTokenMetadata
+        const metadataPda = mplTokenMetadata.findMetadataPda(umi, {
             mint: mintPublicKey
         });
-        // Используем createMetadata
-        const transaction = await createMetadata(umi, {
+        // **ИСПРАВЛЕНИЕ TS2305:** Используем createMetadata из mplTokenMetadata
+        const transaction = await mplTokenMetadata.createMetadata(umi, {
             metadata: metadataPda,
             mint: mintPublicKey,
             updateAuthority: payer,
@@ -120,7 +122,6 @@ export async function addTokenMetadata(mintAddress, details) {
                 name: details.name,
                 symbol: details.symbol,
                 uri: details.uri,
-                // ИСПРАВЛЕНИЕ: Используем percentAmount для sellerFeeBasisPoints
                 sellerFeeBasisPoints: percentAmount(0),
                 creators: null,
                 collection: null,
@@ -128,7 +129,7 @@ export async function addTokenMetadata(mintAddress, details) {
             },
             isMutable: true,
             collectionDetails: null,
-            tokenStandard: mplTokenMetadata.TokenStandard.Fungible, // ИСПРАВЛЕНО: используем mplTokenMetadata.TokenStandard
+            tokenStandard: mplTokenMetadata.TokenStandard.Fungible,
         }).sendAndConfirm(umi);
         // Возвращаем подпись напрямую
         return transaction.signature;
