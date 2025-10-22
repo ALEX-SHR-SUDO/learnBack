@@ -2,11 +2,11 @@
   "name": "my-backend",
   "version": "1.0.0",
   "description": "Backend for minting and managing SPL tokens on Solana with Metaplex Umi SDK.",
-  "main": "dist/server.js",
+  "main": "dist/service.js",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "node dist/service.js",
     "build": "babel src --out-dir dist --extensions \".ts\" --copy-files --source-maps inline",
     "dev": "nodemon --exec 'node --loader ts-node/esm' server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
