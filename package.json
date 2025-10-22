@@ -6,8 +6,8 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "start": "node --experimental-modules dist/server.js",
-    "build": "babel src --out-dir dist --extensions \".ts\" --source-maps inline",
+    "start": "node dist/server.js",
+    "build": "babel src --out-dir dist --extensions \".ts\" --copy-files --source-maps inline",
     "dev": "nodemon --exec 'node --loader ts-node/esm' server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
