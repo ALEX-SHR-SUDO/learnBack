@@ -1,3 +1,5 @@
+// tsconfig.json
+
 {
   "compilerOptions": {
     /* Project Options */
@@ -14,7 +16,9 @@
     /* --- КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: ПРЯМОЕ УКАЗАНИЕ ПУТЕЙ --- */
     "baseUrl": ".",                                      /* Базовый путь для разрешения модулей. */
     "paths": {
-      "@metaplex-foundation/*": ["./node_modules/@metaplex-foundation/*"]
+      "@metaplex-foundation/*": ["./node_modules/@metaplex-foundation/*"],
+      // Добавляем явное правило для проблемного пакета, чтобы обойти ошибку TS2307
+      "@metaplex-foundation/mpl-token-metadata": ["./node_modules/@metaplex-foundation/mpl-token-metadata"]
     },
     /* -------------------------------------------------------- */
 
