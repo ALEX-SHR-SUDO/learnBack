@@ -1,18 +1,14 @@
 // src/metadata-addition.controller.ts
 
 import { Request, Response } from "express";
-
-// Удаляем суффикс .js и импортируем функции сервиса
 import { createTokenAndMetadata, addTokenMetadata } from './metadata-addition.service.js';
-
-// --- ИНТЕРФЕЙСЫ ДЛЯ ВХОДЯЩИХ ДАННЫХ ---
 
 interface CreateTokenRequest {
     name: string;
     symbol: string;
     uri: string;
-    supply: string; // Строка, так как JSON не всегда сохраняет большую точность
-    decimals: string; // Строка
+    supply: string;
+    decimals: string;
 }
 
 interface AddMetadataRequest {
@@ -22,43 +18,29 @@ interface AddMetadataRequest {
     uri: string;
 }
 
-
-/**
- * Обрабатывает запрос на создание нового токена, чеканку и добавление метаданных.
- * * Ожидаемый JSON Body: CreateTokenRequest
- */
 export async function handleCreateTokenAndMetadata(req: Request<any, any, CreateTokenRequest>, res: Response) {
     try {
         const { name, symbol, uri, supply, decimals } = req.body;
-
         console.log("Req Body Received:", req.body);
-        
-        // Проверка наличия обязательных полей
+
         if (!name || !symbol || !uri || !supply || !decimals) {
             return res.status(400).json({ error: "Missing required fields: name, symbol, uri, supply, or decimals." });
         }
 
-        const tokenDetails: CreateTokenRequest = {
-            name, 
-            symbol, 
-            uri,
-            supply,   
-            decimals  
-        };
-
+        const tokenDetails: CreateTokenRequest = { name, symbol, uri, supply, decimals };
         console.log("Начинаем ШАГ 1-4: createTokenAndMetadata (полный процесс)");
         
-        // Вызов сервисной функции
+        // Вызов сервисной функции (mint + metadata)
         const result = await createTokenAndMetadata(tokenDetails);
         
-        // Используем mintAddress и metadataTx (которое является подписью транзакции) для ответа
         res.status(200).json({
             message: "Token and metadata successfully created.",
             mintAddress: result.mintAddress,
-            // metadataTx содержит подпись транзакции, созданной Umi.
-            transactionSignature: result.metadataTx, 
-            explorerLink: `https://explorer.solana.com/tx/${result.metadataTx}?cluster=devnet`,
-            ataAddress: result.ata // Добавляем ATA (Associated Token Account) для полноты
+            transactionSignature: result.mintTx, 
+            metadataSignature: result.metadataTx,
+            explorerLinkCreate: `https://explorer.solana.com/tx/${result.mintTx}?cluster=devnet`,
+            explorerLinkMetadata: `https://explorer.solana.com/tx/${result.metadataTx}?cluster=devnet`,
+            ataAddress: result.ata 
         });
 
     } catch (error) {
@@ -71,10 +53,6 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
     }
 }
 
-/**
- * Обрабатывает запрос на добавление метаданных к существующему токену.
- * Ожидаемый JSON Body: AddMetadataRequest
- */
 export async function handleAddTokenMetadata(req: Request<any, any, AddMetadataRequest>, res: Response) {
     try {
         const { mintAddress, name, symbol, uri } = req.body;
@@ -86,7 +64,6 @@ export async function handleAddTokenMetadata(req: Request<any, any, AddMetadataR
         const metadataDetails = { name, symbol, uri };
 
         console.log("Начинаем ШАГ 5: addTokenMetadata");
-        // Вызов сервисной функции
         const signature = await addTokenMetadata(mintAddress, metadataDetails);
         
         res.status(200).json({
