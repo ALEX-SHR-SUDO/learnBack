@@ -1,63 +1,67 @@
 // src/token-account.service.ts
 
 import { formatTokenAmount } from './utils.js';
-import { 
-    PublicKey, 
-    Connection 
-} from "@solana/web3.js";
-import { 
-    AccountLayout, 
-    TOKEN_PROGRAM_ID 
-} from "@solana/spl-token";
-import { getConnection } from "./solana.service.js"; 
+import { PublicKey, Connection } from "@solana/web3.js";
+import { AccountLayout, TOKEN_PROGRAM_ID, MintLayout } from "@solana/spl-token";
+import { getConnection } from "./solana.service.js";
 
-/**
- * Описывает структуру данных о токене, которую возвращает функция.
- */
 interface TokenInfo {
     mint: string;
     amount: string;
+    decimals: number;
 }
 
-/**
- * Получает все SPL-токены для заданного публичного ключа кошелька.
- */
+async function getTokenDecimals(connection: Connection, mintAddress: string): Promise<number> {
+    const mintPublicKey = new PublicKey(mintAddress);
+    const mintAccountInfo = await connection.getAccountInfo(mintPublicKey);
+    if (!mintAccountInfo) return 9; // fallback
+    const mintData = MintLayout.decode(mintAccountInfo.data);
+    return mintData.decimals;
+}
+
 export async function getSplTokensForWallet(ownerPublicKey: PublicKey): Promise<TokenInfo[]> {
     const connection: Connection = getConnection();
 
     try {
         console.log(`[TokenService DEBUG] Запрос токен-аккаунтов для ${ownerPublicKey.toBase58()}...`);
-        
-        // 1. Получаем все токен-аккаунты
         const tokenAccounts = await connection.getTokenAccountsByOwner(
             ownerPublicKey,
             { programId: TOKEN_PROGRAM_ID }
         );
-
-        // ✅ ПРОВЕРКА 1: Логируем общее количество аккаунтов, полученных от API
         console.log(`[TokenService DEBUG] API вернуло ${tokenAccounts.value.length} токен-аккаунтов.`);
 
-        const tokenList: TokenInfo[] = tokenAccounts.value
-            .map((accountInfo, index) => { 
-                // 2. Декодируем данные аккаунта токена
-                const data = AccountLayout.decode(accountInfo.account.data);
-                
-                // ✅ ИСПРАВЛЕНИЕ: Преобразуем Buffer в PublicKey
-                const mintPublicKey = new PublicKey(data.mint);
-                
-                console.log(`[TokenService DEBUG] Аккаунт #${index}: Mint=${mintPublicKey.toBase58()}, State=${data.state}, Amount=${data.amount.toString()}`);
+        // Собираем промисы на парсинг с decimals
+        const tokens: Promise<TokenInfo | null>[] = tokenAccounts.value.map(async (accountInfo, index) => {
+            const data = AccountLayout.decode(accountInfo.account.data);
+            const mintPublicKey = new PublicKey(data.mint);
 
-                // 3. Фильтруем: проверяем, что аккаунт инициализирован (state === 1) и имеет положительный баланс
-                if (data.state === 1 && data.amount > 0n) { 
-                     return {
-                        mint: mintPublicKey.toBase58(),
-                        amount: formatTokenAmount(data.amount.toString(), 9) // decimals=9 по умолчанию
-                    };
-                }
-                return null;
-            })
-            // Отфильтровываем пустые результаты
-            .filter((token): token is TokenInfo => token !== null);
+            // Amount как BigInt
+            let amount: bigint;
+            if (typeof data.amount === 'bigint') {
+                amount = data.amount;
+            } else if (Buffer.isBuffer(data.amount)) {
+                amount = require('@solana/spl-token').u64.fromBuffer(data.amount).toBigInt();
+            } else {
+                amount = BigInt(0);
+            }
+
+            if (data.state === 1 && amount > 0n) {
+                // Получаем decimals для mint
+                const decimals = await getTokenDecimals(connection, mintPublicKey.toBase58());
+                return {
+                    mint: mintPublicKey.toBase58(),
+                    amount: formatTokenAmount(amount.toString(), decimals),
+                    decimals,
+                };
+            }
+            return null;
+        });
+
+        // Ждём все токены
+        const tokenListAll = await Promise.all(tokens);
+
+        // Отфильтровываем null
+        const tokenList: TokenInfo[] = tokenListAll.filter((token): token is TokenInfo => token !== null);
 
         console.log(`[TokenService] Найдено токен-аккаунтов с положительным балансом: ${tokenList.length}`);
         return tokenList;
@@ -65,6 +69,6 @@ export async function getSplTokensForWallet(ownerPublicKey: PublicKey): Promise<
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error(`[TokenService] Ошибка при получении SPL-токенов: ${errorMessage}`);
-        return []; 
+        return [];
     }
 }
