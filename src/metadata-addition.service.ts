@@ -14,15 +14,17 @@ import {
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-// **КРИТИЧЕСКИЙ ФИКС РАБОТЫ В NODE.JS (ESM/CJS INTEROP)**
 // Импортируем Metaplex Token Metadata через импорт по умолчанию (как рекомендуется для CJS модулей в ESM).
 import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
 
-// Затем деструктурируем необходимые экспорты из этого объекта.
+// Импортируем findAssociatedTokenPda из mpl-essentials (или другой актуальной точки, если твоя версия другая)
+import { findAssociatedTokenPda } from "@metaplex-foundation/mpl-token-metadata";
+// Если используешь другую версию, возможно нужно:
+// import { findAssociatedTokenPda } from "@metaplex-foundation/mpl-token-metadata/dist/pdas";
+
 const { 
     createAndMint, 
     TokenStandard, 
-    findAssociatedTokenPda, 
     findMetadataPda, 
     createMetadata,
     mplTokenMetadata 
@@ -120,7 +122,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         
         const mint = generateSigner(umi); 
 
-        // Используем Metaplex's simplified `createAndMint` (теперь импортирован напрямую)
+        // Используем Metaplex's simplified `createAndMint`
         const transaction = await createAndMint(umi, {
             mint,
             authority: payer, // Mint и Freeze authority
@@ -140,7 +142,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         // Используем standard toString()
         const mintPublicKey = mint.publicKey.toString();
         
-        // Используем findAssociatedTokenPda (теперь импортирован напрямую)
+        // Используем findAssociatedTokenPda из актуального импорта
         const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
             mint: mint.publicKey,
             owner: payer.publicKey,
