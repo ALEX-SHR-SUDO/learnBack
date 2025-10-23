@@ -1,5 +1,8 @@
 // src/metadata-addition.service.ts
 
+import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
+console.log("Metaplex exports:", Object.keys(mplTokenMetadataExports));
+
 import { 
     createUmi, 
     publicKey as umiPublicKey, 
@@ -14,27 +17,25 @@ import {
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-// **КРИТИЧЕСКИЙ ФИКС РАБОТЫ В NODE.JS (ESM/CJS INTEROP)**
-// Импортируем Metaplex Token Metadata через импорт по умолчанию (как рекомендуется для CJS модулей в ESM).
-import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
+// Импортируем PDA-функцию напрямую из подпакета!
+import { findAssociatedTokenPda } from '@metaplex-foundation/mpl-token-metadata/dist/pdas';
 
-// Затем деструктурируем необходимые экспорты из этого объекта.
-const { 
-    createAndMint, 
-    TokenStandard, 
-    findAssociatedTokenPda, 
-    findMetadataPda, 
-    createMetadata,
-    mplTokenMetadata 
-} = mplTokenMetadataExports;
+// Остальные функции импортируем из основного пакета
+import {
+  createAndMint,
+  TokenStandard,
+  findMetadataPda,
+  createMetadata,
+  mplTokenMetadata
+} from "@metaplex-foundation/mpl-token-metadata";
 
 import { PublicKey as Web3JsPublicKey } from "@solana/web3.js";
 
-// Локальные импорты - КРИТИЧЕСКИ ВАЖНО: используем .js для NodeNext
+// Локальные импорты - используем .js для NodeNext
 import { getServiceWallet, getConnection } from './solana.service.js'; 
 import { toBigInt } from './utils.js'; 
 
-// --- Interfaces (Рекомендуется для TS) ---
+// --- Interfaces ---
 interface TokenDetails {
     name: string;
     symbol: string;
@@ -59,10 +60,7 @@ function initializeUmi(): any {
     
     const umi = createUmi();
 
-    // defaultPlugins теперь принимает RPC endpoint
     umi.use(defaultPlugins(connection.rpcEndpoint)); 
-    
-    // ВАЖНО: Применяем плагин Metaplex Token Metadata.
     umi.use(mplTokenMetadata()); 
     
     return umi;
@@ -74,17 +72,11 @@ function initializeUmi(): any {
  * @returns {Signer} Umi Signer.
  */
 function getUmiSigner(umi: any): Signer {
-    // ВНИМАНИЕ: Предполагается, что './solana.service.js' экспортирует функцию getServiceWallet(),
-    // которая возвращает Keypair из '@solana/web3.js'.
-    const web3JsKeypair = getServiceWallet(); // Получаем Web3JsKeypair
-    
-    // Конвертируем Web3.js Keypair (Uint8Array) в Umi Keypair
+    const web3JsKeypair = getServiceWallet();
     const secretKey = Buffer.from(web3JsKeypair.secretKey);
     const umiKeypair = umi.eddsa.createKeypairFromSecretKey(secretKey);
 
-    // Устанавливаем его как Identity и Payer глобально на UMI-экземпляре
     umi.use(keypairIdentity(umiKeypair));
-    
     return umiKeypair;
 }
 
@@ -104,23 +96,18 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         const supplyBigInt = toBigInt(details.supply, parseInt(details.decimals, 10));
         const decimalsNumber = parseInt(details.decimals, 10);
 
-        // Проверяем баланс для оплаты комиссий.
         const solanaConnection = getConnection();
-        
-        // Конвертируем UMI.PublicKey в Web3Js.PublicKey для getBalance
         const web3JsPayerPublicKey = new Web3JsPublicKey(payer.publicKey.toString());
         const balance = await solanaConnection.getBalance(web3JsPayerPublicKey);
 
-        // sol().basisPoints возвращает BigInt. Конвертируем в Number для сравнения с балансом
         const requiredBalance = Number(sol(0.01).basisPoints); 
 
         if (balance < requiredBalance) { 
             throw new Error(`Недостаточно SOL на кошельке ${payer.publicKey.toString()}. Требуется минимум 0.01 SOL.`);
         }
         
-        const mint = generateSigner(umi); 
+        const mint = generateSigner(umi);
 
-        // Используем Metaplex's simplified `createAndMint` (теперь импортирован напрямую)
         const transaction = await createAndMint(umi, {
             mint,
             authority: payer, // Mint и Freeze authority
@@ -133,20 +120,17 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             decimals: decimalsNumber,
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
-            // Указываем, что это Fungible токен
             tokenStandard: TokenStandard.Fungible,
         }).sendAndConfirm(umi);
 
-        // Используем standard toString()
         const mintPublicKey = mint.publicKey.toString();
         
-        // Используем findAssociatedTokenPda (теперь импортирован напрямую)
+        // Теперь используем импортированную PDA-функцию
         const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
             mint: mint.publicKey,
             owner: payer.publicKey,
         });
 
-        // transaction.signature теперь имеет тип TransactionSignature, который мы возвращаем
         return {
             mintAddress: mintPublicKey,
             ata: associatedTokenAccountPda[0].toString(), 
@@ -168,17 +152,15 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
  */
 export async function addTokenMetadata(mintAddress: string, details: MetadataDetails): Promise<TransactionSignature> {
     const umi = initializeUmi();
-    const payer = getUmiSigner(umi); // Устанавливает Identity/Payer
+    const payer = getUmiSigner(umi);
     
     try {
         const mintPublicKey = umiPublicKey(mintAddress);
 
-        // Используем findMetadataPda (теперь импортирован напрямую)
         const metadataPda = findMetadataPda(umi, {
             mint: mintPublicKey
         });
 
-        // Используем createMetadata (теперь импортирован напрямую)
         const transaction = await createMetadata(umi, {
             metadata: metadataPda,
             mint: mintPublicKey,
@@ -197,7 +179,6 @@ export async function addTokenMetadata(mintAddress: string, details: MetadataDet
             tokenStandard: TokenStandard.Fungible,
         }).sendAndConfirm(umi);
 
-        // Возвращаем подпись напрямую
         return transaction.signature;
 
     } catch (error: any) {
