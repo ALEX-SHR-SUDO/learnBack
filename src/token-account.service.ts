@@ -1,6 +1,4 @@
 // src/token-account.service.ts
-//
-// Сервис, отвечающий за поиск и декодирование SPL-токенов в кошельке.
 
 import { 
     PublicKey, 
@@ -10,7 +8,6 @@ import {
     AccountLayout, 
     TOKEN_PROGRAM_ID 
 } from "@solana/spl-token";
-// ✅ ИСПРАВЛЕНО: Import теперь указывает на .js для корректного выполнения в рантайме
 import { getConnection } from "./solana.service.js"; 
 
 /**
@@ -23,46 +20,49 @@ interface TokenInfo {
 
 /**
  * Получает все SPL-токены для заданного публичного ключа кошелька.
- * @param {PublicKey} ownerPublicKey - Публичный ключ кошелька, баланс которого нужно проверить.
- * @returns {Promise<TokenInfo[]>} Список найденных токенов.
  */
 export async function getSplTokensForWallet(ownerPublicKey: PublicKey): Promise<TokenInfo[]> {
     const connection: Connection = getConnection();
 
     try {
-        // 1. Получаем все токен-аккаунты, принадлежащие владельцу, фильтруя по Program ID (TOKEN_PROGRAM_ID)
+        // ✅ DEBUG: Логируем начало запроса
+        console.log(`[TokenService DEBUG] Запрос токен-аккаунтов для ${ownerPublicKey.toBase58()}...`);
+        
+        // 1. Получаем все токен-аккаунты
         const tokenAccounts = await connection.getTokenAccountsByOwner(
             ownerPublicKey,
             { programId: TOKEN_PROGRAM_ID }
         );
 
+        // ✅ DEBUG: Логируем общее количество аккаунтов, полученных от API
+        console.log(`[TokenService DEBUG] API вернуло ${tokenAccounts.value.length} токен-аккаунтов.`);
+
         const tokenList: TokenInfo[] = tokenAccounts.value
-            .map(accountInfo => {
+            .map((accountInfo, index) => { // ✅ DEBUG: Добавлен index
                 // 2. Декодируем данные аккаунта токена
-                // AccountLayout.decode возвращает структуру с полем amount типа BigInt
                 const data = AccountLayout.decode(accountInfo.account.data);
                 
-                // 3. Проверяем, что аккаунт инициализирован (state === 1) и имеет положительный баланс
-                // Количество токенов хранится в наименьших единицах (BigInt).
+                // ✅ DEBUG: Логируем данные каждого аккаунта перед фильтрацией
+                console.log(`[TokenService DEBUG] Аккаунт #${index}: Mint=${data.mint.toBase58()}, State=${data.state}, Amount=${data.amount.toString()}`);
+
+                // 3. Фильтруем: проверяем, что аккаунт инициализирован (state === 1) и имеет положительный баланс
                 if (data.state === 1 && data.amount > 0n) { 
                      return {
                         mint: data.mint.toBase58(),
-                        amountRaw: data.amount.toString(), // Возвращаем BigInt как строку
+                        amountRaw: data.amount.toString(), 
                     };
                 }
                 return null;
             })
-            // Отфильтровываем пустые результаты и явно типизируем
+            // Отфильтровываем пустые результаты
             .filter((token): token is TokenInfo => token !== null);
 
-        console.log(`[TokenService] Найдено токен-аккаунтов: ${tokenList.length}`);
+        console.log(`[TokenService] Найдено токен-аккаунтов с положительным балансом: ${tokenList.length}`);
         return tokenList;
 
     } catch (error) {
-        // Безопасная обработка ошибки (как мы делали ранее в solana.service.ts)
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error(`[TokenService] Ошибка при получении SPL-токенов: ${errorMessage}`);
-        // Возвращаем пустой массив при ошибке
         return []; 
     }
 }
