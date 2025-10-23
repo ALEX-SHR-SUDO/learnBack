@@ -61,63 +61,98 @@ export function getServiceWallet(): Keypair {
 
 /**
  * Возвращает баланс сервисного кошелька (в SOL) и список токенов.
- * @returns {Promise<object>} Объект с адресом, балансом SOL и списком токенов.
+ //ispravlenie/* @returns {Promise<object>} Объект с адресом, балансом SOL и списком токенов.
  */
-export async function getServiceWalletBalance(): Promise<{ serviceAddress: string, sol: number, tokens: { mint: string, amount: number }[] }> {
+// ispravleno/ export async function getServiceWalletBalance(): Promise<{ serviceAddress: string, sol: number, tokens: { mint: string, amount: number }[] }> {
+    //try {
+      //  const keypair = getServiceWallet();
+        //const connection = getConnection();
+        //const serviceAddress = keypair.publicKey.toBase58();
+        
+       // let tokenList: { mint: string, amount: number }[] = [];
+    
+       // novii blok
+export async function getServiceWalletBalance() {
+    const keypair = getServiceWallet();
+    const connection = getConnection();
+    const serviceAddress = keypair.publicKey.toBase58();
+    
     try {
-        const keypair = getServiceWallet();
-        const connection = getConnection();
-        const serviceAddress = keypair.publicKey.toBase58();
-        
-        let tokenList: { mint: string, amount: number }[] = [];
-        
+
+        // konrz new block
+
         // Fetch SOL balance
         const balanceLamports = await connection.getBalance(keypair.publicKey);
         const balanceSOL = balanceLamports / LAMPORTS_PER_SOL;
         
-        // Fetch SPL token list
-        const tokenAccounts = await connection.getTokenAccountsByOwner(
-            keypair.publicKey,
-            // ✅ ИСПРАВЛЕНО: Убран префикс splToken
-            { programId: TOKEN_PROGRAM_ID } 
-        );
-
-        tokenList = tokenAccounts.value
-            .map(accountInfo => {
-                // ✅ ИСПРАВЛЕНО: Убран префикс splToken
-                const data = AccountLayout.decode(accountInfo.account.data);
-                
-                // ✅ ИСПРАВЛЕНО: Заменен splToken.AccountState.Initialized на 1.
-                if (data.state === 1 && data.amount > 0) { // 1 = Initialized
-                     return {
-                        mint: data.mint.toBase58(),
-                        // Предполагается 9 десятичных знаков для отображения
-                        amount: Number(data.amount) / Math.pow(10, 9), 
-                    };
-                }
-                return null;
-            })
-            // Улучшена фильтрация для TS
-            .filter((token): token is { mint: string, amount: number } => token !== null);
-
+        // new block
+        // ✅ ТОЛЬКО SOL БАЛАНС
         return { 
             serviceAddress: serviceAddress,
             sol: balanceSOL,
-            tokens: tokenList
         };
+
+   } catch (error) {
+        // ✅ ИСПРАВЛЕНИЕ: Безопасное обращение к 'error.message'
+        const err = error instanceof Error ? error : new Error(String(error));
         
-    } catch (error) {
-        
-        if (error instanceof Error && error.message.includes('Account not found')) {
-             const address = getServiceWallet().publicKey.toBase58();
+        if (err.message.includes('Account not found')) {
              return { 
-                serviceAddress: address,
+                serviceAddress: serviceAddress,
                 sol: 0,
-                tokens: []
             };
         }
         
-        throw new Error(`Failed to fetch service wallet balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Failed to fetch service wallet balance: ${err.message}`);
     }
 }
+
+          // konrz new block
+
+        // Fetch SPL token list
+    //    const tokenAccounts = await connection.getTokenAccountsByOwner(
+      //      keypair.publicKey,
+        //     ✅ ИСПРАВЛЕНО: Убран префикс splToken
+          //  { programId: TOKEN_PROGRAM_ID } 
+       // );
+
+
+//        tokenList = tokenAccounts.value
+//            .map(accountInfo => {
+//                // ✅ ИСПРАВЛЕНО: Убран префикс splToken
+//                const data = AccountLayout.decode(accountInfo.account.data);
+//                
+//                // ✅ ИСПРАВЛЕНО: Заменен splToken.AccountState.Initialized на 1.
+//                if (data.state === 1 && data.amount > 0) { // 1 = Initialized
+//                     return {
+//                        mint: data.mint.toBase58(),
+//                        // Предполагается 9 десятичных знаков для отображения
+//                        amount: Number(data.amount) / Math.pow(10, 9), 
+//                    };
+//                }
+//                return null;
+//            })
+//            // Улучшена фильтрация для TS
+//            .filter((token): token is { mint: string, amount: number } => token !== null);
+//
+//        return { 
+//            serviceAddress: serviceAddress,
+//            sol: balanceSOL,
+//            tokens: tokenList
+//        };
+//        
+//    } catch (error) {
+//        
+//        if (error instanceof Error && error.message.includes('Account not found')) {
+//             const address = getServiceWallet().publicKey.toBase58();
+//             return { 
+//                serviceAddress: address,
+//                sol: 0,
+//                tokens: []
+//            };
+//        }
+//        
+//        throw new Error(`Failed to fetch service wallet balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
+//    }
+//}
 
