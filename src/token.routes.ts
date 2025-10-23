@@ -16,6 +16,9 @@ import {
     getServiceWallet 
 } from "./solana.service.js"; 
 
+// ✅ НОВЫЙ ИМПОРТ: Функция для получения списка SPL-токенов
+import { getSplTokensForWallet } from "./token-account.service.js"; 
+
 // ---------------------------------------------
 // --- Проверка соединения ---
 // ---------------------------------------------
@@ -49,14 +52,27 @@ router.post("/add-metadata", handleAddTokenMetadata);
 // ---------------------------------------------
 router.get("/balance", async (req: Request, res: Response) => {
   try {
+    const wallet = getServiceWallet(); // Получаем Keypair для публичного ключа
+    
+    // 1. Получаем SOL баланс (и pubKey)
     const balanceData = await getServiceWalletBalance(); 
-    res.json(balanceData);
+    
+    // 2. Получаем SPL токены
+    const tokens = await getSplTokensForWallet(wallet.publicKey);
+    
+    // 3. Комбинируем и отправляем ответ
+    res.json({
+        ...balanceData, 
+        // ✅ ДОБАВЛЕНО: Список токенов SPL
+        splTokens: tokens 
+    });
   } catch (err) {
-    // ✅ ИСПРАВЛЕНИЕ TS: Проверяем тип 'err' для безопасного доступа к 'message'
+    
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error("❌ Ошибка при получении баланса:", errorMessage);
-    res.status(500).json({ error: errorMessage || "Ошибка сервера при получении баланса" });
+    console.error("❌ Ошибка при получении баланса и токенов:", errorMessage);
+    res.status(500).json({ error: errorMessage || "Ошибка сервера при получении баланса и токенов" });
   }
 });
 
 export default router;
+

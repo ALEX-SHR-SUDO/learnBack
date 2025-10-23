@@ -3,8 +3,11 @@ import { createUmi, publicKey as umiPublicKey, keypairIdentity, generateSigner, 
 percentAmount, // Используем для установки процентов
  } from "@metaplex-foundation/umi";
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
-// **ИСПРАВЛЕНИЕ: Используем стандартный путь.** // Благодаря явному 'paths' в tsconfig.json, TSc теперь должен найти типы правильно.
-import { createAndMint, TokenStandard, findAssociatedTokenPda, findMetadataPda, createMetadata, mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
+// **КРИТИЧЕСКИЙ ФИКС РАБОТЫ В NODE.JS (ESM/CJS INTEROP)**
+// Импортируем Metaplex Token Metadata через импорт по умолчанию (как рекомендуется для CJS модулей в ESM).
+import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
+// Затем деструктурируем необходимые экспорты из этого объекта.
+const { createAndMint, TokenStandard, findAssociatedTokenPda, findMetadataPda, createMetadata, mplTokenMetadata } = mplTokenMetadataExports;
 import { PublicKey as Web3JsPublicKey } from "@solana/web3.js";
 // Локальные импорты - КРИТИЧЕСКИ ВАЖНО: используем .js для NodeNext
 import { getServiceWallet, getConnection } from './solana.service.js';
