@@ -5,26 +5,23 @@ import {
     publicKey as umiPublicKey, 
     keypairIdentity, 
     generateSigner, 
-    sol, // Используется для безопасного сравнения SOL-сумм
+    sol,
     Signer,
     Keypair as UmiKeypair, 
-    TransactionSignature, // Используем тип UMI для подписи
-    percentAmount, // Используем для установки процентов
+    TransactionSignature,
+    percentAmount,
 } from "@metaplex-foundation/umi";
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-// Импортируем Metaplex Token Metadata через импорт по умолчанию (как рекомендуется для CJS модулей в ESM).
+// Импортируем весь пакет как default экспорт
 import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
 
-// Импортируем findAssociatedTokenPda из mpl-essentials (или другой актуальной точки, если твоя версия другая)
-import { findAssociatedTokenPda } from "@metaplex-foundation/mpl-token-metadata";
-// Если используешь другую версию, возможно нужно:
-// import { findAssociatedTokenPda } from "@metaplex-foundation/mpl-token-metadata/dist/pdas";
-
+// Деструктурируем функции из default-экспорта
 const { 
     createAndMint, 
     TokenStandard, 
+    findAssociatedTokenPda, 
     findMetadataPda, 
     createMetadata,
     mplTokenMetadata 
