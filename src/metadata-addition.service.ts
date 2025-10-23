@@ -16,7 +16,7 @@ import {
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
+//import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
 const { 
     createAndMint, 
     TokenStandard, 
