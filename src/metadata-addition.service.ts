@@ -5,19 +5,20 @@ import {
     publicKey as umiPublicKey, 
     keypairIdentity, 
     generateSigner, 
-    sol,
+    sol, // Используется для безопасного сравнения SOL-сумм
     Signer,
     Keypair as UmiKeypair, 
-    TransactionSignature,
-    percentAmount,
+    TransactionSignature, // Используем тип UMI для подписи
+    percentAmount, // Используем для установки процентов
 } from "@metaplex-foundation/umi";
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-// Импортируем весь пакет как default экспорт
+// **КРИТИЧЕСКИЙ ФИКС РАБОТЫ В NODE.JS (ESM/CJS INTEROP)**
+// Импортируем Metaplex Token Metadata через импорт по умолчанию (как рекомендуется для CJS модулей в ESM).
 import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
 
-// Деструктурируем функции из default-экспорта
+// Затем деструктурируем необходимые экспорты из этого объекта.
 const { 
     createAndMint, 
     TokenStandard, 
@@ -119,7 +120,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         
         const mint = generateSigner(umi); 
 
-        // Используем Metaplex's simplified `createAndMint`
+        // Используем Metaplex's simplified `createAndMint` (теперь импортирован напрямую)
         const transaction = await createAndMint(umi, {
             mint,
             authority: payer, // Mint и Freeze authority
@@ -139,7 +140,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         // Используем standard toString()
         const mintPublicKey = mint.publicKey.toString();
         
-        // Используем findAssociatedTokenPda из актуального импорта
+        // Используем findAssociatedTokenPda (теперь импортирован напрямую)
         const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
             mint: mint.publicKey,
             owner: payer.publicKey,
