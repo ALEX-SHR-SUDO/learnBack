@@ -25,7 +25,6 @@ export async function getSplTokensForWallet(ownerPublicKey: PublicKey): Promise<
     const connection: Connection = getConnection();
 
     try {
-        // ✅ DEBUG: Логируем начало запроса
         console.log(`[TokenService DEBUG] Запрос токен-аккаунтов для ${ownerPublicKey.toBase58()}...`);
         
         // 1. Получаем все токен-аккаунты
@@ -34,21 +33,23 @@ export async function getSplTokensForWallet(ownerPublicKey: PublicKey): Promise<
             { programId: TOKEN_PROGRAM_ID }
         );
 
-        // ✅ DEBUG: Логируем общее количество аккаунтов, полученных от API
+        // ✅ ПРОВЕРКА 1: Логируем общее количество аккаунтов, полученных от API
         console.log(`[TokenService DEBUG] API вернуло ${tokenAccounts.value.length} токен-аккаунтов.`);
 
         const tokenList: TokenInfo[] = tokenAccounts.value
-            .map((accountInfo, index) => { // ✅ DEBUG: Добавлен index
+            .map((accountInfo, index) => { 
                 // 2. Декодируем данные аккаунта токена
                 const data = AccountLayout.decode(accountInfo.account.data);
                 
-                // ✅ DEBUG: Логируем данные каждого аккаунта перед фильтрацией
-                console.log(`[TokenService DEBUG] Аккаунт #${index}: Mint=${data.mint.toBase58()}, State=${data.state}, Amount=${data.amount.toString()}`);
+                // ✅ ИСПРАВЛЕНИЕ: Преобразуем Buffer в PublicKey
+                const mintPublicKey = new PublicKey(data.mint);
+                
+                console.log(`[TokenService DEBUG] Аккаунт #${index}: Mint=${mintPublicKey.toBase58()}, State=${data.state}, Amount=${data.amount.toString()}`);
 
                 // 3. Фильтруем: проверяем, что аккаунт инициализирован (state === 1) и имеет положительный баланс
                 if (data.state === 1 && data.amount > 0n) { 
                      return {
-                        mint: data.mint.toBase58(),
+                        mint: mintPublicKey.toBase58(), // Используем исправленный PublicKey
                         amountRaw: data.amount.toString(), 
                     };
                 }
