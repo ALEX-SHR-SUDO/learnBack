@@ -2,7 +2,7 @@
 
 import { formatTokenAmount } from './utils.js';
 import { PublicKey, Connection } from "@solana/web3.js";
-import { AccountLayout, TOKEN_PROGRAM_ID, MintLayout } from "@solana/spl-token";
+import { AccountLayout, TOKEN_PROGRAM_ID, MintLayout, u64 } from "@solana/spl-token";
 import { getConnection } from "./solana.service.js";
 
 interface TokenInfo {
@@ -36,14 +36,14 @@ export async function getSplTokensForWallet(ownerPublicKey: PublicKey): Promise<
             const mintPublicKey = new PublicKey(data.mint);
 
             // Amount как BigInt
-            let amount: bigint;
-            if (typeof data.amount === 'bigint') {
-                amount = data.amount;
-            } else if (Buffer.isBuffer(data.amount)) {
-                amount = require('@solana/spl-token').u64.fromBuffer(data.amount).toBigInt();
+          let amount: bigint;
+             if (typeof data.amount === 'bigint') {
+             amount = data.amount;
+             } else if (Buffer.isBuffer(data.amount)) {
+                 amount = u64.fromBuffer(data.amount).toBigInt();
             } else {
-                amount = BigInt(0);
-            }
+                 amount = BigInt(0);
+           }
 
             if (data.state === 1 && amount > 0n) {
                 // Получаем decimals для mint
