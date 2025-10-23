@@ -40,7 +40,7 @@ export async function getSplTokensForWallet(ownerPublicKey: PublicKey): Promise<
              if (typeof data.amount === 'bigint') {
              amount = data.amount;
              } else if (Buffer.isBuffer(data.amount)) {
-                 amount = u64.fromBuffer(data.amount).toBigInt();
+                 amount = BigInt(u64.fromBuffer(data.amount).toString());
             } else {
                  amount = BigInt(0);
            }
