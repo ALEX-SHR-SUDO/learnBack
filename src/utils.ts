@@ -31,3 +31,23 @@ export function toBigInt(amount: string, decimals: number): bigint {
         throw new Error("Неизвестная ошибка при преобразовании BigInt.");
     }
 }
+
+/**
+ * Форматирует amountRaw (BigInt в строке) в человекочитаемую строку с нужным количеством знаков после запятой.
+ *
+ * @param amountRaw - строка представляющая BigInt, например "1000000000"
+ * @param decimals - количество знаков после запятой (обычно 9 для Solana)
+ * @returns строка, например "1.000000000"
+ */
+export function formatTokenAmount(amountRaw: string, decimals: number): string {
+    try {
+        const amountBigInt = BigInt(amountRaw);
+        const divisor = BigInt(10 ** decimals);
+        const whole = amountBigInt / divisor;
+        const fraction = amountBigInt % divisor;
+        const fractionStr = fraction.toString().padStart(decimals, '0').replace(/0+$/, '');
+        return fractionStr ? `${whole.toString()}.${fractionStr}` : whole.toString();
+    } catch {
+        return "0";
+    }
+}

@@ -1,5 +1,6 @@
 // src/token-account.service.ts
 
+import { formatTokenAmount } from './utils.js';
 import { 
     PublicKey, 
     Connection 
@@ -15,7 +16,7 @@ import { getConnection } from "./solana.service.js";
  */
 interface TokenInfo {
     mint: string;
-    amountRaw: string; // BigInt в виде строки
+    amount: string;
 }
 
 /**
@@ -49,8 +50,8 @@ export async function getSplTokensForWallet(ownerPublicKey: PublicKey): Promise<
                 // 3. Фильтруем: проверяем, что аккаунт инициализирован (state === 1) и имеет положительный баланс
                 if (data.state === 1 && data.amount > 0n) { 
                      return {
-                        mint: mintPublicKey.toBase58(), // Используем исправленный PublicKey
-                        amountRaw: data.amount.toString(), 
+                        mint: mintPublicKey.toBase58(),
+                        amount: formatTokenAmount(data.amount.toString(), 9) // decimals=9 по умолчанию
                     };
                 }
                 return null;
