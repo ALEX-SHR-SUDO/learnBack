@@ -31,13 +31,23 @@ router.post("/api/upload-logo", upload.single("file"), async (req, res) => {
       }
     );
 
+    // Проверка корректности ответа Pinata
+    if (!response.data || !response.data.IpfsHash || typeof response.data.IpfsHash !== "string") {
+      return res.status(500).json({ error: "Pinata не вернула IpfsHash. Ответ: " + JSON.stringify(response.data) });
+    }
+
     const ipfsHash = response.data.IpfsHash;
+    // Дополнительная проверка на шаблон IPFS-хэша (Qm.../ba.../bafy...)
+    if (!/^Qm[a-zA-Z0-9]{44}$|^bafy[a-zA-Z0-9]+$/.test(ipfsHash)) {
+      return res.status(500).json({ error: "Некорректный IpfsHash: " + ipfsHash });
+    }
+
     res.json({ ipfsUrl: `https://gateway.pinata.cloud/ipfs/${ipfsHash}` });
   } catch (err) {
     res.status(500).json({ 
       error: err instanceof Error ? err.message : String(err) || "Ошибка загрузки на Pinata" 
     });
-    }
+  }
 });
 
 export default router;
