@@ -8,11 +8,12 @@ import FormData from "form-data";
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Используем правильные переменные из ENV!
 const PINATA_API_KEY = process.env.PINATA_API_KEY;
-const PINATA_SECRET = process.env.PINATA_SECRET_API_KEY;
+const PINATA_SECRET = process.env.PINATA_SECRET_API_KEY; // Имя совпадает с Render
 
 router.post("/upload-logo", upload.single("file"), async (req, res) => {
-  // === Проверка входных данных от фронта ===
+  // Проверяем входные данные от фронта
   console.log("Received fields:", req.body);
   if (!req.file) {
     console.log("No file received from frontend!");
@@ -23,6 +24,12 @@ router.post("/upload-logo", upload.single("file"), async (req, res) => {
     mimetype: req.file.mimetype,
     size: req.file.size,
   });
+
+  // Проверка наличия ключей
+  if (!PINATA_API_KEY || !PINATA_SECRET) {
+    console.error("Pinata API ключи не заданы! PINATA_API_KEY:", PINATA_API_KEY, "PINATA_SECRET_API_KEY:", PINATA_SECRET);
+    return res.status(500).json({ error: "Pinata API ключи не заданы на сервере." });
+  }
 
   try {
     const data = new FormData();
@@ -50,7 +57,8 @@ router.post("/upload-logo", upload.single("file"), async (req, res) => {
       return res.status(500).json({ error: "Некорректный IpfsHash: " + ipfsHash });
     }
 
-    res.json({ ipfsUrl: `https://gateway.pinata.cloud/ipfs/${ipfsHash}` });
+    // Возвращаем ссылку через твой приватный gateway (можно поменять обратно на публичный)
+    res.json({ ipfsUrl: `https://copper-perfect-toad-185.mypinata.cloud/ipfs/${ipfsHash}` });
   } catch (err) {
     console.error("Ошибка при загрузке на Pinata:", err);
     res.status(500).json({ 
