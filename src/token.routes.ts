@@ -1,12 +1,12 @@
 // src/token.routes.ts
 
-import express, { Request, Response } from "express"; // Импортируем типы для Express
+import express, { Request, Response } from "express";
 const router = express.Router();
 
 // ✅ ИМПОРТ ФУНКЦИЙ КОНТРОЛЛЕРА
 import { 
-    handleCreateTokenAndMetadata, 
-    handleAddTokenMetadata 
+    handleCreateTokenAndMetadata
+    // handleAddTokenMetadata // <-- Удалить! Такой функции больше нет
 } from "./metadata-addition.controller.js"; 
 
 // Импорт сервисов для вспомогательных функций (balance, ping)
@@ -21,7 +21,6 @@ import { getSplTokensForWallet } from "./token-account.service.js";
 
 // ---------------------------------------------
 // --- Проверка соединения ---
-// ---------------------------------------------
 router.get("/ping", async (req: Request, res: Response) => {
   try {
     const connection = getConnection();
@@ -30,7 +29,6 @@ router.get("/ping", async (req: Request, res: Response) => {
     const version = await connection.getVersion(); 
     res.json({ ok: true, solana: version });
   } catch (e) {
-    // ✅ ИСПРАВЛЕНИЕ TS: Проверяем, является ли ошибка объектом Error, чтобы безопасно получить сообщение
     const errorMessage = e instanceof Error ? e.message : String(e);
     res.status(500).json({ ok: false, error: errorMessage });
   }
@@ -38,36 +36,25 @@ router.get("/ping", async (req: Request, res: Response) => {
 
 // ---------------------------------------------
 // --- 1. Создание токена с метаданными (ОБЪЕДИНЕННЫЙ ШАГ) ---
-// ---------------------------------------------
 router.post("/create-token", handleCreateTokenAndMetadata);
 
 // ---------------------------------------------
 // --- 2. Добавление метаданных к существующему токену ---
-// ---------------------------------------------
-router.post("/add-metadata", handleAddTokenMetadata);
-
+// УДАЛЯЕМ этот маршрут, т.к. функции нет!
+// router.post("/add-metadata", handleAddTokenMetadata);
 
 // ---------------------------------------------
 // --- Баланс сервисного кошелька + токены ---
-// ---------------------------------------------
 router.get("/balance", async (req: Request, res: Response) => {
   try {
-    const wallet = getServiceWallet(); // Получаем Keypair для публичного ключа
-    
-    // 1. Получаем SOL баланс (и pubKey)
+    const wallet = getServiceWallet();
     const balanceData = await getServiceWalletBalance(); 
-    
-    // 2. Получаем SPL токены
     const tokens = await getSplTokensForWallet(wallet.publicKey);
-    
-    // 3. Комбинируем и отправляем ответ
     res.json({
         ...balanceData, 
-        // ✅ ДОБАВЛЕНО: Список токенов SPL
         splTokens: tokens 
     });
   } catch (err) {
-    
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("❌ Ошибка при получении баланса и токенов:", errorMessage);
     res.status(500).json({ error: errorMessage || "Ошибка сервера при получении баланса и токенов" });
@@ -75,4 +62,3 @@ router.get("/balance", async (req: Request, res: Response) => {
 });
 
 export default router;
-
