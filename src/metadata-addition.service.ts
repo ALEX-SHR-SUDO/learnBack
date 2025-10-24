@@ -1,9 +1,6 @@
 // src/metadata-addition.service.ts
 
-
 import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
-console.log("Exports:", Object.keys(mplTokenMetadataExports));
-
 import { 
     createUmi, 
     publicKey as umiPublicKey, 
