@@ -9,7 +9,7 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 const PINATA_API_KEY = process.env.PINATA_API_KEY;
-const PINATA_SECRET = process.env.PINATA_SECRET;
+const PINATA_SECRET = process.env.PINATA_SECRET_API_KEY;
 
 router.post("/upload-logo", upload.single("file"), async (req, res) => {
   // === Проверка входных данных от фронта ===
