@@ -1,7 +1,5 @@
 // src/metadata-addition.service.ts
 
-import * as mpl from "@metaplex-foundation/mpl-token-metadata";
-console.log("Exports:", Object.keys(mpl));
 
 import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
 console.log("Exports:", Object.keys(mplTokenMetadataExports));
