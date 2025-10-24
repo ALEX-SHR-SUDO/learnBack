@@ -16,12 +16,10 @@ import {
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-//import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
+// Используем только createAndMint!
 const { 
     createAndMint, 
     TokenStandard, 
-    findMetadataPda, 
-    createMetadata,
     mplTokenMetadata 
 } = mplTokenMetadataExports;
 
@@ -53,12 +51,6 @@ interface TokenDetails {
     decimals: string;
 }
 
-interface MetadataDetails {
-    name: string;
-    symbol: string;
-    uri: string;
-}
-
 function initializeUmi(): any {
     const connection = getConnection();
     const umi = createUmi();
@@ -75,7 +67,8 @@ function getUmiSigner(umi: any): Signer {
     return umiKeypair;
 }
 
-export async function createTokenAndMetadata(details: TokenDetails): Promise<{ mintAddress: string, ata: string, mintTx: TransactionSignature, metadataTx: TransactionSignature }> {
+// --- Только createAndMint, без отдельного addTokenMetadata ---
+export async function createTokenAndMetadata(details: TokenDetails): Promise<{ mintAddress: string, ata: string, mintTx: TransactionSignature }> {
     const umi = initializeUmi();
     const payer = getUmiSigner(umi); 
     try {
@@ -93,7 +86,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         
         const mint = generateSigner(umi);
 
-        // 1. Mint + возможно запись метадаты (но не всегда видна в Solscan)
+        // Mint + metadata (в одной транзакции)
         const mintResult = await createAndMint(umi, {
             mint,
             authority: payer,
@@ -115,57 +108,14 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             owner: payer.publicKey,
         });
 
-        // 2. Явно добавляем метаданные отдельной транзакцией (гарантия появления на Solscan)
-        const metadataTx = await addTokenMetadata(mintPublicKey, {
-            name: details.name,
-            symbol: details.symbol,
-            uri: details.uri
-        });
-
         return {
             mintAddress: mintPublicKey,
             ata: associatedTokenAccountPda[0].toString(), 
-            mintTx: mintResult.signature, 
-            metadataTx
+            mintTx: mintResult.signature
         };
 
     } catch (error: any) {
         console.error("❌ UMI SDK createTokenAndMetadata Error:", error);
         throw new Error(`Failed to create token and metadata: ${error.message || error}`);
-    }
-}
-
-export async function addTokenMetadata(mintAddress: string, details: MetadataDetails): Promise<TransactionSignature> {
-    const umi = initializeUmi();
-    const payer = getUmiSigner(umi);
-    try {
-        const mintPublicKey = umiPublicKey(mintAddress);
-        const metadataPda = findMetadataPda(umi, {
-            mint: mintPublicKey
-        });
-
-        const transaction = await createMetadata(umi, {
-            metadata: metadataPda,
-            mint: mintPublicKey,
-            updateAuthority: payer,
-            data: {
-                name: details.name,
-                symbol: details.symbol,
-                uri: details.uri,
-                sellerFeeBasisPoints: percentAmount(0), 
-                creators: null,
-                collection: null,
-                uses: null,
-            },
-            isMutable: true,
-            collectionDetails: null,
-            tokenStandard: TokenStandard.Fungible,
-        }).sendAndConfirm(umi);
-
-        return transaction.signature;
-
-    } catch (error: any) {
-        console.error("❌ UMI SDK addTokenMetadata Error:", error);
-        throw new Error(`Failed to add metadata: ${error.message || error}`);
     }
 }
