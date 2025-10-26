@@ -1,3 +1,5 @@
+// src/pinata-upload.route.ts
+
 import express from "express";
 import multer from "multer";
 import axios from "axios";
@@ -66,3 +68,4 @@ router.post("/upload-logo", upload.single("file"), async (req, res) => {
 });
 
 export default router;
+

@@ -11,6 +11,11 @@ import * as solanaService from "./src/solana.service.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use((req, res, next) => {
+  console.log("Запрос:", req.method, req.url);
+  next();
+});
+
 // === Middlewares ===
 app.use(cors({ origin: "*" }));
 app.use(express.json());
