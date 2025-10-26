@@ -1,5 +1,3 @@
-// src/pinata-upload.route.ts
-
 import express from "express";
 import multer from "multer";
 import axios from "axios";
@@ -12,7 +10,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 const PINATA_API_KEY = process.env.PINATA_API_KEY;
 const PINATA_SECRET = process.env.PINATA_SECRET_API_KEY; // Имя совпадает с Render
 
-router.post("/upload-logo", upload.single("file"), async (req, res) => {
+router.post("/api/upload-logo", upload.single("file"), async (req, res) => {
   // Проверяем входные данные от фронта
   console.log("Received fields:", req.body);
   if (!req.file) {
@@ -57,7 +55,7 @@ router.post("/upload-logo", upload.single("file"), async (req, res) => {
       return res.status(500).json({ error: "Некорректный IpfsHash: " + ipfsHash });
     }
 
-    // Возвращаем ссылку через твой приватный gateway (можно поменять обратно на публичный)
+    // Возвращаем ссылку через публичный gateway Pinata
     res.json({ ipfsUrl: `https://gateway.pinata.cloud/ipfs/${ipfsHash}` });
   } catch (err) {
     console.error("Ошибка при загрузке на Pinata:", err);
