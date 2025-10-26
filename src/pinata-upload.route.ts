@@ -10,7 +10,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 const PINATA_API_KEY = process.env.PINATA_API_KEY;
 const PINATA_SECRET = process.env.PINATA_SECRET_API_KEY; // Имя совпадает с Render
 
-router.post("/api/upload-logo", upload.single("file"), async (req, res) => {
+router.post("/upload-logo", upload.single("file"), async (req, res) => {
   // Проверяем входные данные от фронта
   console.log("Received fields:", req.body);
   if (!req.file) {

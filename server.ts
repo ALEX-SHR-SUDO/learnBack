@@ -1,3 +1,5 @@
+// server.ts
+
 import express from "express";
 import cors from "cors";
 import tokenRoutes from "./src/token.routes.js"; // Обязательно .js
