@@ -58,7 +58,7 @@ router.post("/upload-logo", upload.single("file"), async (req, res) => {
     }
 
     // Возвращаем ссылку через твой приватный gateway (можно поменять обратно на публичный)
-    res.json({ ipfsUrl: `https://copper-perfect-toad-185.mypinata.cloud/ipfs/${ipfsHash}` });
+    res.json({ ipfsUrl: `https://gateway.pinata.cloud/ipfs/${ipfsHash}` });
   } catch (err) {
     console.error("Ошибка при загрузке на Pinata:", err);
     res.status(500).json({ 
