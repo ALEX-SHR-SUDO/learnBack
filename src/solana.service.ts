@@ -59,9 +59,9 @@ export function getServiceWallet(): Keypair {
 /**
  * Возвращает баланс сервисного кошелька (в SOL).
  * Теперь не возвращает токены SPL, так как эта логика вынесена в token-account.service.ts.
- * @returns {Promise<{ serviceAddress: string, sol: number }>} Объект с адресом и балансом SOL.
+ * @returns {Promise<{ serviceAddress: string, address: string, walletAddress: string, sol: number }>} Объект с адресом и балансом SOL.
  */
-export async function getServiceWalletBalance(): Promise<{ serviceAddress: string, sol: number }> {
+export async function getServiceWalletBalance(): Promise<{ serviceAddress: string, address: string, walletAddress: string, sol: number }> {
     const keypair = getServiceWallet();
     const connection = getConnection();
     const serviceAddress = keypair.publicKey.toBase58();
@@ -71,9 +71,11 @@ export async function getServiceWalletBalance(): Promise<{ serviceAddress: strin
         const balanceLamports = await connection.getBalance(keypair.publicKey);
         const balanceSOL = balanceLamports / LAMPORTS_PER_SOL;
         
-        // Возвращаем только SOL баланс и адрес
+        // Возвращаем SOL баланс и адрес в нескольких форматах для совместимости с фронтендом
         return { 
             serviceAddress: serviceAddress,
+            address: serviceAddress,
+            walletAddress: serviceAddress,
             sol: balanceSOL,
         };
 
@@ -85,6 +87,8 @@ export async function getServiceWalletBalance(): Promise<{ serviceAddress: strin
              // Если аккаунт не найден, возвращаем 0 SOL
              return { 
                 serviceAddress: serviceAddress,
+                address: serviceAddress,
+                walletAddress: serviceAddress,
                 sol: 0,
             };
         }
