@@ -62,7 +62,7 @@ const balanceHandler = async (req: Request, res: Response) => {
 };
 
 router.get("/balance", balanceHandler);
-// Alias for backward compatibility with frontend
+// Alias for frontend compatibility
 router.get("/wallet-balance", balanceHandler);
 
 export default router;
