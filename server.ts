@@ -20,7 +20,20 @@ app.use((req, res, next) => {
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-
+// === Root health check endpoint ===
+app.get("/", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    message: "Solana Token Backend API",
+    version: "1.0.0",
+    endpoints: {
+      health: "/api/ping",
+      balance: "/api/balance",
+      createToken: "POST /api/create-token",
+      upload: "POST /api/upload"
+    }
+  });
+});
 
 // === Подключение роутов ===
 // Все роуты из token.routes.js будут доступны по /api/...

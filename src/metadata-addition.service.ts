@@ -1,5 +1,6 @@
 // src/metadata-addition.service.ts
 
+import { Buffer } from "buffer";
 import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
 import { 
     createUmi, 
@@ -59,7 +60,7 @@ function initializeUmi(): any {
 
 function getUmiSigner(umi: any): Signer {
     const web3JsKeypair = getServiceWallet();
-    const secretKey = Buffer.from(web3JsKeypair.secretKey);
+    const secretKey = new Uint8Array(web3JsKeypair.secretKey);
     const umiKeypair = umi.eddsa.createKeypairFromSecretKey(secretKey);
     umi.use(keypairIdentity(umiKeypair));
     return umiKeypair;

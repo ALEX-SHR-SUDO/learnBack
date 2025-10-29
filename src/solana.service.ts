@@ -45,7 +45,9 @@ export function getServiceWallet(): Keypair {
         throw new Error("SERVICE_SECRET_KEY is not defined in environment. Check your .env file.");
     }
     try {
-        const secretKeyUint8 = bs58.decode(WALLET_SECRET_KEY);
+        const secretKeyBuffer = bs58.decode(WALLET_SECRET_KEY);
+        // Convert Buffer to Uint8Array by casting to any to handle iterable issue
+        const secretKeyUint8 = Uint8Array.from(secretKeyBuffer as any);
         serviceWalletInstance = Keypair.fromSecretKey(secretKeyUint8);
         console.log(`✅ Сервисный кошелёк загружен: ${serviceWalletInstance.publicKey.toBase58()}`);
         return serviceWalletInstance;
