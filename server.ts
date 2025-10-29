@@ -42,7 +42,7 @@ app.use("/api", pinataUploadRoute);
 
 // === Запуск сервера ===
 // Start server for traditional hosting (Render, local dev, etc.)
-// Skip only if explicitly running in serverless mode (Vercel)
+// Skip only if explicitly running in serverless mode (Vercel, AWS Lambda)
 const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 if (!isServerless) {
   app.listen(PORT, () => {
