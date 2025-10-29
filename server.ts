@@ -30,7 +30,7 @@ app.get("/", (req, res) => {
       health: "/api/ping",
       balance: "/api/balance",
       createToken: "POST /api/create-token",
-      upload: "POST /api/upload"
+      upload: "POST /api/upload-logo"
     }
   });
 });
@@ -41,8 +41,13 @@ app.use("/api", tokenRoutes);
 app.use("/api", pinataUploadRoute);
 
 // === Запуск сервера ===
-app.listen(PORT, () => {
-// Адрес кошелька уже должен быть выведен из solana.service.ts
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    // Адрес кошелька уже должен быть выведен из solana.service.ts
+    console.log(`🚀 Backend запущен на порту ${PORT}`);
+  });
+}
 
-console.log(`🚀 Backend запущен на порту ${PORT}`);
-});
+// Export for Vercel serverless
+export default app;
