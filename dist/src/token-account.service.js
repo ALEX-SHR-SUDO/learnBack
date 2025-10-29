@@ -1,14 +1,15 @@
 // src/token-account.service.ts
 import { formatTokenAmount } from './utils.js';
 import { PublicKey } from "@solana/web3.js";
-import { AccountLayout, TOKEN_PROGRAM_ID, MintLayout, u64 } from "@solana/spl-token";
+import { AccountLayout, TOKEN_PROGRAM_ID, MintLayout } from "@solana/spl-token";
 import { getConnection } from "./solana.service.js";
 async function getTokenDecimals(connection, mintAddress) {
     const mintPublicKey = new PublicKey(mintAddress);
     const mintAccountInfo = await connection.getAccountInfo(mintPublicKey);
     if (!mintAccountInfo)
         return 9; // fallback
-    const mintData = MintLayout.decode(mintAccountInfo.data);
+    const dataUint8 = Uint8Array.from(mintAccountInfo.data);
+    const mintData = MintLayout.decode(dataUint8);
     return mintData.decimals;
 }
 export async function getSplTokensForWallet(ownerPublicKey) {
@@ -19,15 +20,13 @@ export async function getSplTokensForWallet(ownerPublicKey) {
         console.log(`[TokenService DEBUG] API вернуло ${tokenAccounts.value.length} токен-аккаунтов.`);
         // Собираем промисы на парсинг с decimals
         const tokens = tokenAccounts.value.map(async (accountInfo, index) => {
-            const data = AccountLayout.decode(accountInfo.account.data);
+            const dataUint8 = Uint8Array.from(accountInfo.account.data);
+            const data = AccountLayout.decode(dataUint8);
             const mintPublicKey = new PublicKey(data.mint);
             // Amount как BigInt
             let amount;
             if (typeof data.amount === 'bigint') {
                 amount = data.amount;
-            }
-            else if (Buffer.isBuffer(data.amount)) {
-                amount = BigInt(u64.fromBuffer(data.amount).toString());
             }
             else {
                 amount = BigInt(0);
