@@ -45,7 +45,7 @@ router.post("/create-token", handleCreateTokenAndMetadata);
 
 // ---------------------------------------------
 // --- Баланс сервисного кошелька + токены ---
-router.get("/balance", async (req: Request, res: Response) => {
+const balanceHandler = async (req: Request, res: Response) => {
   try {
     const wallet = getServiceWallet();
     const balanceData = await getServiceWalletBalance(); 
@@ -59,6 +59,10 @@ router.get("/balance", async (req: Request, res: Response) => {
     console.error("❌ Ошибка при получении баланса и токенов:", errorMessage);
     res.status(500).json({ error: errorMessage || "Ошибка сервера при получении баланса и токенов" });
   }
-});
+};
+
+router.get("/balance", balanceHandler);
+// Alias for backward compatibility with frontend
+router.get("/wallet-balance", balanceHandler);
 
 export default router;

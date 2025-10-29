@@ -29,6 +29,7 @@ app.get("/", (req, res) => {
     endpoints: {
       health: "/api/ping",
       balance: "/api/balance",
+      walletBalance: "/api/wallet-balance",
       createToken: "POST /api/create-token",
       upload: "POST /api/upload-logo"
     }
