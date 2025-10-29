@@ -41,8 +41,10 @@ app.use("/api", tokenRoutes);
 app.use("/api", pinataUploadRoute);
 
 // === Запуск сервера ===
-// For local development
-if (process.env.NODE_ENV !== 'production') {
+// Start server for traditional hosting (Render, local dev, etc.)
+// Skip only if explicitly running in serverless mode (Vercel, AWS Lambda)
+const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+if (!isServerless) {
   app.listen(PORT, () => {
     // Адрес кошелька уже должен быть выведен из solana.service.ts
     console.log(`🚀 Backend запущен на порту ${PORT}`);
