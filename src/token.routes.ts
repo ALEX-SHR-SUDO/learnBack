@@ -20,6 +20,18 @@ import {
 import { getSplTokensForWallet } from "./token-account.service.js"; 
 
 // ---------------------------------------------
+// --- Вспомогательная функция для получения баланса и токенов ---
+async function getWalletBalanceWithTokens() {
+    const wallet = getServiceWallet();
+    const balanceData = await getServiceWalletBalance(); 
+    const tokens = await getSplTokensForWallet(wallet.publicKey);
+    return {
+        ...balanceData, 
+        splTokens: tokens 
+    };
+}
+
+// ---------------------------------------------
 // --- Проверка соединения ---
 router.get("/ping", async (req: Request, res: Response) => {
   try {
@@ -47,13 +59,8 @@ router.post("/create-token", handleCreateTokenAndMetadata);
 // --- Баланс сервисного кошелька + токены ---
 router.get("/balance", async (req: Request, res: Response) => {
   try {
-    const wallet = getServiceWallet();
-    const balanceData = await getServiceWalletBalance(); 
-    const tokens = await getSplTokensForWallet(wallet.publicKey);
-    res.json({
-        ...balanceData, 
-        splTokens: tokens 
-    });
+    const result = await getWalletBalanceWithTokens();
+    res.json(result);
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("❌ Ошибка при получении баланса и токенов:", errorMessage);
@@ -65,13 +72,8 @@ router.get("/balance", async (req: Request, res: Response) => {
 // --- Баланс кошелька (альтернативный эндпоинт) ---
 router.get("/wallet-balance", async (req: Request, res: Response) => {
   try {
-    const wallet = getServiceWallet();
-    const balanceData = await getServiceWalletBalance(); 
-    const tokens = await getSplTokensForWallet(wallet.publicKey);
-    res.json({
-        ...balanceData, 
-        splTokens: tokens 
-    });
+    const result = await getWalletBalanceWithTokens();
+    res.json(result);
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("❌ Ошибка при получении баланса кошелька:", errorMessage);
