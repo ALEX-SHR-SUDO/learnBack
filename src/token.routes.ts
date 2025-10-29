@@ -61,4 +61,22 @@ router.get("/balance", async (req: Request, res: Response) => {
   }
 });
 
+// ---------------------------------------------
+// --- Баланс кошелька (альтернативный эндпоинт) ---
+router.get("/wallet-balance", async (req: Request, res: Response) => {
+  try {
+    const wallet = getServiceWallet();
+    const balanceData = await getServiceWalletBalance(); 
+    const tokens = await getSplTokensForWallet(wallet.publicKey);
+    res.json({
+        ...balanceData, 
+        splTokens: tokens 
+    });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("❌ Ошибка при получении баланса кошелька:", errorMessage);
+    res.status(500).json({ error: errorMessage || "Ошибка сервера при получении баланса кошелька" });
+  }
+});
+
 export default router;
