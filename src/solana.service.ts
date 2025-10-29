@@ -18,7 +18,7 @@ dotenv.config();
 // --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
 // Получаем URL из .env, чтобы кластер можно было менять
 const CLUSTER_URL = process.env.SOLANA_CLUSTER_URL || 'https://api.devnet.solana.com';
-const WALLET_SECRET_KEY = process.env.SERVICE_SECRET_KEY;
+const WALLET_SECRET_KEY = process.env.SERVICE_SECRET_KEY_BASE58;
 let connectionInstance: Connection | null = null;
 let serviceWalletInstance: Keypair | null = null;
 
@@ -42,15 +42,17 @@ export function getServiceWallet(): Keypair {
     if (serviceWalletInstance) return serviceWalletInstance;
 
     if (!WALLET_SECRET_KEY) {
-        throw new Error("SERVICE_SECRET_KEY is not defined in environment. Check your .env file.");
+        throw new Error("SERVICE_SECRET_KEY_BASE58 is not defined in environment. Check your .env file.");
     }
     try {
-        const secretKeyUint8 = bs58.decode(WALLET_SECRET_KEY);
+        const secretKeyBuffer = bs58.decode(WALLET_SECRET_KEY);
+        // Cast through unknown to work around TypeScript type issues
+        const secretKeyUint8 = new Uint8Array(secretKeyBuffer as unknown as ArrayBuffer);
         serviceWalletInstance = Keypair.fromSecretKey(secretKeyUint8);
         console.log(`✅ Сервисный кошелёк загружен: ${serviceWalletInstance.publicKey.toBase58()}`);
         return serviceWalletInstance;
     } catch (e) {
-        throw new Error(`Failed to load Keypair from SERVICE_SECRET_KEY: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        throw new Error(`Failed to load Keypair from SERVICE_SECRET_KEY_BASE58: ${e instanceof Error ? e.message : 'Unknown error'}`);
     }
 }
 

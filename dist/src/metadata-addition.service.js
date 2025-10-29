@@ -28,7 +28,7 @@ function initializeUmi() {
 }
 function getUmiSigner(umi) {
     const web3JsKeypair = getServiceWallet();
-    const secretKey = Buffer.from(web3JsKeypair.secretKey);
+    const secretKey = web3JsKeypair.secretKey;
     const umiKeypair = umi.eddsa.createKeypairFromSecretKey(secretKey);
     umi.use(keypairIdentity(umiKeypair));
     return umiKeypair;

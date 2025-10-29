@@ -2,7 +2,7 @@
 
 import { formatTokenAmount } from './utils.js';
 import { PublicKey, Connection } from "@solana/web3.js";
-import { AccountLayout, TOKEN_PROGRAM_ID, MintLayout, u64 } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, unpackAccount, getMint } from "@solana/spl-token";
 import { getConnection } from "./solana.service.js";
 
 interface TokenInfo {
@@ -12,11 +12,14 @@ interface TokenInfo {
 }
 
 async function getTokenDecimals(connection: Connection, mintAddress: string): Promise<number> {
-    const mintPublicKey = new PublicKey(mintAddress);
-    const mintAccountInfo = await connection.getAccountInfo(mintPublicKey);
-    if (!mintAccountInfo) return 9; // fallback
-    const mintData = MintLayout.decode(mintAccountInfo.data);
-    return mintData.decimals;
+    try {
+        const mintPublicKey = new PublicKey(mintAddress);
+        const mintInfo = await getMint(connection, mintPublicKey);
+        return mintInfo.decimals;
+    } catch (error) {
+        console.error(`Error getting decimals for mint ${mintAddress}:`, error);
+        return 9; // fallback
+    }
 }
 
 export async function getSplTokensForWallet(ownerPublicKey: PublicKey): Promise<TokenInfo[]> {
@@ -31,28 +34,22 @@ export async function getSplTokensForWallet(ownerPublicKey: PublicKey): Promise<
         console.log(`[TokenService DEBUG] API вернуло ${tokenAccounts.value.length} токен-аккаунтов.`);
 
         // Собираем промисы на парсинг с decimals
-        const tokens: Promise<TokenInfo | null>[] = tokenAccounts.value.map(async (accountInfo, index) => {
-            const data = AccountLayout.decode(accountInfo.account.data);
-            const mintPublicKey = new PublicKey(data.mint);
-
-            // Amount как BigInt
-          let amount: bigint;
-             if (typeof data.amount === 'bigint') {
-             amount = data.amount;
-             } else if (Buffer.isBuffer(data.amount)) {
-                 amount = BigInt(u64.fromBuffer(data.amount).toString());
-            } else {
-                 amount = BigInt(0);
-           }
-
-            if (data.state === 1 && amount > 0n) {
-                // Получаем decimals для mint
-                const decimals = await getTokenDecimals(connection, mintPublicKey.toBase58());
-                return {
-                    mint: mintPublicKey.toBase58(),
-                    amount: formatTokenAmount(amount.toString(), decimals),
-                    decimals,
-                };
+        const tokens: Promise<TokenInfo | null>[] = tokenAccounts.value.map(async (accountInfo) => {
+            try {
+                const account = unpackAccount(accountInfo.pubkey, accountInfo.account);
+                
+                // Check if account is initialized and has positive balance
+                if (account.isInitialized && account.amount > 0n) {
+                    // Получаем decimals для mint
+                    const decimals = await getTokenDecimals(connection, account.mint.toBase58());
+                    return {
+                        mint: account.mint.toBase58(),
+                        amount: formatTokenAmount(account.amount.toString(), decimals),
+                        decimals,
+                    };
+                }
+            } catch (error) {
+                console.error(`[TokenService] Error parsing token account:`, error);
             }
             return null;
         });
