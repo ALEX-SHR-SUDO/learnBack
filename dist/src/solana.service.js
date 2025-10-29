@@ -1,9 +1,8 @@
 // src/solana.service.ts
 import { Connection, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import bs58 from "bs58";
-import { AccountLayout, TOKEN_PROGRAM_ID
-// ✅ ИСПРАВЛЕНО: AccountState удален, так как он больше не экспортируется
- } from '@solana/spl-token';
+// ✅ УДАЛЕНЫ: imports из @solana/spl-token, так как логика токенов SPL вынесена 
+// в src/token-account.service.ts.
 import dotenv from 'dotenv';
 // Дополнительный вызов dotenv.config(), чтобы сервис мог работать автономно 
 dotenv.config();
@@ -45,53 +44,34 @@ export function getServiceWallet() {
     }
 }
 /**
- * Возвращает баланс сервисного кошелька (в SOL) и список токенов.
- * @returns {Promise<object>} Объект с адресом, балансом SOL и списком токенов.
+ * Возвращает баланс сервисного кошелька (в SOL).
+ * Теперь не возвращает токены SPL, так как эта логика вынесена в token-account.service.ts.
+ * @returns {Promise<{ serviceAddress: string, sol: number }>} Объект с адресом и балансом SOL.
  */
 export async function getServiceWalletBalance() {
+    const keypair = getServiceWallet();
+    const connection = getConnection();
+    const serviceAddress = keypair.publicKey.toBase58();
     try {
-        const keypair = getServiceWallet();
-        const connection = getConnection();
-        const serviceAddress = keypair.publicKey.toBase58();
-        let tokenList = [];
         // Fetch SOL balance
         const balanceLamports = await connection.getBalance(keypair.publicKey);
         const balanceSOL = balanceLamports / LAMPORTS_PER_SOL;
-        // Fetch SPL token list
-        const tokenAccounts = await connection.getTokenAccountsByOwner(keypair.publicKey, 
-        // ✅ ИСПРАВЛЕНО: Убран префикс splToken
-        { programId: TOKEN_PROGRAM_ID });
-        tokenList = tokenAccounts.value
-            .map(accountInfo => {
-            // ✅ ИСПРАВЛЕНО: Убран префикс splToken
-            const data = AccountLayout.decode(accountInfo.account.data);
-            // ✅ ИСПРАВЛЕНО: Заменен splToken.AccountState.Initialized на 1.
-            if (data.state === 1 && data.amount > 0) { // 1 = Initialized
-                return {
-                    mint: data.mint.toBase58(),
-                    // Предполагается 9 десятичных знаков для отображения
-                    amount: Number(data.amount) / Math.pow(10, 9),
-                };
-            }
-            return null;
-        })
-            // Улучшена фильтрация для TS
-            .filter((token) => token !== null);
+        // Возвращаем только SOL баланс и адрес
         return {
             serviceAddress: serviceAddress,
             sol: balanceSOL,
-            tokens: tokenList
         };
     }
     catch (error) {
-        if (error instanceof Error && error.message.includes('Account not found')) {
-            const address = getServiceWallet().publicKey.toBase58();
+        // Безопасное обращение к 'error.message'
+        const err = error instanceof Error ? error : new Error(String(error));
+        if (err.message.includes('Account not found')) {
+            // Если аккаунт не найден, возвращаем 0 SOL
             return {
-                serviceAddress: address,
+                serviceAddress: serviceAddress,
                 sol: 0,
-                tokens: []
             };
         }
-        throw new Error(`Failed to fetch service wallet balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Failed to fetch service wallet balance: ${err.message}`);
     }
 }

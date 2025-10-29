@@ -1,37 +1,58 @@
-// src/token-account.service.js
-import { PublicKey } from '@solana/web3.js';
-// Предполагаем, что getServiceWallet и getConnection экспортируются из solana.service.js
-import { getServiceWallet, getConnection } from './solana.service.js';
-/**
- * Получает список всех SPL-токенов и их балансы для заданного публичного ключа кошелька.
- * @param {PublicKey} ownerPublicKey - Публичный ключ владельца кошелька.
- * @returns {Promise<Array<{mint: string, amount: string, decimals: number}>>} - Список токенов.
- */
+// src/token-account.service.ts
+import { formatTokenAmount } from './utils.js';
+import { PublicKey } from "@solana/web3.js";
+import { AccountLayout, TOKEN_PROGRAM_ID, MintLayout, u64 } from "@solana/spl-token";
+import { getConnection } from "./solana.service.js";
+async function getTokenDecimals(connection, mintAddress) {
+    const mintPublicKey = new PublicKey(mintAddress);
+    const mintAccountInfo = await connection.getAccountInfo(mintPublicKey);
+    if (!mintAccountInfo)
+        return 9; // fallback
+    const mintData = MintLayout.decode(mintAccountInfo.data);
+    return mintData.decimals;
+}
 export async function getSplTokensForWallet(ownerPublicKey) {
     const connection = getConnection();
     try {
-        // Program ID для Токенов (Solana Token Program)
-        const tokenProgramId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-        // Используем getParsedTokenAccountsByOwner для получения списка токенов
-        // с автоматическим парсингом данных.
-        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(ownerPublicKey, { programId: tokenProgramId });
-        // Фильтруем аккаунты, у которых баланс больше 0, и форматируем результат.
-        const tokens = tokenAccounts.value
-            .filter(account => account.account.data.parsed.info.tokenAmount.uiAmount > 0)
-            .map(account => {
-            const info = account.account.data.parsed.info;
-            return {
-                mint: info.mint,
-                amount: info.tokenAmount.uiAmount.toString(), // Количество, удобное для чтения (с десятичными знаками)
-                decimals: info.tokenAmount.decimals,
-            };
+        console.log(`[TokenService DEBUG] Запрос токен-аккаунтов для ${ownerPublicKey.toBase58()}...`);
+        const tokenAccounts = await connection.getTokenAccountsByOwner(ownerPublicKey, { programId: TOKEN_PROGRAM_ID });
+        console.log(`[TokenService DEBUG] API вернуло ${tokenAccounts.value.length} токен-аккаунтов.`);
+        // Собираем промисы на парсинг с decimals
+        const tokens = tokenAccounts.value.map(async (accountInfo, index) => {
+            const data = AccountLayout.decode(accountInfo.account.data);
+            const mintPublicKey = new PublicKey(data.mint);
+            // Amount как BigInt
+            let amount;
+            if (typeof data.amount === 'bigint') {
+                amount = data.amount;
+            }
+            else if (Buffer.isBuffer(data.amount)) {
+                amount = BigInt(u64.fromBuffer(data.amount).toString());
+            }
+            else {
+                amount = BigInt(0);
+            }
+            if (data.state === 1 && amount > 0n) {
+                // Получаем decimals для mint
+                const decimals = await getTokenDecimals(connection, mintPublicKey.toBase58());
+                return {
+                    mint: mintPublicKey.toBase58(),
+                    amount: formatTokenAmount(amount.toString(), decimals),
+                    decimals,
+                };
+            }
+            return null;
         });
-        return tokens;
+        // Ждём все токены
+        const tokenListAll = await Promise.all(tokens);
+        // Отфильтровываем null
+        const tokenList = tokenListAll.filter((token) => token !== null);
+        console.log(`[TokenService] Найдено токен-аккаунтов с положительным балансом: ${tokenList.length}`);
+        return tokenList;
     }
     catch (error) {
-        console.error("Error fetching SPL token accounts:", error);
-        // Исправление: Проверяем, является ли ошибка объектом Error, чтобы избежать ошибки TS18046.
         const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error("Failed to fetch SPL token accounts: " + errorMessage);
+        console.error(`[TokenService] Ошибка при получении SPL-токенов: ${errorMessage}`);
+        return [];
     }
 }
