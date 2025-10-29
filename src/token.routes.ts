@@ -21,6 +21,12 @@ import { getSplTokensForWallet } from "./token-account.service.js";
 
 // ---------------------------------------------
 // --- Вспомогательная функция для получения баланса и токенов ---
+/**
+ * Получает баланс сервисного кошелька и список SPL-токенов.
+ * @returns {Promise<{serviceAddress: string, sol: number, splTokens: TokenInfo[]}>} 
+ *          Объект с адресом кошелька, балансом SOL и массивом SPL-токенов
+ * @throws {Error} Если не удается получить баланс или список токенов
+ */
 async function getWalletBalanceWithTokens() {
     const wallet = getServiceWallet();
     const balanceData = await getServiceWalletBalance(); 
