@@ -70,6 +70,7 @@ export async function getServiceWalletBalance(): Promise<{ serviceAddress: strin
         // Fetch SOL balance
         const balanceLamports = await connection.getBalance(keypair.publicKey);
         const balanceSOL = balanceLamports / LAMPORTS_PER_SOL;
+        console.log(`🪙 Баланс SOL сервисного кошелька (${serviceAddress}): ${balanceSOL}`);
         
         // Возвращаем SOL баланс и адрес в нескольких форматах для совместимости с фронтендом
         return { 
