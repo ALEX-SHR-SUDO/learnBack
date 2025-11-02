@@ -9,13 +9,14 @@
 declare module '@metaplex-foundation/mpl-token-metadata' {
     
     // Объявляем Enum, который используется в коде
+    // Важно: FungibleAsset (1) - для SPL токенов, Fungible (2) - для semi-fungible NFTs
     export enum TokenStandard {
-        NonFungible = 0,
-        FungibleAsset = 1,
-        Fungible = 2,
-        NonFungibleEdition = 3,
-        ProgrammableNonFungible = 4,
-        ProgrammableNonFungibleEdition = 5
+        NonFungible = 0,              // Unique NFTs (supply = 1)
+        FungibleAsset = 1,            // SPL Tokens (standard fungible tokens) ✅
+        Fungible = 2,                 // Semi-fungible NFTs (NFTs with supply > 1)
+        NonFungibleEdition = 3,       // NFT Editions
+        ProgrammableNonFungible = 4,  // Programmable NFTs (pNFTs)
+        ProgrammableNonFungibleEdition = 5  // Programmable NFT Editions
     }
 
     // Объявляем функции, импортированные в src/metadata-addition.service.ts, как 'any'
