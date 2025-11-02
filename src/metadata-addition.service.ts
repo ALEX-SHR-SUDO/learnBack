@@ -87,6 +87,8 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
 
         // Используем createAndMint для атомарного создания токена с метаданными и минтинга
         // Это решает проблему "Incorrect account owner" которая возникает при разделении операций
+        // TokenStandard.FungibleAsset (1) - правильный стандарт для SPL токенов
+        // TokenStandard.Fungible (2) - для semi-fungible NFTs (NFT с supply > 1)
         const result = await createAndMint(umi, {
             mint,
             authority: payer,
@@ -97,7 +99,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             decimals: decimalsNumber,
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
-            tokenStandard: TokenStandard.Fungible,
+            tokenStandard: TokenStandard.FungibleAsset,
         }).sendAndConfirm(umi);
 
         console.log(`✅ SPL токен создан и заминчен: ${mint.publicKey.toString()}`);

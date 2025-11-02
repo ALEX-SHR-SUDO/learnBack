@@ -10,9 +10,12 @@ declare module '@metaplex-foundation/mpl-token-metadata' {
     
     // Объявляем Enum, который используется в коде
     export enum TokenStandard {
-        Fungible = 'Fungible',
-        NonFungible = 'NonFungible',
-        // Добавьте другие стандарты по необходимости
+        NonFungible = 0,
+        FungibleAsset = 1,
+        Fungible = 2,
+        NonFungibleEdition = 3,
+        ProgrammableNonFungible = 4,
+        ProgrammableNonFungibleEdition = 5
     }
 
     // Объявляем функции, импортированные в src/metadata-addition.service.ts, как 'any'
