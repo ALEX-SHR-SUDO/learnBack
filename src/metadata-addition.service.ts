@@ -106,6 +106,9 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
                 verified: true,
                 share: 100,
             }],
+            // Required parameter for Metaplex Token Metadata v3
+            // Set to null for non-collection tokens
+            collectionDetails: null,
         }).sendAndConfirm(umi);
 
         const mintPublicKey = mint.publicKey.toString();
