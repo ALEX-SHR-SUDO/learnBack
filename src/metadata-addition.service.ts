@@ -1,7 +1,7 @@
 // src/metadata-addition.service.ts
 
 import { Buffer } from "buffer";
-// Use require for CommonJS module to get proper types
+// Using default import with type assertions for proper CommonJS interop
 import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
 import { 
     createUmi, 
@@ -17,7 +17,7 @@ import {
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
 // Используем createFungible для SPL токенов!
-// Access functions from the namespace
+// Type assertion needed due to TypeScript ESM/CommonJS interop limitations
 const createFungible = (mplTokenMetadataExports as any).createFungible;
 const mintV1 = (mplTokenMetadataExports as any).mintV1;
 const TokenStandard = (mplTokenMetadataExports as any).TokenStandard;
@@ -87,7 +87,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         const mint = generateSigner(umi);
 
         // Шаг 1: Создаем токен с метаданными для SPL токена (Fungible)
-        const createResult = await createFungible(umi, {
+        await createFungible(umi, {
             mint,
             authority: payer,
             name: details.name,
