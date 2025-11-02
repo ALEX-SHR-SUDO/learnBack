@@ -5,7 +5,6 @@ import { Buffer } from "buffer";
 import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
 import { 
     createUmi, 
-    publicKey as umiPublicKey, 
     keypairIdentity, 
     generateSigner, 
     sol,
@@ -109,23 +108,23 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         console.log(`✅ Token mint and metadata created: ${mint.publicKey.toString()}`);
         console.log(`📝 Create transaction signature: ${createResult.signature}`);
 
-        // Step 2: Calculate the associated token account address before minting
-        const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
-            mint: mint.publicKey,
-            owner: payer.publicKey,
-        });
-
-        // Step 3: Mint the initial supply to the payer's associated token account
+        // Step 2: Mint the initial supply to the payer's associated token account
+        // The mintV1 function will automatically derive the ATA address and create it if needed
         const mintResult = await mintV1(umi, {
             mint: mint.publicKey,
             authority: payer,
             amount: supplyBigInt,
-            token: umiPublicKey(associatedTokenAccountPda[0].toString()),
             tokenOwner: payer.publicKey,
             tokenStandard: TokenStandard.Fungible,
         }).sendAndConfirm(umi);
 
         console.log(`✅ Tokens minted to ATA. Mint transaction signature: ${mintResult.signature}`);
+
+        // Step 3: Calculate the associated token account address for the return value
+        const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
+            mint: mint.publicKey,
+            owner: payer.publicKey,
+        });
 
         const mintPublicKey = mint.publicKey.toString();
 
