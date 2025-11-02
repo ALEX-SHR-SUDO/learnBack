@@ -1,6 +1,7 @@
 // src/metadata-addition.service.ts
 
 import { Buffer } from "buffer";
+// Use require for CommonJS module to get proper types
 import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
 import { 
     createUmi, 
@@ -15,12 +16,12 @@ import {
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-// Используем только createAndMint!
-const { 
-    createAndMint, 
-    TokenStandard, 
-    mplTokenMetadata 
-} = mplTokenMetadataExports;
+// Используем createFungible для SPL токенов!
+// Access functions from the namespace
+const createFungible = (mplTokenMetadataExports as any).createFungible;
+const mintV1 = (mplTokenMetadataExports as any).mintV1;
+const TokenStandard = (mplTokenMetadataExports as any).TokenStandard;
+const mplTokenMetadata = (mplTokenMetadataExports as any).mplTokenMetadata;
 
 import { PublicKey as Web3JsPublicKey, PublicKey } from "@solana/web3.js";
 import { getServiceWallet, getConnection } from './solana.service.js'; 
@@ -66,7 +67,7 @@ function getUmiSigner(umi: any): Signer {
     return umiKeypair;
 }
 
-// --- Только createAndMint, без отдельного addTokenMetadata ---
+// --- Используем createFungible + mintV1 для правильного создания SPL токена ---
 export async function createTokenAndMetadata(details: TokenDetails): Promise<{ mintAddress: string, ata: string, mintTx: TransactionSignature }> {
     const umi = initializeUmi();
     const payer = getUmiSigner(umi); 
@@ -85,17 +86,23 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         
         const mint = generateSigner(umi);
 
-        // Mint + metadata (в одной транзакции)
-        const mintResult = await createAndMint(umi, {
+        // Шаг 1: Создаем токен с метаданными для SPL токена (Fungible)
+        const createResult = await createFungible(umi, {
             mint,
             authority: payer,
-            payer: payer,
             name: details.name,
             symbol: details.symbol,
             uri: details.uri,
             sellerFeeBasisPoints: percentAmount(0), 
-            isMutable: true,
             decimals: decimalsNumber,
+        }).sendAndConfirm(umi);
+
+        console.log(`✅ SPL токен создан: ${mint.publicKey.toString()}`);
+
+        // Шаг 2: Минтим токены на кошелек владельца
+        const mintResult = await mintV1(umi, {
+            mint: mint.publicKey,
+            authority: payer,
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
             tokenStandard: TokenStandard.Fungible,
