@@ -86,6 +86,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         const mint = generateSigner(umi);
 
         // Mint + metadata (в одной транзакции)
+        // Important: Include creators field for Solscan to properly index the metadata
         const mintResult = await createAndMint(umi, {
             mint,
             authority: payer,
@@ -99,6 +100,12 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
             tokenStandard: TokenStandard.Fungible,
+            // Add creators array with verified creator for Solscan compatibility
+            creators: [{
+                address: payer.publicKey,
+                verified: true,
+                share: 100,
+            }],
         }).sendAndConfirm(umi);
 
         const mintPublicKey = mint.publicKey.toString();
