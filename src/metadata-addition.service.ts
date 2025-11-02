@@ -16,10 +16,9 @@ import {
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-// Используем createFungible для SPL токенов!
+// Используем createAndMint для SPL токенов (объединяет создание и минтинг в одной транзакции)
 // Type assertion needed due to TypeScript ESM/CommonJS interop limitations
-const createFungible = (mplTokenMetadataExports as any).createFungible;
-const mintV1 = (mplTokenMetadataExports as any).mintV1;
+const createAndMint = (mplTokenMetadataExports as any).createAndMint;
 const TokenStandard = (mplTokenMetadataExports as any).TokenStandard;
 const mplTokenMetadata = (mplTokenMetadataExports as any).mplTokenMetadata;
 
@@ -67,7 +66,7 @@ function getUmiSigner(umi: any): Signer {
     return umiKeypair;
 }
 
-// --- Используем createFungible + mintV1 для правильного создания SPL токена ---
+// --- Используем createAndMint для правильного создания SPL токена ---
 export async function createTokenAndMetadata(details: TokenDetails): Promise<{ mintAddress: string, ata: string, mintTx: TransactionSignature }> {
     const umi = initializeUmi();
     const payer = getUmiSigner(umi); 
@@ -86,8 +85,9 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         
         const mint = generateSigner(umi);
 
-        // Шаг 1: Создаем токен с метаданными для SPL токена (Fungible)
-        await createFungible(umi, {
+        // Используем createAndMint для атомарного создания токена с метаданными и минтинга
+        // Это решает проблему "Incorrect account owner" которая возникает при разделении операций
+        const result = await createAndMint(umi, {
             mint,
             authority: payer,
             name: details.name,
@@ -95,18 +95,12 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             uri: details.uri,
             sellerFeeBasisPoints: percentAmount(0), 
             decimals: decimalsNumber,
-        }).sendAndConfirm(umi);
-
-        console.log(`✅ SPL токен создан: ${mint.publicKey.toString()}`);
-
-        // Шаг 2: Минтим токены на кошелек владельца
-        const mintResult = await mintV1(umi, {
-            mint: mint.publicKey,
-            authority: payer,
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
             tokenStandard: TokenStandard.Fungible,
         }).sendAndConfirm(umi);
+
+        console.log(`✅ SPL токен создан и заминчен: ${mint.publicKey.toString()}`);
 
         const mintPublicKey = mint.publicKey.toString();
         const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
@@ -117,7 +111,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         return {
             mintAddress: mintPublicKey,
             ata: associatedTokenAccountPda[0].toString(), 
-            mintTx: mintResult.signature
+            mintTx: result.signature
         };
 
     } catch (error: any) {
