@@ -16,9 +16,10 @@ import {
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
-// Используем createAndMint для SPL токенов (объединяет создание и минтинг в одной транзакции)
+// Import the functions we need from mpl-token-metadata
 // Type assertion needed due to TypeScript ESM/CommonJS interop limitations
-const createAndMint = (mplTokenMetadataExports as any).createAndMint;
+const createV1 = (mplTokenMetadataExports as any).createV1;
+const mintV1 = (mplTokenMetadataExports as any).mintV1;
 const TokenStandard = (mplTokenMetadataExports as any).TokenStandard;
 const mplTokenMetadata = (mplTokenMetadataExports as any).mplTokenMetadata;
 
@@ -66,7 +67,7 @@ function getUmiSigner(umi: any): Signer {
     return umiKeypair;
 }
 
-// --- Используем createAndMint для правильного создания SPL токена ---
+// --- Create SPL token with proper Metaplex metadata for Solscan visibility ---
 export async function createTokenAndMetadata(details: TokenDetails): Promise<{ mintAddress: string, ata: string, mintTx: TransactionSignature }> {
     const umi = initializeUmi();
     const payer = getUmiSigner(umi); 
@@ -85,24 +86,39 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         
         const mint = generateSigner(umi);
 
-        // Используем createAndMint для атомарного создания токена с метаданными и минтинга
-        // Это решает проблему "Incorrect account owner" которая возникает при разделении операций
-        // TokenStandard.FungibleAsset (1) - правильный стандарт для SPL токенов
-        // TokenStandard.Fungible (2) - для semi-fungible NFTs (NFT с supply > 1)
-        const result = await createAndMint(umi, {
+        console.log(`🔨 Creating SPL token with mint address: ${mint.publicKey.toString()}`);
+
+        // Step 1: Create the token mint with metadata account
+        // Using createV1 instead of createAndMint to properly create metadata for standard SPL tokens
+        // This ensures metadata will be visible on Solscan and other explorers
+        const createResult = await createV1(umi, {
             mint,
             authority: payer,
             name: details.name,
             symbol: details.symbol,
             uri: details.uri,
-            sellerFeeBasisPoints: percentAmount(0), 
+            sellerFeeBasisPoints: percentAmount(0),
             decimals: decimalsNumber,
-            amount: supplyBigInt,
-            tokenOwner: payer.publicKey,
-            tokenStandard: TokenStandard.FungibleAsset,
+            tokenStandard: TokenStandard.Fungible,
+            // Set isMutable to allow future metadata updates if needed
+            isMutable: true,
+            // Update authority can be set to the payer or a specific address
+            updateAuthority: payer.publicKey,
         }).sendAndConfirm(umi);
 
-        console.log(`✅ SPL токен создан и заминчен: ${mint.publicKey.toString()}`);
+        console.log(`✅ Token mint and metadata created: ${mint.publicKey.toString()}`);
+        console.log(`📝 Create transaction signature: ${createResult.signature}`);
+
+        // Step 2: Mint the initial supply to the payer's associated token account
+        const mintResult = await mintV1(umi, {
+            mint: mint.publicKey,
+            authority: payer,
+            amount: supplyBigInt,
+            tokenOwner: payer.publicKey,
+            tokenStandard: TokenStandard.Fungible,
+        }).sendAndConfirm(umi);
+
+        console.log(`✅ Tokens minted to ATA. Mint transaction signature: ${mintResult.signature}`);
 
         const mintPublicKey = mint.publicKey.toString();
         const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
@@ -113,7 +129,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         return {
             mintAddress: mintPublicKey,
             ata: associatedTokenAccountPda[0].toString(), 
-            mintTx: result.signature
+            mintTx: createResult.signature
         };
 
     } catch (error: any) {
