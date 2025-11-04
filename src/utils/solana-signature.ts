@@ -9,6 +9,18 @@ import { Buffer } from 'buffer';
 type SolanaCluster = 'mainnet-beta' | 'devnet' | 'testnet';
 
 /**
+ * Validate if a cluster is a valid Solana cluster.
+ * @param cluster - Cluster name to validate
+ * @throws Error if cluster is not valid
+ */
+function validateCluster(cluster: string): void {
+    const validClusters: SolanaCluster[] = ['mainnet-beta', 'devnet', 'testnet'];
+    if (!validClusters.includes(cluster as SolanaCluster)) {
+        throw new Error(`Invalid cluster: ${cluster}. Must be one of: ${validClusters.join(', ')}`);
+    }
+}
+
+/**
  * Validate if a string is a valid base58 signature.
  * Basic validation - checks if the string can be decoded as base58.
  */
@@ -61,10 +73,7 @@ export function formatSignature(sig: Uint8Array | Buffer | string): string {
  * console.log(url); // "https://explorer.solana.com/tx/3Zx7...?cluster=devnet"
  */
 export function solanaTxUrl(signature: Uint8Array | Buffer | string, cluster: string = 'devnet'): string {
-    const validClusters: SolanaCluster[] = ['mainnet-beta', 'devnet', 'testnet'];
-    if (!validClusters.includes(cluster as SolanaCluster)) {
-        throw new Error(`Invalid cluster: ${cluster}. Must be one of: ${validClusters.join(', ')}`);
-    }
+    validateCluster(cluster);
     const base58Sig = formatSignature(signature);
     return `https://explorer.solana.com/tx/${base58Sig}?cluster=${cluster}`;
 }
@@ -82,10 +91,7 @@ export function solanaTxUrl(signature: Uint8Array | Buffer | string, cluster: st
  * console.log(url); // "https://explorer.solana.com/address/7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU?cluster=devnet"
  */
 export function solanaTokenUrl(mintAddress: string, cluster: string = 'devnet'): string {
-    const validClusters: SolanaCluster[] = ['mainnet-beta', 'devnet', 'testnet'];
-    if (!validClusters.includes(cluster as SolanaCluster)) {
-        throw new Error(`Invalid cluster: ${cluster}. Must be one of: ${validClusters.join(', ')}`);
-    }
+    validateCluster(cluster);
     return `https://explorer.solana.com/address/${mintAddress}?cluster=${cluster}`;
 }
 
@@ -102,10 +108,7 @@ export function solanaTokenUrl(mintAddress: string, cluster: string = 'devnet'):
  * console.log(url); // "https://solscan.io/tx/3Zx7...?cluster=devnet"
  */
 export function solscanTxUrl(signature: Uint8Array | Buffer | string, cluster: string = 'devnet'): string {
-    const validClusters: SolanaCluster[] = ['mainnet-beta', 'devnet', 'testnet'];
-    if (!validClusters.includes(cluster as SolanaCluster)) {
-        throw new Error(`Invalid cluster: ${cluster}. Must be one of: ${validClusters.join(', ')}`);
-    }
+    validateCluster(cluster);
     const base58Sig = formatSignature(signature);
     return `https://solscan.io/tx/${base58Sig}?cluster=${cluster}`;
 }
@@ -123,9 +126,6 @@ export function solscanTxUrl(signature: Uint8Array | Buffer | string, cluster: s
  * console.log(url); // "https://solscan.io/token/7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU?cluster=devnet"
  */
 export function solscanTokenUrl(mintAddress: string, cluster: string = 'devnet'): string {
-    const validClusters: SolanaCluster[] = ['mainnet-beta', 'devnet', 'testnet'];
-    if (!validClusters.includes(cluster as SolanaCluster)) {
-        throw new Error(`Invalid cluster: ${cluster}. Must be one of: ${validClusters.join(', ')}`);
-    }
+    validateCluster(cluster);
     return `https://solscan.io/token/${mintAddress}?cluster=${cluster}`;
 }
