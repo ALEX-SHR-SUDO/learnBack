@@ -8,7 +8,6 @@ import {
     mplTokenMetadata
 } from "@metaplex-foundation/mpl-token-metadata";
 import { 
-    createUmi, 
     keypairIdentity, 
     generateSigner, 
     sol,
@@ -17,7 +16,7 @@ import {
     percentAmount,
 } from "@metaplex-foundation/umi";
 
-import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 
 import { PublicKey as Web3JsPublicKey, PublicKey } from "@solana/web3.js";
 import { getServiceWallet, getConnection } from './solana.service.js'; 
@@ -49,8 +48,8 @@ interface TokenDetails {
 
 function initializeUmi(): any {
     const connection = getConnection();
-    const umi = createUmi();
-    umi.use(defaultPlugins(connection.rpcEndpoint)); 
+    // Use createUmi from umi-bundle-defaults which includes default plugins automatically
+    const umi = createUmi(connection.rpcEndpoint);
     umi.use(mplTokenMetadata()); 
     return umi;
 }
