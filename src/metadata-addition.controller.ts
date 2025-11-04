@@ -2,6 +2,7 @@
 
 import { Request, Response } from "express";
 import { createTokenAndMetadata } from './metadata-addition.service.js';
+import { solanaTxUrl } from './utils/solana-signature.js';
 
 interface CreateTokenRequest {
     name: string;
@@ -30,7 +31,7 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
             message: "Token and metadata successfully created.",
             mintAddress: result.mintAddress,
             transactionSignature: result.mintTx, 
-            explorerLinkCreate: `https://explorer.solana.com/tx/${result.mintTx}?cluster=devnet`,
+            explorerLinkCreate: solanaTxUrl(result.mintTx, 'devnet'),
             solscanTokenLink: `https://solscan.io/token/${result.mintAddress}?cluster=devnet`,
             solscanTxLink: `https://solscan.io/tx/${result.mintTx}?cluster=devnet`,
             ataAddress: result.ata 
