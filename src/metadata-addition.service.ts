@@ -1,8 +1,12 @@
 // src/metadata-addition.service.ts
 
 import { Buffer } from "buffer";
-// Using default import with type assertions for proper CommonJS interop
-import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
+// Import proper named exports from mpl-token-metadata
+import { 
+    createAndMint,
+    TokenStandard,
+    mplTokenMetadata
+} from "@metaplex-foundation/mpl-token-metadata";
 import { 
     createUmi, 
     keypairIdentity, 
@@ -14,12 +18,6 @@ import {
 } from "@metaplex-foundation/umi";
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
-
-// Import the functions we need from mpl-token-metadata
-// Type assertion needed due to TypeScript ESM/CommonJS interop limitations
-const createAndMint = (mplTokenMetadataExports as any).createAndMint;
-const TokenStandard = (mplTokenMetadataExports as any).TokenStandard;
-const mplTokenMetadata = (mplTokenMetadataExports as any).mplTokenMetadata;
 
 import { PublicKey as Web3JsPublicKey, PublicKey } from "@solana/web3.js";
 import { getServiceWallet, getConnection } from './solana.service.js'; 
@@ -85,6 +83,14 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         const mint = generateSigner(umi);
 
         console.log(`🔨 Creating SPL token with mint address: ${mint.publicKey.toString()}`);
+        console.log(`📊 Token parameters:`, {
+            name: details.name,
+            symbol: details.symbol,
+            uri: details.uri,
+            decimals: decimalsNumber,
+            supply: supplyBigInt.toString(),
+            tokenStandard: 'Fungible'
+        });
 
         // Create the token mint with metadata and mint initial supply in a single transaction
         // Using createAndMint to atomically create metadata and mint tokens for fungible SPL tokens
@@ -109,6 +115,8 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
 
         console.log(`✅ Token mint, metadata created and tokens minted: ${mint.publicKey.toString()}`);
         console.log(`📝 Transaction signature: ${result.signature}`);
+        console.log(`🔍 View token on Solscan: https://solscan.io/token/${mint.publicKey.toString()}?cluster=devnet`);
+        console.log(`🔍 View transaction: https://explorer.solana.com/tx/${result.signature}?cluster=devnet`);
 
         // Calculate the associated token account address for the return value
         const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
