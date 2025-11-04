@@ -5,7 +5,7 @@ Tokens created through the API were showing metadata on Solana Explorer devnet b
 ```json
 {
   "creators": [{
-    "address": "ESnpcCfEzTu27zimt7buatKXU3ogihyqVozfWJKgv2Jx",
+    "address": "CREATOR_WALLET_ADDRESS_HERE",
     "verified": 1,
     "share": 100
   }],
@@ -54,7 +54,7 @@ const result = await createAndMint(umi, {
   "key": 4,
   "data": {
     "creators": [{
-      "address": "ESnpcCfEzTu27zimt7buatKXU3ogihyqVozfWJKgv2Jx",
+      "address": "CREATOR_WALLET_ADDRESS_HERE",
       "verified": 1,
       "share": 100
     }]
