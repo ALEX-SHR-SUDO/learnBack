@@ -1,8 +1,12 @@
 // src/metadata-addition.service.ts
 
 import { Buffer } from "buffer";
-// Using default import with type assertions for proper CommonJS interop
-import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
+// Import proper named exports from mpl-token-metadata
+import { 
+    createAndMint,
+    TokenStandard,
+    mplTokenMetadata
+} from "@metaplex-foundation/mpl-token-metadata";
 import { 
     createUmi, 
     keypairIdentity, 
@@ -14,12 +18,6 @@ import {
 } from "@metaplex-foundation/umi";
 
 import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
-
-// Import the functions we need from mpl-token-metadata
-// Type assertion needed due to TypeScript ESM/CommonJS interop limitations
-const createAndMint = (mplTokenMetadataExports as any).createAndMint;
-const TokenStandard = (mplTokenMetadataExports as any).TokenStandard;
-const mplTokenMetadata = (mplTokenMetadataExports as any).mplTokenMetadata;
 
 import { PublicKey as Web3JsPublicKey, PublicKey } from "@solana/web3.js";
 import { getServiceWallet, getConnection } from './solana.service.js'; 
