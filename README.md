@@ -5,6 +5,7 @@ Solana Token Backend API for creating and managing SPL tokens on Solana blockcha
 ## Features
 
 - Create SPL tokens with metadata
+- **NEW:** Auto-generate Metaplex-compliant metadata for proper Solscan display
 - Upload token logos to Pinata (IPFS)
 - Check wallet balance and SPL tokens
 - Revoke freeze authority
@@ -20,18 +21,30 @@ Solana Token Backend API for creating and managing SPL tokens on Solana blockcha
 - `GET /api/wallet-balance` - Alternative endpoint for wallet balance
 
 ### Token Management
+- `POST /api/generate-metadata` - **NEW!** Generate proper Metaplex metadata for Solscan
+  ```bash
+  # Upload logo and generate metadata in one step
+  curl -X POST /api/generate-metadata \
+    -F "file=@logo.png" \
+    -F "name=Token Name" \
+    -F "symbol=SYMBOL" \
+    -F "description=Token description"
+  ```
+  This endpoint ensures your token metadata is properly formatted for display on Solscan and other explorers.
+
 - `POST /api/create-token` - Create new SPL token with metadata
   ```json
   {
     "name": "Token Name",
     "symbol": "SYMBOL",
-    "uri": "https://ipfs.io/...",
+    "uri": "https://gateway.pinata.cloud/ipfs/...",
     "supply": "1000000",
     "decimals": "9"
   }
   ```
+  **Tip:** Use the `metadataUri` from `/api/generate-metadata` for the `uri` field to ensure proper Solscan display.
 
-- `POST /api/upload-logo` - Upload token logo to Pinata
+- `POST /api/upload-logo` - Upload token logo to Pinata (legacy endpoint)
 
 ### Authority Management
 
@@ -89,3 +102,15 @@ Solana Token Backend API for creating and managing SPL tokens on Solana blockcha
 - @solana/spl-token
 - Metaplex UMI SDK
 - Pinata (IPFS)
+
+## Important Notes
+
+### Solscan Metadata Display
+If your tokens are not showing name/logo on Solscan, use the **new `/api/generate-metadata` endpoint** instead of manually creating metadata. This endpoint automatically generates properly formatted Metaplex metadata that Solscan requires.
+
+**Recommended workflow:**
+1. Call `/api/generate-metadata` with your logo and token info
+2. Use the returned `metadataUri` in `/api/create-token`
+3. Your token will display correctly on Solscan!
+
+See [SOLSCAN_FIX.md](./SOLSCAN_FIX.md) for detailed documentation.

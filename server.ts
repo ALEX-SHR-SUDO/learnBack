@@ -4,6 +4,7 @@ import express from "express";
 import cors from "cors";
 import tokenRoutes from "./src/token.routes.js"; // Обязательно .js
 import pinataUploadRoute from "./src/pinata-upload.route.js";
+import metadataGeneratorRoute from "./src/metadata-generator.route.js";
 // Импортируем solanaService, чтобы инициализировать кошелек при запуске
 // ✅ ИСПРАВЛЕНО: Обновлен путь импорта на .ts файл (с расширением .js для рантайма)
 import * as solanaService from "./src/solana.service.js";
@@ -30,6 +31,7 @@ app.get("/", (req, res) => {
       health: "/api/ping",
       balance: "/api/balance",
       walletBalance: "/api/wallet-balance",
+      generateMetadata: "POST /api/generate-metadata (NEW - Generates proper Metaplex metadata)",
       createToken: "POST /api/create-token",
       upload: "POST /api/upload-logo",
       revokeFreezeAuthority: "POST /api/revoke-freeze-authority",
@@ -42,6 +44,7 @@ app.get("/", (req, res) => {
 // Все роуты из token.routes.js будут доступны по /api/...
 app.use("/api", tokenRoutes);
 app.use("/api", pinataUploadRoute);
+app.use("/api", metadataGeneratorRoute);
 
 // === Запуск сервера ===
 // Start server for traditional hosting (Render, local dev, etc.)
