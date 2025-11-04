@@ -4,6 +4,7 @@ import axios from "axios";
 
 /**
  * Metaplex Token Metadata Standard interface
+ * For fungible SPL tokens, we exclude NFT-specific fields like 'creators'
  */
 interface MetaplexMetadata {
     name: string;
@@ -17,10 +18,6 @@ interface MetaplexMetadata {
             type: string;
         }>;
         category?: string;
-        creators?: Array<{
-            address: string;
-            share: number;
-        }>;
     };
 }
 

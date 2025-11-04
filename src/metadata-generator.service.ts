@@ -31,6 +31,7 @@ export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
 /**
  * Metaplex Token Metadata Standard
  * This interface defines the structure expected by Solana explorers like Solscan
+ * For fungible SPL tokens, we exclude NFT-specific fields like 'creators'
  */
 interface MetaplexMetadata {
     name: string;
@@ -44,10 +45,6 @@ interface MetaplexMetadata {
             type: string;
         }>;
         category: string;
-        creators?: Array<{
-            address: string;
-            share: number;
-        }>;
     };
 }
 
@@ -119,7 +116,8 @@ export async function generateAndUploadMetadata(params: {
         const imageUri = `https://gateway.pinata.cloud/ipfs/${imageHash}`;
         console.log(`✅ Logo uploaded: ${imageUri}`);
 
-        // Step 2: Create Metaplex-compliant metadata JSON
+        // Step 2: Create Metaplex-compliant metadata JSON for fungible SPL token
+        // Use category "fungible" to ensure explorers display it as a token, not an NFT
         const metadata: MetaplexMetadata = {
             name: params.name,
             symbol: params.symbol,
@@ -133,7 +131,7 @@ export async function generateAndUploadMetadata(params: {
                         type: params.logoMimetype,
                     }
                 ],
-                category: "image",
+                category: "fungible",
             }
         };
 
