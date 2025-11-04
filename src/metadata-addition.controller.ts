@@ -4,6 +4,7 @@ import { Request, Response } from "express";
 import { createTokenAndMetadata } from './metadata-addition.service.js';
 import { solanaTxUrl, solscanTokenUrl, solscanTxUrl } from './utils/solana-signature.js';
 import { validateMetadataUri, formatValidationWarnings } from './metadata-validator.js';
+import { revokeFreezeAuthority, revokeMintAuthority } from './token-authority.service.js';
 
 interface CreateTokenRequest {
     name: string;
@@ -11,11 +12,13 @@ interface CreateTokenRequest {
     uri: string;
     supply: string;
     decimals: string;
+    revokeFreezeAuthority?: boolean;
+    revokeMintAuthority?: boolean;
 }
 
 export async function handleCreateTokenAndMetadata(req: Request<any, any, CreateTokenRequest>, res: Response) {
     try {
-        const { name, symbol, uri, supply, decimals } = req.body;
+        const { name, symbol, uri, supply, decimals, revokeFreezeAuthority: shouldRevokeFreezeAuth, revokeMintAuthority: shouldRevokeMintAuth } = req.body;
         console.log("Req Body Received:", req.body);
 
         if (!name || !symbol || !uri || !supply || !decimals) {
@@ -54,7 +57,7 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
             console.log("✅ Metadata validation passed");
         }
 
-        const tokenDetails: CreateTokenRequest = { name, symbol, uri, supply, decimals };
+        const tokenDetails = { name, symbol, uri, supply, decimals };
         console.log("Начинаем ШАГ 1-4: createTokenAndMetadata (полный процесс)");
         
         // Mint + metadata (одна транзакция, без отдельного addTokenMetadata)
@@ -69,6 +72,50 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
             solscanTxLink: solscanTxUrl(result.mintTx, 'devnet'),
             ataAddress: result.ata
         };
+        
+        // Handle authority revocation if requested
+        const revokedAuthorities: string[] = [];
+        const revocationErrors: string[] = [];
+        
+        if (shouldRevokeFreezeAuth === true) {
+            try {
+                console.log("🔒 Revoking freeze authority as requested...");
+                const freezeAuthSig = await revokeFreezeAuthority(result.mintAddress);
+                revokedAuthorities.push('freeze');
+                response.revokeFreezeAuthorityTx = freezeAuthSig;
+                response.revokeFreezeAuthorityLink = solanaTxUrl(freezeAuthSig, 'devnet');
+                console.log(`✅ Freeze authority revoked: ${freezeAuthSig}`);
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                console.error(`❌ Failed to revoke freeze authority: ${errorMsg}`);
+                revocationErrors.push(`freeze: ${errorMsg}`);
+            }
+        }
+        
+        if (shouldRevokeMintAuth === true) {
+            try {
+                console.log("🔒 Revoking mint authority as requested...");
+                const mintAuthSig = await revokeMintAuthority(result.mintAddress);
+                revokedAuthorities.push('mint');
+                response.revokeMintAuthorityTx = mintAuthSig;
+                response.revokeMintAuthorityLink = solanaTxUrl(mintAuthSig, 'devnet');
+                console.log(`✅ Mint authority revoked: ${mintAuthSig}`);
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                console.error(`❌ Failed to revoke mint authority: ${errorMsg}`);
+                revocationErrors.push(`mint: ${errorMsg}`);
+            }
+        }
+        
+        // Update response message based on revocations
+        if (revokedAuthorities.length > 0) {
+            response.message = `Token created successfully. Revoked authorities: ${revokedAuthorities.join(', ')}.`;
+        }
+        
+        if (revocationErrors.length > 0) {
+            response.revocationErrors = revocationErrors;
+            response.message += ` Note: Some authority revocations failed. You can retry using /api/revoke-freeze-authority or /api/revoke-mint-authority endpoints.`;
+        }
         
         // Include warnings in response if metadata had issues
         if (validationResult.warnings.length > 0) {
