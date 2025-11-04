@@ -20,7 +20,8 @@ import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 
 import { PublicKey as Web3JsPublicKey, PublicKey } from "@solana/web3.js";
 import { getServiceWallet, getConnection } from './solana.service.js'; 
-import { toBigInt } from './utils.js'; 
+import { toBigInt } from './utils.js';
+import { formatSignature, solanaTxUrl, solscanTokenUrl } from './utils/solana-signature.js'; 
 
 function findAssociatedTokenPda(_umi: any, { mint, owner }: { mint: any, owner: any }): [PublicKey] {
     const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
@@ -112,9 +113,9 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         }).sendAndConfirm(umi);
 
         console.log(`✅ Token mint, metadata created and tokens minted: ${mint.publicKey.toString()}`);
-        console.log(`📝 Transaction signature: ${result.signature}`);
-        console.log(`🔍 View token on Solscan: https://solscan.io/token/${mint.publicKey.toString()}?cluster=devnet`);
-        console.log(`🔍 View transaction: https://explorer.solana.com/tx/${result.signature}?cluster=devnet`);
+        console.log(`📝 Transaction signature: ${formatSignature(result.signature)}`);
+        console.log(`🔍 View token on Solscan: ${solscanTokenUrl(mint.publicKey.toString(), 'devnet')}`);
+        console.log(`🔍 View transaction: ${solanaTxUrl(result.signature, 'devnet')}`);
 
         // Calculate the associated token account address for the return value
         const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
