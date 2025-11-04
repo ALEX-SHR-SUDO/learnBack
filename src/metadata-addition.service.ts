@@ -8,7 +8,6 @@ import {
     mplTokenMetadata
 } from "@metaplex-foundation/mpl-token-metadata";
 import { 
-    createUmi, 
     keypairIdentity, 
     generateSigner, 
     sol,
