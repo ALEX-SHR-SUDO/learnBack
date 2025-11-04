@@ -58,9 +58,17 @@ See [SOLSCAN_FIX.md](./SOLSCAN_FIX.md) and [CREATORS_FIELD_FIX.md](./CREATORS_FI
     "symbol": "SYMBOL",
     "uri": "https://gateway.pinata.cloud/ipfs/...",
     "supply": "1000000",
-    "decimals": "9"
+    "decimals": "9",
+    "revokeFreezeAuthority": true,
+    "revokeMintAuthority": true
   }
   ```
+  **Required fields:** `name`, `symbol`, `uri`, `supply`, `decimals`
+  
+  **Optional fields:**
+  - `revokeFreezeAuthority` (boolean) - If true, automatically revokes freeze authority after token creation
+  - `revokeMintAuthority` (boolean) - If true, automatically revokes mint authority after token creation, making the supply fixed
+  
   **Tip:** Use the `metadataUri` from `/api/generate-metadata` for the `uri` field to ensure proper Solscan display.
 
 - `POST /api/upload-logo` - Upload token logo to Pinata (legacy endpoint)
