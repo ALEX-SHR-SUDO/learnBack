@@ -77,7 +77,7 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
         const revokedAuthorities: string[] = [];
         const revocationErrors: string[] = [];
         
-        if (shouldRevokeFreezeAuth === true) {
+        if (shouldRevokeFreezeAuth) {
             try {
                 console.log("🔒 Revoking freeze authority as requested...");
                 const freezeAuthSig = await revokeFreezeAuthority(result.mintAddress);
@@ -92,7 +92,7 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
             }
         }
         
-        if (shouldRevokeMintAuth === true) {
+        if (shouldRevokeMintAuth) {
             try {
                 console.log("🔒 Revoking mint authority as requested...");
                 const mintAuthSig = await revokeMintAuthority(result.mintAddress);
@@ -114,7 +114,11 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
         
         if (revocationErrors.length > 0) {
             response.revocationErrors = revocationErrors;
-            response.message += ` Note: Some authority revocations failed. You can retry using /api/revoke-freeze-authority or /api/revoke-mint-authority endpoints.`;
+            if (revokedAuthorities.length > 0) {
+                response.message += ` Note: Some authority revocations failed. You can retry using /api/revoke-freeze-authority or /api/revoke-mint-authority endpoints.`;
+            } else {
+                response.message = `Token created successfully, but authority revocation failed. You can retry using /api/revoke-freeze-authority or /api/revoke-mint-authority endpoints.`;
+            }
         }
         
         // Include warnings in response if metadata had issues
