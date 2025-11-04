@@ -25,28 +25,30 @@ The `creators` field is an **NFT-specific field** in the Metaplex Token Metadata
 When `createAndMint` is called without explicitly setting the `creators` parameter, it **defaults to including the authority as a creator**, which is appropriate for NFTs but problematic for fungible tokens.
 
 ## Solution
-**Updated Fix (Latest):** Explicitly set NFT-specific fields to `null` in the `createAndMint` call for fungible tokens. When these fields are omitted, the Metaplex UMI SDK defaults to including the authority as a creator, which causes Solscan display issues. Setting them to `null` explicitly prevents this default behavior.
+**Updated Fix (Latest):** Explicitly set NFT-specific fields to `none()` in the `createAndMint` call for fungible tokens. When these fields are omitted or set to `null`, the Metaplex UMI SDK defaults to including the authority as a creator, which causes Solscan display issues. Using the SDK's `none()` function explicitly prevents this default behavior and ensures these fields are completely omitted from the on-chain metadata.
 
 ```typescript
+import { none } from "@metaplex-foundation/umi";
+
 const result = await createAndMint(umi, {
     // ... other parameters
     tokenStandard: TokenStandard.Fungible,
-    // Explicitly set NFT-specific fields to null for fungible tokens
-    // This prevents the SDK from defaulting to include the authority as a creator
-    creators: null,
-    collection: null,
-    uses: null,
+    // Explicitly set NFT-specific fields to none() for fungible tokens
+    // Using none() from UMI SDK instead of null ensures these fields are completely omitted
+    creators: none(),
+    collection: none(),
+    uses: none(),
     // ... mint parameters
 });
 ```
 
 **Previous Approaches (Deprecated):** 
-- Setting fields to `none()` caused them to appear as `undefined` in the metadata
-- Omitting the fields caused the SDK to default to including the authority as a creator
+- Setting fields to `null` - The SDK still defaults to including the authority as a creator
+- Omitting the fields - The SDK defaults to including the authority as a creator
 
 ### Why This Works
-- **No NFT-Specific Fields**: By explicitly setting `creators`, `collection`, and `uses` to `null`, the on-chain metadata will NOT include these fields at all
-- **Prevents SDK Defaults**: Without explicit `null`, the SDK defaults to including the authority as a creator
+- **No NFT-Specific Fields**: By explicitly setting `creators`, `collection`, and `uses` to `none()`, the on-chain metadata will NOT include these fields at all
+- **Prevents SDK Defaults**: Without explicit `none()`, the SDK defaults to including the authority as a creator even when `null` is used
 - **Clean Fungible Token**: Solscan will properly identify the token as fungible without any NFT-specific fields
 - **Proper Indexing**: Solscan's indexer will use the correct display logic for fungible tokens
 - **Standard Compliance**: Matches the standard SPL token metadata structure
@@ -120,8 +122,11 @@ Result: ✅ Metadata displays correctly on BOTH Solana Explorer AND Solscan. No 
 ### File Changed
 `src/metadata-addition.service.ts`
 
-### No Special Imports Needed (Latest Fix)
-No need to import `none` from UMI SDK.
+### Required Import (Latest Fix)
+Must import `none` from UMI SDK:
+```typescript
+import { none } from "@metaplex-foundation/umi";
+```
 
 ### Code Change (Latest Fix)
 ```typescript
@@ -136,11 +141,11 @@ const result = await createAndMint(umi, {
     tokenStandard: TokenStandard.Fungible,
     isMutable: true,
     updateAuthority: payer.publicKey,
-    // Explicitly set NFT-specific fields to null for fungible tokens
-    // This prevents the SDK from defaulting to include the authority as a creator
-    creators: null,
-    collection: null,
-    uses: null,
+    // Explicitly set NFT-specific fields to none() for fungible tokens
+    // Using none() from UMI SDK instead of null ensures these fields are completely omitted
+    creators: none(),
+    collection: none(),
+    uses: none(),
     // Mint parameters
     amount: supplyBigInt,
     tokenOwner: payer.publicKey,
@@ -205,4 +210,4 @@ To verify the fix works:
 4. Verify metadata displays on both Solana Explorer and Solscan
 
 ## Summary
-By explicitly setting `creators: none()`, `collection: none()`, and `uses: none()` for fungible tokens, we ensure that Solscan properly identifies and displays the token as a fungible SPL token rather than an NFT. This is the critical fix for the Solscan metadata display issue.
+By explicitly setting `creators: none()`, `collection: none()`, and `uses: none()` for fungible tokens (using the UMI SDK's `none()` function), we ensure that Solscan properly identifies and displays the token as a fungible SPL token rather than an NFT. This is the critical fix for the Solscan metadata display issue. Setting these fields to `null` does NOT work - you must use the SDK's `none()` function to explicitly indicate "no value" for optional fields.
