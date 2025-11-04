@@ -120,8 +120,7 @@ const metadata = {
   image: logoIpfsUrl,
   attributes: [
     { trait_type: 'Purpose', value: 'Testing' },
-    { trait_type: 'Network', value: 'Devnet' },
-    { trait_type: 'Created', value: new Date().toISOString() }
+    { trait_type: 'Network', value: 'Devnet' }
   ],
   properties: {
     files: [{ uri: logoIpfsUrl, type: 'image/svg+xml' }],

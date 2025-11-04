@@ -11,7 +11,7 @@ echo ""
 
 # Configuration
 API_URL="${API_URL:-http://localhost:3000}"
-SERVICE_WALLET="ESnpcCfEzTu27zimt7buatKXU3ogihyqVozfWJKgv2Jx"
+SERVICE_WALLET="${SERVICE_WALLET:-ESnpcCfEzTu27zimt7buatKXU3ogihyqVozfWJKgv2Jx}"
 
 echo "Configuration:"
 echo "  API URL: $API_URL"
@@ -35,7 +35,7 @@ BALANCE_RESPONSE=$(curl -sf "$API_URL/api/balance")
 BALANCE=$(echo "$BALANCE_RESPONSE" | grep -o '"sol":[0-9.]*' | cut -d':' -f2)
 echo "Current balance: $BALANCE SOL"
 
-if (( $(echo "$BALANCE < 0.01" | bc -l) )); then
+if (( $(echo "$BALANCE < 0.01" | bc -l 2>/dev/null || echo "1") )); then
     echo "⚠️  Low balance! Please airdrop SOL:"
     echo "   solana airdrop 1 $SERVICE_WALLET --url devnet"
     echo "   Or visit: https://faucet.solana.com/"
