@@ -27,26 +27,26 @@ The `creators` field is part of the Metaplex Token Metadata Standard for NFTs an
 For fungible SPL tokens, these fields should NOT be present.
 
 ## Solution Implemented
-Modified `src/metadata-addition.service.ts` to explicitly exclude NFT-specific fields when creating fungible tokens:
+Modified `src/metadata-addition.service.ts` to omit NFT-specific fields entirely when creating fungible tokens:
 
-### Code Changes
-1. **Import the `none` function:**
+### Code Changes (Latest Fix)
+1. **Removed the `none` import** (no longer needed):
    ```typescript
-   import { none } from "@metaplex-foundation/umi";
+   // Removed: import { none } from "@metaplex-foundation/umi";
    ```
 
-2. **Explicitly set NFT-specific fields to `none()`:**
+2. **Omit NFT-specific fields from the createAndMint call:**
    ```typescript
    const result = await createAndMint(umi, {
        // ... standard parameters
        tokenStandard: TokenStandard.Fungible,
-       // Exclude NFT-specific fields for proper Solscan display
-       creators: none(),
-       collection: none(),
-       uses: none(),
+       // NFT-specific fields (creators, collection, uses) are omitted for fungible tokens
+       // This ensures they don't appear as 'undefined' in the metadata
        // ... mint parameters
    });
    ```
+
+**Key Improvement:** By not specifying NFT-specific fields at all (rather than setting them to `none()`), the fields are completely omitted from the metadata, preventing them from appearing as `undefined`.
 
 ## Impact
 ### Before Fix
@@ -60,29 +60,25 @@ Modified `src/metadata-addition.service.ts` to explicitly exclude NFT-specific f
 - ✅ Token correctly identified as fungible SPL token
 
 ## Technical Explanation
-The `none()` function from the Umi SDK creates an Option type with no value, signaling to the Metaplex program that these fields should be excluded from the on-chain metadata account. This results in:
-- No `creators` array in the metadata
-- No `collection` reference in the metadata
-- No `uses` limitations in the metadata
+By omitting NFT-specific fields entirely from the `createAndMint` call, the Metaplex UMI SDK does not include them in the on-chain metadata account at all. This results in:
+- No `creators` field in the metadata (not even as `undefined`)
+- No `collection` field in the metadata (not even as `undefined`)
+- No `uses` field in the metadata (not even as `undefined`)
 
-This clean metadata structure allows Solscan to properly identify and display the token as a fungible SPL token.
+This clean metadata structure allows Solscan to properly identify and display the token as a fungible SPL token, matching the standard format.
 
 ## Files Modified
-1. **src/metadata-addition.service.ts** (5 lines added)
-   - Added `none` import from `@metaplex-foundation/umi`
-   - Set `creators: none()` in createAndMint call
-   - Set `collection: none()` in createAndMint call
-   - Set `uses: none()` in createAndMint call
+1. **src/metadata-addition.service.ts** (code simplified)
+   - Removed `none` import from `@metaplex-foundation/umi`
+   - Removed lines setting `creators: none()`, `collection: none()`, `uses: none()`
+   - Added explanatory comment about omitting NFT-specific fields
 
-2. **CREATORS_FIELD_FIX.md** (204 lines added)
-   - Comprehensive documentation of the issue
-   - Technical explanation of the root cause
-   - Before/after comparison
-   - Verification steps
-
-3. **README.md** (4 lines modified)
-   - Added reference to the fix
-   - Updated Solscan display notice
+2. **CREATORS_FIELD_FIX.md** (updated documentation)
+   - Updated to reflect the latest fix approach
+   - Clarified that fields are omitted, not set to `none()`
+   
+3. **FIX_IMPLEMENTATION_SUMMARY.md** (this file - updated)
+   - Reflects the current implementation approach
 
 ## Testing Performed
 - ✅ TypeScript compilation successful
