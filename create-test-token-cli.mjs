@@ -16,8 +16,16 @@ import FormData from 'form-data';
 
 // Configuration
 const CLUSTER_URL = 'https://api.devnet.solana.com';
-const PINATA_API_KEY = process.env.PINATA_API_KEY || 'fd68b61b17f1bb064a1d';
-const PINATA_SECRET = process.env.PINATA_SECRET_API_KEY || 'edfabbe03a0af57541a45097b48fa24b9e948090f12df3e2b11b06179c02e4b9';
+const PINATA_API_KEY = process.env.PINATA_API_KEY;
+const PINATA_SECRET = process.env.PINATA_SECRET_API_KEY;
+
+// Validate required environment variables
+if (!PINATA_API_KEY || !PINATA_SECRET) {
+  console.error('❌ Missing required environment variables:');
+  console.error('   PINATA_API_KEY and PINATA_SECRET_API_KEY must be set');
+  console.error('   Please set them in your .env file or environment');
+  process.exit(1);
+}
 
 console.log('================================================');
 console.log('Token Creation Test - Metaplex Metadata Fix');

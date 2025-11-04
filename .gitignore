@@ -1,3 +1,15 @@
 node_modules
 dist
 test-token-creation.mjs
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+
+# Service wallet keypair
+service_wallet.json
+
+# Temporary files
+/tmp/
+*.log
