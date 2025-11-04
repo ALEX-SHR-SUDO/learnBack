@@ -6,6 +6,8 @@ Solana Token Backend API for creating and managing SPL tokens on Solana blockcha
 
 **If your tokens are not showing name/logo on Solscan**, make sure you are using the **`/api/generate-metadata`** endpoint to create your metadata. Do NOT manually create metadata.json files, as they may not follow the complete Metaplex Token Metadata Standard required by Solscan.
 
+**Recent Fix (Nov 2024):** We fixed an issue where fungible tokens included NFT-specific fields (`creators`, `collection`, `uses`) in their on-chain metadata, which prevented Solscan from properly displaying token information. This has been resolved - new tokens will display correctly on Solscan. See [CREATORS_FIELD_FIX.md](./CREATORS_FIELD_FIX.md) for technical details.
+
 **Correct workflow:**
 1. ✅ Call `/api/generate-metadata` with your logo → Get metadataUri
 2. ✅ Call `/api/create-token` with the metadataUri
@@ -17,7 +19,7 @@ Solana Token Backend API for creating and managing SPL tokens on Solana blockcha
 3. ❌ Upload metadata.json to `/api/upload-logo`
 4. ❌ Create token → Metadata may NOT display on Solscan!
 
-See [SOLSCAN_FIX.md](./SOLSCAN_FIX.md) for detailed documentation.
+See [SOLSCAN_FIX.md](./SOLSCAN_FIX.md) and [CREATORS_FIELD_FIX.md](./CREATORS_FIELD_FIX.md) for detailed documentation.
 
 ## Features
 
