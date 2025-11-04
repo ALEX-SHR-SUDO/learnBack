@@ -20,7 +20,7 @@ A new endpoint `/api/generate-metadata` has been added that automatically:
 4. Returns the metadata URI ready for token creation
 
 ### Metaplex Metadata Standard
-The generated metadata follows the complete Metaplex standard required by Solscan:
+The generated metadata follows the complete Metaplex standard required by Solscan for fungible SPL tokens:
 
 ```json
 {
@@ -36,17 +36,17 @@ The generated metadata follows the complete Metaplex standard required by Solsca
         "type": "image/jpeg"
       }
     ],
-    "category": "image"
+    "category": "fungible"
   }
 }
 ```
 
-Key fields that ensure Solscan display:
+Key fields that ensure proper display on Solscan:
 - **name**: Token name (displayed as title)
 - **symbol**: Token symbol
 - **image**: Direct URL to the logo image
 - **properties.files**: Array of file references with proper MIME types
-- **properties.category**: Must be "image" for logo display
+- **properties.category**: Must be "fungible" for fungible SPL tokens (not "image", which would make it display as an NFT)
 
 ## New Workflow
 
@@ -240,8 +240,9 @@ console.log('View on Solscan:', tokenData.solscanTokenLink);
 1. **Complete metadata structure** - Includes all fields required by Metaplex standard
 2. **Proper MIME types** - Specifies correct content types for files
 3. **Properties.files array** - Required for proper file handling
-4. **Category field** - Tells explorers this is an image-based token
-5. **Consistent naming** - Ensures name/symbol match across metadata and token
+4. **Correct category** - Uses "fungible" to ensure tokens are displayed as fungible SPL tokens, not NFTs
+5. **No NFT-specific fields** - Excludes "creators" and other NFT-only fields that would cause explorers to misidentify the token type
+6. **Consistent naming** - Ensures name/symbol match across metadata and token
 
 ### Files Changed
 - `src/metadata-generator.service.ts` - Core metadata generation logic
