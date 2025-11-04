@@ -31,6 +31,8 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
             mintAddress: result.mintAddress,
             transactionSignature: result.mintTx, 
             explorerLinkCreate: `https://explorer.solana.com/tx/${result.mintTx}?cluster=devnet`,
+            solscanTokenLink: `https://solscan.io/token/${result.mintAddress}?cluster=devnet`,
+            solscanTxLink: `https://solscan.io/tx/${result.mintTx}?cluster=devnet`,
             ataAddress: result.ata 
         });
 

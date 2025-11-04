@@ -83,6 +83,14 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         const mint = generateSigner(umi);
 
         console.log(`🔨 Creating SPL token with mint address: ${mint.publicKey.toString()}`);
+        console.log(`📊 Token parameters:`, {
+            name: details.name,
+            symbol: details.symbol,
+            uri: details.uri,
+            decimals: decimalsNumber,
+            supply: supplyBigInt.toString(),
+            tokenStandard: 'Fungible'
+        });
 
         // Create the token mint with metadata and mint initial supply in a single transaction
         // Using createAndMint to atomically create metadata and mint tokens for fungible SPL tokens
@@ -107,6 +115,8 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
 
         console.log(`✅ Token mint, metadata created and tokens minted: ${mint.publicKey.toString()}`);
         console.log(`📝 Transaction signature: ${result.signature}`);
+        console.log(`🔍 View token on Solscan: https://solscan.io/token/${mint.publicKey.toString()}?cluster=devnet`);
+        console.log(`🔍 View transaction: https://explorer.solana.com/tx/${result.signature}?cluster=devnet`);
 
         // Calculate the associated token account address for the return value
         const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
