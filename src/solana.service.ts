@@ -11,9 +11,16 @@ import bs58 from "bs58";
 // ✅ УДАЛЕНЫ: imports из @solana/spl-token, так как логика токенов SPL вынесена 
 // в src/token-account.service.ts.
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Дополнительный вызов dotenv.config(), чтобы сервис мог работать автономно 
 dotenv.config();
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ И ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ ---
 // Получаем URL из .env, чтобы кластер можно было менять
@@ -35,25 +42,41 @@ export function getConnection(): Connection {
 }
 
 /**
- * Загружает Keypair из SERVICE_SECRET_KEY.
+ * Загружает Keypair из SERVICE_SECRET_KEY (base58) или из service_wallet.json.
  * @returns {Keypair} Keypair of the service wallet
  */
 export function getServiceWallet(): Keypair {
     if (serviceWalletInstance) return serviceWalletInstance;
 
-    if (!WALLET_SECRET_KEY) {
-        throw new Error("SERVICE_SECRET_KEY is not defined in environment. Check your .env file.");
+    // Try to load from environment variable first (base58 format)
+    if (WALLET_SECRET_KEY) {
+        try {
+            const secretKeyBuffer = bs58.decode(WALLET_SECRET_KEY);
+            // Convert Buffer to Uint8Array by casting to any to handle iterable issue
+            const secretKeyUint8 = Uint8Array.from(secretKeyBuffer as any);
+            serviceWalletInstance = Keypair.fromSecretKey(secretKeyUint8);
+            console.log(`✅ Сервисный кошелёк загружен из .env: ${serviceWalletInstance.publicKey.toBase58()}`);
+            return serviceWalletInstance;
+        } catch (e) {
+            console.warn(`⚠️ Failed to load from SERVICE_SECRET_KEY, trying service_wallet.json...`);
+        }
     }
+
+    // Fallback: try to load from service_wallet.json
     try {
-        const secretKeyBuffer = bs58.decode(WALLET_SECRET_KEY);
-        // Convert Buffer to Uint8Array by casting to any to handle iterable issue
-        const secretKeyUint8 = Uint8Array.from(secretKeyBuffer as any);
-        serviceWalletInstance = Keypair.fromSecretKey(secretKeyUint8);
-        console.log(`✅ Сервисный кошелёк загружен: ${serviceWalletInstance.publicKey.toBase58()}`);
-        return serviceWalletInstance;
+        const walletPath = path.join(__dirname, '..', '..', 'service_wallet.json');
+        if (fs.existsSync(walletPath)) {
+            const walletData = JSON.parse(fs.readFileSync(walletPath, 'utf-8'));
+            const secretKeyUint8 = Uint8Array.from(walletData);
+            serviceWalletInstance = Keypair.fromSecretKey(secretKeyUint8);
+            console.log(`✅ Сервисный кошелёк загружен из service_wallet.json: ${serviceWalletInstance.publicKey.toBase58()}`);
+            return serviceWalletInstance;
+        }
     } catch (e) {
-        throw new Error(`Failed to load Keypair from SERVICE_SECRET_KEY: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        console.error(`❌ Failed to load from service_wallet.json: ${e instanceof Error ? e.message : 'Unknown error'}`);
     }
+
+    throw new Error("Failed to load service wallet. Check SERVICE_SECRET_KEY in .env or service_wallet.json file.");
 }
 
 /**
