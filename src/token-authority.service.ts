@@ -24,10 +24,10 @@ export async function revokeFreezeAuthority(mintAddress: string): Promise<string
         try {
             mintPublicKey = new PublicKey(mintAddress);
         } catch (error) {
-            throw new Error(`Invalid mint address format: ${mintAddress}`);
+            throw new Error('Invalid mint address format provided');
         }
         
-        console.log(`🔒 Revoking freeze authority for mint: ${mintAddress}`);
+        console.log('🔒 Revoking freeze authority for mint');
         
         // Set authority to null to revoke it
         const signature = await setAuthority(
@@ -69,10 +69,10 @@ export async function revokeMintAuthority(mintAddress: string): Promise<string> 
         try {
             mintPublicKey = new PublicKey(mintAddress);
         } catch (error) {
-            throw new Error(`Invalid mint address format: ${mintAddress}`);
+            throw new Error('Invalid mint address format provided');
         }
         
-        console.log(`🔒 Revoking mint authority for mint: ${mintAddress}`);
+        console.log('🔒 Revoking mint authority for mint');
         
         // Set authority to null to revoke it
         const signature = await setAuthority(

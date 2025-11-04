@@ -44,7 +44,7 @@ export async function handleRevokeFreezeAuthority(
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        console.error(`❌ Error revoking freeze authority: ${errorMessage}`, error);
+        console.error('❌ Error revoking freeze authority');
         res.status(500).json({ 
             error: errorMessage,
             details: "An error occurred while revoking freeze authority." 
@@ -88,7 +88,7 @@ export async function handleRevokeMintAuthority(
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        console.error(`❌ Error revoking mint authority: ${errorMessage}`, error);
+        console.error('❌ Error revoking mint authority');
         res.status(500).json({ 
             error: errorMessage,
             details: "An error occurred while revoking mint authority." 
