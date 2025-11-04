@@ -3,7 +3,7 @@
 # Test script for the new /api/generate-metadata endpoint
 # This script demonstrates how to use the endpoint to create properly formatted metadata
 
-set -e
+set -euo pipefail
 
 API_URL="${API_URL:-http://localhost:3000}"
 TEST_IMAGE="${TEST_IMAGE:-test-logo.png}"

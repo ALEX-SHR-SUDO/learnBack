@@ -2,10 +2,15 @@
 
 import express, { Request, Response } from "express";
 import multer from "multer";
-import { generateAndUploadMetadata } from "./metadata-generator.service.js";
+import { generateAndUploadMetadata, SUPPORTED_IMAGE_TYPES, MAX_FILE_SIZE } from "./metadata-generator.service.js";
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: MAX_FILE_SIZE
+    }
+});
 
 /**
  * POST /api/generate-metadata
@@ -47,10 +52,9 @@ router.post("/generate-metadata", upload.single("file"), async (req: Request, re
         }
 
         // Validate image file type
-        const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-        if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        if (!SUPPORTED_IMAGE_TYPES.includes(req.file.mimetype as any)) {
             return res.status(400).json({ 
-                error: `Invalid image type: ${req.file.mimetype}. Allowed types: ${allowedMimeTypes.join(', ')}` 
+                error: `Invalid image type: ${req.file.mimetype}. Allowed types: ${SUPPORTED_IMAGE_TYPES.join(', ')}` 
             });
         }
 
@@ -77,9 +81,14 @@ router.post("/generate-metadata", upload.single("file"), async (req: Request, re
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("❌ Error in metadata generation endpoint:", errorMessage);
+        
+        // Don't expose internal error details to client
+        const clientMessage = errorMessage.includes("Pinata") 
+            ? "Failed to upload to IPFS. Please check your file and try again."
+            : "Failed to generate metadata. Please check your inputs and try again.";
+            
         res.status(500).json({ 
-            error: errorMessage,
-            details: "Failed to generate metadata. Please check your inputs and try again."
+            error: clientMessage
         });
     }
 });
