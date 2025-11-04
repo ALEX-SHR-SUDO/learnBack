@@ -31,7 +31,9 @@ app.get("/", (req, res) => {
       balance: "/api/balance",
       walletBalance: "/api/wallet-balance",
       createToken: "POST /api/create-token",
-      upload: "POST /api/upload-logo"
+      upload: "POST /api/upload-logo",
+      revokeFreezeAuthority: "POST /api/revoke-freeze-authority",
+      revokeMintAuthority: "POST /api/revoke-mint-authority"
     }
   });
 });

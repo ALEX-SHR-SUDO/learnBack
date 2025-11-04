@@ -7,7 +7,13 @@ const router = express.Router();
 import { 
     handleCreateTokenAndMetadata
     // handleAddTokenMetadata // <-- Удалить! Такой функции больше нет
-} from "./metadata-addition.controller.js"; 
+} from "./metadata-addition.controller.js";
+
+// ✅ ИМПОРТ ФУНКЦИЙ КОНТРОЛЛЕРА ДЛЯ УПРАВЛЕНИЯ ПРАВАМИ
+import {
+    handleRevokeFreezeAuthority,
+    handleRevokeMintAuthority
+} from "./token-authority.controller.js"; 
 
 // Импорт сервисов для вспомогательных функций (balance, ping)
 import { 
@@ -86,5 +92,13 @@ router.get("/wallet-balance", async (req: Request, res: Response) => {
     res.status(500).json({ error: errorMessage || "Ошибка сервера при получении баланса кошелька" });
   }
 });
+
+// ---------------------------------------------
+// --- 3. Revoke Freeze Authority ---
+router.post("/revoke-freeze-authority", handleRevokeFreezeAuthority);
+
+// ---------------------------------------------
+// --- 4. Revoke Mint Authority ---
+router.post("/revoke-mint-authority", handleRevokeMintAuthority);
 
 export default router;
