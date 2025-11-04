@@ -44,7 +44,7 @@ interface MetaplexMetadata {
             uri: string;
             type: string;
         }>;
-        category: string;
+        category?: string;
     };
 }
 
