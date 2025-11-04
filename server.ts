@@ -10,7 +10,7 @@ import metadataGeneratorRoute from "./src/metadata-generator.route.js";
 import * as solanaService from "./src/solana.service.js";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
 app.use((req, res, next) => {
   console.log("Запрос:", req.method, req.url);
@@ -51,7 +51,7 @@ app.use("/api", metadataGeneratorRoute);
 // Skip only if explicitly running in serverless mode (Vercel, AWS Lambda)
 const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 if (!isServerless) {
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     // Адрес кошелька уже должен быть выведен из solana.service.ts
     console.log(`🚀 Backend запущен на порту ${PORT}`);
   });
