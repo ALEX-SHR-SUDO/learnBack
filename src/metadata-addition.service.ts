@@ -5,7 +5,8 @@ import { Buffer } from "buffer";
 import { 
     createAndMint,
     TokenStandard,
-    mplTokenMetadata
+    mplTokenMetadata,
+    createFungible
 } from "@metaplex-foundation/mpl-token-metadata";
 import { 
     createUmi, 
