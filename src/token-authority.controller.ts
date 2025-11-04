@@ -17,7 +17,7 @@ export async function handleRevokeFreezeAuthority(
 ) {
     try {
         const { mintAddress } = req.body;
-        console.log("Revoke Freeze Authority Request:", req.body);
+        console.log("Revoke Freeze Authority Request received");
 
         if (!mintAddress) {
             return res.status(400).json({ 
@@ -61,7 +61,7 @@ export async function handleRevokeMintAuthority(
 ) {
     try {
         const { mintAddress } = req.body;
-        console.log("Revoke Mint Authority Request:", req.body);
+        console.log("Revoke Mint Authority Request received");
 
         if (!mintAddress) {
             return res.status(400).json({ 
