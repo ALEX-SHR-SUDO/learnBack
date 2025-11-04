@@ -14,6 +14,7 @@ import {
     Signer,
     TransactionSignature,
     percentAmount,
+    none,
 } from "@metaplex-foundation/umi";
 
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
@@ -107,6 +108,11 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             isMutable: true,
             // Update authority can be set to the payer or a specific address
             updateAuthority: payer.publicKey,
+            // Explicitly set NFT-specific fields to none() for fungible tokens
+            // This is critical for proper Solscan display - creators field causes Solscan to not show metadata
+            creators: none(),
+            collection: none(),
+            uses: none(),
             // Mint parameters
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
