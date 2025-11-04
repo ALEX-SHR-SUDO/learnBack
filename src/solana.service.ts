@@ -26,6 +26,7 @@ const __dirname = path.dirname(__filename);
 // Получаем URL из .env, чтобы кластер можно было менять
 const CLUSTER_URL = process.env.SOLANA_CLUSTER_URL || 'https://api.devnet.solana.com';
 const WALLET_SECRET_KEY = process.env.SERVICE_SECRET_KEY;
+const WALLET_FILE_PATH = process.env.SERVICE_WALLET_PATH || 'service_wallet.json';
 let connectionInstance: Connection | null = null;
 let serviceWalletInstance: Keypair | null = null;
 
@@ -64,19 +65,19 @@ export function getServiceWallet(): Keypair {
 
     // Fallback: try to load from service_wallet.json
     try {
-        const walletPath = path.join(__dirname, '..', '..', 'service_wallet.json');
+        const walletPath = path.join(__dirname, '..', '..', WALLET_FILE_PATH);
         if (fs.existsSync(walletPath)) {
             const walletData = JSON.parse(fs.readFileSync(walletPath, 'utf-8'));
             const secretKeyUint8 = Uint8Array.from(walletData);
             serviceWalletInstance = Keypair.fromSecretKey(secretKeyUint8);
-            console.log(`✅ Сервисный кошелёк загружен из service_wallet.json: ${serviceWalletInstance.publicKey.toBase58()}`);
+            console.log(`✅ Сервисный кошелёк загружен из ${WALLET_FILE_PATH}: ${serviceWalletInstance.publicKey.toBase58()}`);
             return serviceWalletInstance;
         }
     } catch (e) {
-        console.error(`❌ Failed to load from service_wallet.json: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        console.error(`❌ Failed to load from ${WALLET_FILE_PATH}: ${e instanceof Error ? e.message : 'Unknown error'}`);
     }
 
-    throw new Error("Failed to load service wallet. Check SERVICE_SECRET_KEY in .env or service_wallet.json file.");
+    throw new Error("Failed to load service wallet. Check SERVICE_SECRET_KEY in .env or SERVICE_WALLET_PATH (default: service_wallet.json).");
 }
 
 /**

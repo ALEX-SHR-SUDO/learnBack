@@ -30,12 +30,25 @@ async function main() {
 
     // Load service wallet
     let serviceWallet;
+    const walletPath = './service_wallet.json';
+    
     try {
-        const walletData = JSON.parse(fs.readFileSync('./service_wallet.json', 'utf-8'));
+        // Validate the wallet file exists in the current directory
+        if (!fs.existsSync(walletPath)) {
+            throw new Error('service_wallet.json not found in current directory');
+        }
+        
+        const walletData = JSON.parse(fs.readFileSync(walletPath, 'utf-8'));
+        
+        if (!Array.isArray(walletData) || walletData.length !== 64) {
+            throw new Error('Invalid wallet file format. Expected array of 64 bytes.');
+        }
+        
         serviceWallet = Keypair.fromSecretKey(Uint8Array.from(walletData));
         console.log(`✅ Service wallet loaded: ${serviceWallet.publicKey.toBase58()}\n`);
     } catch (e) {
         console.error('❌ Failed to load service wallet:', e.message);
+        console.error('   Make sure service_wallet.json exists in the current directory');
         process.exit(1);
     }
 
@@ -78,9 +91,12 @@ async function main() {
     const umiKeypair = umi.eddsa.createKeypairFromSecretKey(serviceWallet.secretKey);
     umi.use(keypairIdentity(umiKeypair));
 
-    // Token parameters
+    // Token parameters - using a simple metadata URI for testing
+    // Note: In production, upload your metadata to IPFS or other permanent storage
     const tokenName = 'Test Token Metadata Fix';
     const tokenSymbol = 'TESTFIX';
+    // Using a stable Solana logo as test image
+    // Replace with your own metadata URI that includes name, symbol, image, description
     const tokenUri = 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png';
     const decimals = 9;
     const supply = '1000000'; // 1 million tokens
