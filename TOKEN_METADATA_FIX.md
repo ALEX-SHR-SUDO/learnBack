@@ -1,41 +1,154 @@
-# Token Metadata Fix - Testing Guide
+# Token Metadata Fix - SPL Token with Token-2022 Extensions
 
 ## Overview
-This document explains the fix applied to resolve the issue of missing metadata on created tokens, and provides instructions for testing.
+This document explains the fix applied to resolve the issue where tokens were being created with NFT metadata instead of proper SPL token metadata, and provides instructions for testing.
 
 ## The Problem
-Tokens created by the backend were not showing metadata on Solscan and other Solana explorers. This was due to improper imports from the `@metaplex-foundation/mpl-token-metadata` package.
+Tokens created by the backend were using Metaplex Token Metadata Program (designed for NFTs) instead of proper SPL token metadata. This caused tokens to not display correctly as fungible SPL tokens on Solscan and other Solana explorers.
+
+**Previous implementation:** Used `createAndMint` from `@metaplex-foundation/mpl-token-metadata` which creates NFT-style metadata accounts.
+
+**Issue:** The Metaplex Token Metadata Program is designed primarily for NFTs, not fungible SPL tokens. While it can work for fungible tokens, it's not the standard approach and may not display correctly on all explorers.
 
 ## The Fix
 
-### 1. Fixed Imports (src/metadata-addition.service.ts)
+### Complete Rewrite: Token-2022 with Metadata Extension
 **Before:**
 ```typescript
-import mplTokenMetadataExports from "@metaplex-foundation/mpl-token-metadata";
-const createAndMint = (mplTokenMetadataExports as any).createAndMint;
-const TokenStandard = (mplTokenMetadataExports as any).TokenStandard;
-const mplTokenMetadata = (mplTokenMetadataExports as any).mplTokenMetadata;
+import { createAndMint, TokenStandard, mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
+import { createUmi, ... } from "@metaplex-foundation/umi";
+
+// Used Metaplex UMI SDK with NFT-oriented metadata
+const result = await createAndMint(umi, {
+    mint,
+    authority: payer,
+    name: details.name,
+    symbol: details.symbol,
+    uri: details.uri,
+    tokenStandard: TokenStandard.Fungible,
+    ...
+}).sendAndConfirm(umi);
 ```
 
 **After:**
 ```typescript
-import { 
-    createAndMint,
-    TokenStandard,
-    mplTokenMetadata
-} from "@metaplex-foundation/mpl-token-metadata";
+import { TOKEN_2022_PROGRAM_ID, createInitializeMintInstruction, ... } from "@solana/spl-token";
+import { createInitializeInstruction, pack, TokenMetadata } from '@solana/spl-token-metadata';
+
+// Using Token-2022 (Token Extensions) with native metadata extension
+const transaction = new Transaction().add(
+    SystemProgram.createAccount({ ... }),
+    createInitializeMetadataPointerInstruction(...),
+    createInitializeMintInstruction(...),
+    createInitializeInstruction({ 
+        metadata: mint, // Metadata stored in mint account itself
+        name, symbol, uri 
+    })
+);
 ```
 
-**Why this matters:** Using `as any` type assertions bypasses TypeScript's type checking and can lead to runtime errors. Proper named imports ensure the functions are correctly referenced and work as expected.
+**Why this matters:** 
+- Token-2022 is the new SPL Token program with native support for metadata extensions
+- Metadata is stored directly in the mint account (not a separate account like NFTs)
+- This is the standard way to create fungible SPL tokens with metadata
+- Properly displays on Solscan and all Solana explorers as SPL tokens
 
-### 2. Enhanced Logging
-Added detailed logging to help verify token creation:
-- Logs all token parameters before creation
-- Logs Solscan and Explorer links after successful creation
-- Makes it easy to immediately verify metadata on Solscan
+### 2. Key Technical Changes
 
-### 3. Enhanced API Response
-The `/api/create-token` endpoint now returns:
+#### Removed Dependencies
+- ❌ `@metaplex-foundation/mpl-token-metadata` (NFT-focused)
+- ❌ `@metaplex-foundation/umi` (Metaplex framework)
+- ❌ `@metaplex-foundation/umi-bundle-defaults`
+
+#### Added/Used Dependencies
+- ✅ `@solana/spl-token` (already installed, includes Token-2022 support)
+- ✅ `@solana/spl-token-metadata` (automatically included with spl-token)
+
+#### Implementation Details
+
+**Step 1: Create Mint Account with Extensions**
+```typescript
+const mintLen = getMintLen([ExtensionType.MetadataPointer]);
+const lamports = await connection.getMinimumBalanceForRentExemption(mintLen + metadataExtension + metadataLen);
+
+SystemProgram.createAccount({
+    fromPubkey: payer.publicKey,
+    newAccountPubkey: mint,
+    space: mintLen,
+    lamports,
+    programId: TOKEN_2022_PROGRAM_ID,
+})
+```
+
+**Step 2: Initialize Metadata Pointer**
+Points the metadata to the mint account itself (not a separate account):
+```typescript
+createInitializeMetadataPointerInstruction(
+    mint,
+    payer.publicKey,
+    mint, // Metadata stored in mint itself!
+    TOKEN_2022_PROGRAM_ID
+)
+```
+
+**Step 3: Initialize Mint**
+```typescript
+createInitializeMintInstruction(
+    mint,
+    decimals,
+    payer.publicKey,
+    null, // No freeze authority
+    TOKEN_2022_PROGRAM_ID
+)
+```
+
+**Step 4: Initialize Metadata**
+```typescript
+createInitializeInstruction({
+    programId: TOKEN_2022_PROGRAM_ID,
+    metadata: mint,
+    updateAuthority: payer.publicKey,
+    mint: mint,
+    mintAuthority: payer.publicKey,
+    name: metadata.name,
+    symbol: metadata.symbol,
+    uri: metadata.uri,
+})
+```
+
+**Step 5: Create ATA and Mint Tokens**
+```typescript
+const associatedTokenAccount = await createAssociatedTokenAccountIdempotent(
+    connection,
+    payer,
+    mint,
+    payer.publicKey,
+    { commitment: 'confirmed' },
+    TOKEN_2022_PROGRAM_ID // Important: use Token-2022 program
+);
+
+await mintTo(
+    connection,
+    payer,
+    mint,
+    associatedTokenAccount,
+    payer.publicKey,
+    supplyBigInt,
+    [],
+    { commitment: 'confirmed' },
+    TOKEN_2022_PROGRAM_ID // Important: use Token-2022 program
+);
+```
+
+### 3. Enhanced Logging
+All operations include detailed logging:
+- ✅ Token parameters before creation
+- ✅ Mint address and transaction signatures
+- ✅ Solscan and Explorer links for easy verification
+- ✅ Step-by-step progress during token creation
+
+### 4. API Response
+The `/api/create-token` endpoint returns:
 ```json
 {
   "message": "Token and metadata successfully created.",
@@ -47,6 +160,19 @@ The `/api/create-token` endpoint now returns:
   "ataAddress": "..."
 }
 ```
+
+## Key Differences: NFT Metadata vs SPL Token Metadata
+
+| Aspect | Metaplex (NFT) | Token-2022 (SPL) |
+|--------|----------------|------------------|
+| **Program** | Token Metadata Program | Token Extensions Program (Token-2022) |
+| **Program ID** | `metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s` | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` |
+| **Metadata Location** | Separate PDA account | Inside mint account |
+| **Token Standard** | TokenStandard.Fungible | Native fungible with extensions |
+| **Primary Use Case** | NFTs | Fungible SPL tokens |
+| **Solscan Display** | May show as NFT-like | Shows as proper SPL token |
+| **Account Structure** | Mint + Metadata PDA | Mint with embedded metadata |
+| **Complexity** | Higher (UMI SDK, multiple accounts) | Lower (standard SPL Token) |
 
 ## How to Test
 
