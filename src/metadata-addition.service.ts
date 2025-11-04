@@ -17,8 +17,7 @@ import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
 
 // Import the functions we need from mpl-token-metadata
 // Type assertion needed due to TypeScript ESM/CommonJS interop limitations
-const createV1 = (mplTokenMetadataExports as any).createV1;
-const mintV1 = (mplTokenMetadataExports as any).mintV1;
+const createAndMint = (mplTokenMetadataExports as any).createAndMint;
 const TokenStandard = (mplTokenMetadataExports as any).TokenStandard;
 const mplTokenMetadata = (mplTokenMetadataExports as any).mplTokenMetadata;
 
@@ -87,10 +86,10 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
 
         console.log(`🔨 Creating SPL token with mint address: ${mint.publicKey.toString()}`);
 
-        // Step 1: Create the token mint with metadata account
-        // Using createV1 instead of createAndMint to properly create metadata for standard SPL tokens
+        // Create the token mint with metadata and mint initial supply in a single transaction
+        // Using createAndMint to atomically create metadata and mint tokens for fungible SPL tokens
         // This ensures metadata will be visible on Solscan and other explorers
-        const createResult = await createV1(umi, {
+        const result = await createAndMint(umi, {
             mint,
             authority: payer,
             name: details.name,
@@ -103,24 +102,15 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             isMutable: true,
             // Update authority can be set to the payer or a specific address
             updateAuthority: payer.publicKey,
-        }).sendAndConfirm(umi);
-
-        console.log(`✅ Token mint and metadata created: ${mint.publicKey.toString()}`);
-        console.log(`📝 Create transaction signature: ${createResult.signature}`);
-
-        // Step 2: Mint the initial supply to the payer's associated token account
-        // The mintV1 function will automatically derive the ATA address and create it if needed
-        const mintResult = await mintV1(umi, {
-            mint: mint.publicKey,
-            authority: payer,
+            // Mint parameters
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
-            tokenStandard: TokenStandard.Fungible,
         }).sendAndConfirm(umi);
 
-        console.log(`✅ Tokens minted to ATA. Mint transaction signature: ${mintResult.signature}`);
+        console.log(`✅ Token mint, metadata created and tokens minted: ${mint.publicKey.toString()}`);
+        console.log(`📝 Transaction signature: ${result.signature}`);
 
-        // Step 3: Calculate the associated token account address for the return value
+        // Calculate the associated token account address for the return value
         const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
             mint: mint.publicKey,
             owner: payer.publicKey,
@@ -131,7 +121,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         return {
             mintAddress: mintPublicKey,
             ata: associatedTokenAccountPda[0].toString(),
-            mintTx: createResult.signature
+            mintTx: result.signature
         };
 
     } catch (error: any) {
