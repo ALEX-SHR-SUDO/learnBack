@@ -107,8 +107,12 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             isMutable: true,
             // Update authority can be set to the payer or a specific address
             updateAuthority: payer.publicKey,
-            // NFT-specific fields (creators, collection, uses) are omitted for fungible tokens
-            // This ensures they don't appear as 'undefined' in the metadata
+            // Explicitly set NFT-specific fields to null for fungible tokens
+            // This prevents the SDK from defaulting to include the authority as a creator
+            // Without explicit null, the SDK includes creators field which breaks Solscan display
+            creators: null,
+            collection: null,
+            uses: null,
             // Mint parameters
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
