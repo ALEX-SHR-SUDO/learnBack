@@ -19,7 +19,13 @@ export async function revokeFreezeAuthority(mintAddress: string): Promise<string
     const wallet = getServiceWallet();
     
     try {
-        const mintPublicKey = new PublicKey(mintAddress);
+        // Validate mint address format
+        let mintPublicKey: PublicKey;
+        try {
+            mintPublicKey = new PublicKey(mintAddress);
+        } catch (error) {
+            throw new Error(`Invalid mint address format: ${mintAddress}`);
+        }
         
         console.log(`🔒 Revoking freeze authority for mint: ${mintAddress}`);
         
@@ -58,7 +64,13 @@ export async function revokeMintAuthority(mintAddress: string): Promise<string> 
     const wallet = getServiceWallet();
     
     try {
-        const mintPublicKey = new PublicKey(mintAddress);
+        // Validate mint address format
+        let mintPublicKey: PublicKey;
+        try {
+            mintPublicKey = new PublicKey(mintAddress);
+        } catch (error) {
+            throw new Error(`Invalid mint address format: ${mintAddress}`);
+        }
         
         console.log(`🔒 Revoking mint authority for mint: ${mintAddress}`);
         

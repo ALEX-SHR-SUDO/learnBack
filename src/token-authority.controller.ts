@@ -25,6 +25,13 @@ export async function handleRevokeFreezeAuthority(
             });
         }
 
+        // Basic validation for mint address format
+        if (typeof mintAddress !== 'string' || mintAddress.trim().length === 0) {
+            return res.status(400).json({ 
+                error: "Invalid mintAddress: must be a non-empty string" 
+            });
+        }
+
         const signature = await revokeFreezeAuthority(mintAddress);
         
         res.status(200).json({
@@ -59,6 +66,13 @@ export async function handleRevokeMintAuthority(
         if (!mintAddress) {
             return res.status(400).json({ 
                 error: "Missing required field: mintAddress" 
+            });
+        }
+
+        // Basic validation for mint address format
+        if (typeof mintAddress !== 'string' || mintAddress.trim().length === 0) {
+            return res.status(400).json({ 
+                error: "Invalid mintAddress: must be a non-empty string" 
             });
         }
 
