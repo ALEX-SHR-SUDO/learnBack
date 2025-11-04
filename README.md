@@ -2,6 +2,23 @@
 
 Solana Token Backend API for creating and managing SPL tokens on Solana blockchain.
 
+## ⚠️ Important: Solscan Metadata Display
+
+**If your tokens are not showing name/logo on Solscan**, make sure you are using the **`/api/generate-metadata`** endpoint to create your metadata. Do NOT manually create metadata.json files, as they may not follow the complete Metaplex Token Metadata Standard required by Solscan.
+
+**Correct workflow:**
+1. ✅ Call `/api/generate-metadata` with your logo → Get metadataUri
+2. ✅ Call `/api/create-token` with the metadataUri
+3. ✅ Token displays correctly on Solscan!
+
+**Incorrect workflow:**
+1. ❌ Manually upload logo to `/api/upload-logo`
+2. ❌ Manually create metadata.json 
+3. ❌ Upload metadata.json to `/api/upload-logo`
+4. ❌ Create token → Metadata may NOT display on Solscan!
+
+See [SOLSCAN_FIX.md](./SOLSCAN_FIX.md) for detailed documentation.
+
 ## Features
 
 - Create SPL tokens with metadata
@@ -103,14 +120,6 @@ Solana Token Backend API for creating and managing SPL tokens on Solana blockcha
 - Metaplex UMI SDK
 - Pinata (IPFS)
 
-## Important Notes
+## License
 
-### Solscan Metadata Display
-If your tokens are not showing name/logo on Solscan, use the **new `/api/generate-metadata` endpoint** instead of manually creating metadata. This endpoint automatically generates properly formatted Metaplex metadata that Solscan requires.
-
-**Recommended workflow:**
-1. Call `/api/generate-metadata` with your logo and token info
-2. Use the returned `metadataUri` in `/api/create-token`
-3. Your token will display correctly on Solscan!
-
-See [SOLSCAN_FIX.md](./SOLSCAN_FIX.md) for detailed documentation.
+MIT
