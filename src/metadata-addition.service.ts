@@ -1,43 +1,37 @@
 // src/metadata-addition.service.ts
 
-import { Buffer } from "buffer";
-// Import proper named exports from mpl-token-metadata
 import { 
-    createAndMint,
-    TokenStandard,
-    mplTokenMetadata
-} from "@metaplex-foundation/mpl-token-metadata";
+    Connection,
+    Keypair,
+    SystemProgram,
+    Transaction,
+    PublicKey,
+    sendAndConfirmTransaction,
+    LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+
+import {
+    TOKEN_2022_PROGRAM_ID,
+    createInitializeMintInstruction,
+    createAssociatedTokenAccountIdempotent,
+    mintTo,
+    getAssociatedTokenAddressSync,
+    getMintLen,
+    ExtensionType,
+    createInitializeMetadataPointerInstruction,
+    TYPE_SIZE,
+    LENGTH_SIZE,
+} from "@solana/spl-token";
+
 import { 
-    createUmi, 
-    keypairIdentity, 
-    generateSigner, 
-    sol,
-    Signer,
-    TransactionSignature,
-    percentAmount,
-} from "@metaplex-foundation/umi";
+    createInitializeInstruction,
+    createUpdateFieldInstruction,
+    pack,
+    TokenMetadata,
+} from '@solana/spl-token-metadata';
 
-import { defaultPlugins } from "@metaplex-foundation/umi-bundle-defaults";
-
-import { PublicKey as Web3JsPublicKey, PublicKey } from "@solana/web3.js";
 import { getServiceWallet, getConnection } from './solana.service.js'; 
-import { toBigInt } from './utils.js'; 
-
-function findAssociatedTokenPda(_umi: any, { mint, owner }: { mint: any, owner: any }): [PublicKey] {
-    const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-    const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey("ATokenGPvRkZbJwTtT9pR9rMwvGmXbGmJ7Q1rGk7iCz");
-    const mintKey = new PublicKey(mint.toString());
-    const ownerKey = new PublicKey(owner.toString());
-    const [address] = PublicKey.findProgramAddressSync(
-        [
-            ownerKey.toBuffer(),
-            TOKEN_PROGRAM_ID.toBuffer(),
-            mintKey.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-    return [address];
-}
+import { toBigInt } from './utils.js';
 
 interface TokenDetails {
     name: string;
@@ -47,93 +41,144 @@ interface TokenDetails {
     decimals: string;
 }
 
-function initializeUmi(): any {
+// --- Create SPL Token-2022 with native metadata extension for proper Solscan visibility ---
+export async function createTokenAndMetadata(details: TokenDetails): Promise<{ mintAddress: string, ata: string, mintTx: string }> {
     const connection = getConnection();
-    const umi = createUmi();
-    umi.use(defaultPlugins(connection.rpcEndpoint)); 
-    umi.use(mplTokenMetadata()); 
-    return umi;
-}
-
-function getUmiSigner(umi: any): Signer {
-    const web3JsKeypair = getServiceWallet();
-    const secretKey = new Uint8Array(web3JsKeypair.secretKey);
-    const umiKeypair = umi.eddsa.createKeypairFromSecretKey(secretKey);
-    umi.use(keypairIdentity(umiKeypair));
-    return umiKeypair;
-}
-
-// --- Create SPL token with proper Metaplex metadata for Solscan visibility ---
-export async function createTokenAndMetadata(details: TokenDetails): Promise<{ mintAddress: string, ata: string, mintTx: TransactionSignature }> {
-    const umi = initializeUmi();
-    const payer = getUmiSigner(umi); 
+    const payer = getServiceWallet();
+    
     try {
         const supplyBigInt = toBigInt(details.supply, parseInt(details.decimals, 10));
         const decimalsNumber = parseInt(details.decimals, 10);
 
-        const solanaConnection = getConnection();
-        const web3JsPayerPublicKey = new Web3JsPublicKey(payer.publicKey.toString());
-        const balance = await solanaConnection.getBalance(web3JsPayerPublicKey);
-
-        const requiredBalance = Number(sol(0.01).basisPoints); 
+        // Check balance
+        const balance = await connection.getBalance(payer.publicKey);
+        const requiredBalance = 0.01 * LAMPORTS_PER_SOL; 
         if (balance < requiredBalance) { 
-            throw new Error(`Недостаточно SOL на кошельке ${payer.publicKey.toString()}. Требуется минимум 0.01 SOL.`);
+            throw new Error(`Недостаточно SOL на кошельке ${payer.publicKey.toBase58()}. Требуется минимум 0.01 SOL.`);
         }
         
-        const mint = generateSigner(umi);
+        // Generate a new keypair for the mint account
+        const mintKeypair = Keypair.generate();
+        const mint = mintKeypair.publicKey;
 
-        console.log(`🔨 Creating SPL token with mint address: ${mint.publicKey.toString()}`);
+        console.log(`🔨 Creating SPL Token-2022 with metadata extension`);
+        console.log(`📍 Mint address: ${mint.toBase58()}`);
         console.log(`📊 Token parameters:`, {
             name: details.name,
             symbol: details.symbol,
             uri: details.uri,
             decimals: decimalsNumber,
             supply: supplyBigInt.toString(),
-            tokenStandard: 'Fungible'
+            tokenStandard: 'Fungible (Token-2022 with metadata extension)'
         });
 
-        // Create the token mint with metadata and mint initial supply in a single transaction
-        // Using createAndMint to atomically create metadata and mint tokens for fungible SPL tokens
-        // This ensures metadata will be visible on Solscan and other explorers
-        const result = await createAndMint(umi, {
-            mint,
-            authority: payer,
+        // Define the metadata for the token
+        const metadata: TokenMetadata = {
+            mint: mint,
             name: details.name,
             symbol: details.symbol,
             uri: details.uri,
-            sellerFeeBasisPoints: percentAmount(0),
-            decimals: decimalsNumber,
-            tokenStandard: TokenStandard.Fungible,
-            // Set isMutable to allow future metadata updates if needed
-            isMutable: true,
-            // Update authority can be set to the payer or a specific address
-            updateAuthority: payer.publicKey,
-            // Mint parameters
-            amount: supplyBigInt,
-            tokenOwner: payer.publicKey,
-        }).sendAndConfirm(umi);
+            additionalMetadata: [],
+        };
 
-        console.log(`✅ Token mint, metadata created and tokens minted: ${mint.publicKey.toString()}`);
-        console.log(`📝 Transaction signature: ${result.signature}`);
-        console.log(`🔍 View token on Solscan: https://solscan.io/token/${mint.publicKey.toString()}?cluster=devnet`);
-        console.log(`🔍 View transaction: https://explorer.solana.com/tx/${result.signature}?cluster=devnet`);
+        // Calculate the space required for the mint account with metadata extension
+        const metadataExtension = TYPE_SIZE + LENGTH_SIZE;
+        const metadataLen = pack(metadata).length;
+        const mintLen = getMintLen([ExtensionType.MetadataPointer]);
+        const lamports = await connection.getMinimumBalanceForRentExemption(mintLen + metadataExtension + metadataLen);
 
-        // Calculate the associated token account address for the return value
-        const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
-            mint: mint.publicKey,
-            owner: payer.publicKey,
-        });
+        // Create transaction to:
+        // 1. Create mint account with metadata pointer extension
+        // 2. Initialize metadata pointer to point to the mint itself
+        // 3. Initialize mint
+        // 4. Initialize metadata
+        const transaction = new Transaction().add(
+            // Create account for the mint
+            SystemProgram.createAccount({
+                fromPubkey: payer.publicKey,
+                newAccountPubkey: mint,
+                space: mintLen,
+                lamports,
+                programId: TOKEN_2022_PROGRAM_ID,
+            }),
+            // Initialize the metadata pointer (points to the mint itself)
+            createInitializeMetadataPointerInstruction(
+                mint,
+                payer.publicKey,
+                mint, // Metadata account - pointing to the mint itself
+                TOKEN_2022_PROGRAM_ID
+            ),
+            // Initialize the mint
+            createInitializeMintInstruction(
+                mint,
+                decimalsNumber,
+                payer.publicKey,
+                null, // No freeze authority
+                TOKEN_2022_PROGRAM_ID
+            ),
+            // Initialize the metadata inside the mint account
+            createInitializeInstruction({
+                programId: TOKEN_2022_PROGRAM_ID,
+                metadata: mint,
+                updateAuthority: payer.publicKey,
+                mint: mint,
+                mintAuthority: payer.publicKey,
+                name: metadata.name,
+                symbol: metadata.symbol,
+                uri: metadata.uri,
+            })
+        );
 
-        const mintPublicKey = mint.publicKey.toString();
+        // Send and confirm the transaction
+        const signature = await sendAndConfirmTransaction(
+            connection,
+            transaction,
+            [payer, mintKeypair],
+            { commitment: 'confirmed' }
+        );
+
+        console.log(`✅ Token-2022 mint created with metadata extension`);
+        console.log(`📝 Transaction signature: ${signature}`);
+
+        // Create associated token account and mint tokens
+        const associatedTokenAccount = await createAssociatedTokenAccountIdempotent(
+            connection,
+            payer,
+            mint,
+            payer.publicKey,
+            { commitment: 'confirmed' },
+            TOKEN_2022_PROGRAM_ID
+        );
+
+        console.log(`💰 Associated token account created: ${associatedTokenAccount.toBase58()}`);
+
+        // Mint tokens to the associated token account
+        const mintSignature = await mintTo(
+            connection,
+            payer,
+            mint,
+            associatedTokenAccount,
+            payer.publicKey,
+            supplyBigInt,
+            [],
+            { commitment: 'confirmed' },
+            TOKEN_2022_PROGRAM_ID
+        );
+
+        console.log(`✨ Tokens minted successfully`);
+        console.log(`📝 Mint transaction signature: ${mintSignature}`);
+        console.log(`🔍 View token on Solscan: https://solscan.io/token/${mint.toBase58()}?cluster=devnet`);
+        console.log(`🔍 View creation transaction: https://explorer.solana.com/tx/${signature}?cluster=devnet`);
+        console.log(`🔍 View mint transaction: https://explorer.solana.com/tx/${mintSignature}?cluster=devnet`);
 
         return {
-            mintAddress: mintPublicKey,
-            ata: associatedTokenAccountPda[0].toString(),
-            mintTx: result.signature
+            mintAddress: mint.toBase58(),
+            ata: associatedTokenAccount.toBase58(),
+            mintTx: signature
         };
 
     } catch (error: any) {
-        console.error("❌ UMI SDK createTokenAndMetadata Error:", error);
+        console.error("❌ Token-2022 createTokenAndMetadata Error:", error);
         throw new Error(`Failed to create token and metadata: ${error.message || error}`);
     }
 }
