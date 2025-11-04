@@ -23,6 +23,8 @@ function validateCluster(cluster: string): void {
 /**
  * Validate if a string is a valid base58 signature.
  * Basic validation - checks if the string can be decoded as base58.
+ * @param str - String to validate
+ * @returns true if valid base58, false otherwise
  */
 function isValidBase58(str: string): boolean {
     try {
@@ -50,7 +52,7 @@ export function formatSignature(sig: Uint8Array | Buffer | string): string {
     // If already a string, validate and return
     if (typeof sig === 'string') {
         if (!isValidBase58(sig)) {
-            throw new Error(`Invalid base58 signature string: ${sig}`);
+            throw new Error('Invalid base58 signature string provided');
         }
         return sig;
     }
