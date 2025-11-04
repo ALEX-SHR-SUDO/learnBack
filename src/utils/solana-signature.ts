@@ -16,7 +16,7 @@ type SolanaCluster = 'mainnet-beta' | 'devnet' | 'testnet';
 function validateCluster(cluster: string): void {
     const validClusters: SolanaCluster[] = ['mainnet-beta', 'devnet', 'testnet'];
     if (!validClusters.includes(cluster as SolanaCluster)) {
-        throw new Error(`Invalid cluster: ${cluster}. Must be one of: ${validClusters.join(', ')}`);
+        throw new Error(`Invalid cluster provided. Must be one of: ${validClusters.join(', ')}`);
     }
 }
 
