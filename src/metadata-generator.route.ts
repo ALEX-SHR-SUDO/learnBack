@@ -75,6 +75,7 @@ router.post("/generate-metadata", upload.single("file"), async (req: Request, re
             message: "Metadata generated and uploaded successfully",
             metadataUri: result.metadataUri,
             imageUri: result.imageUri,
+            sessionId: result.sessionId,
             note: "Use the metadataUri when creating your token to ensure proper display on Solscan"
         });
 
