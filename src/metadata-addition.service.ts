@@ -67,8 +67,8 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
     const umi = initializeUmi();
     const payer = getUmiSigner(umi); 
     try {
-        const supplyBigInt = toBigInt(details.supply, parseInt(details.decimals, 10));
-        const decimalsNumber = parseInt(details.decimals, 10);
+        const supplyBigInt = toBigInt(details.supply, Number.parseInt(details.decimals, 10));
+        const decimalsNumber = Number.parseInt(details.decimals, 10);
 
         const solanaConnection = getConnection();
         const web3JsPayerPublicKey = new Web3JsPublicKey(payer.publicKey.toString());
