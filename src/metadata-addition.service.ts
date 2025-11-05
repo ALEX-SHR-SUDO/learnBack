@@ -14,6 +14,7 @@ import {
     TransactionSignature,
     percentAmount,
     publicKey as umiPublicKey,
+    some,
 } from "@metaplex-foundation/umi";
 
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
@@ -134,6 +135,15 @@ export async function createTokenAndMetadata(details: TokenDetails, sessionId?: 
             isMutable: true,
             // Update authority can be set to the payer or a specific address
             updateAuthority: payer.publicKey,
+            // Add creators field to match Metaplex metadata standard
+            // This ensures the metadata structure matches standard tokens like VALOR
+            creators: some([
+                {
+                    address: payer.publicKey,
+                    verified: true,
+                    share: 100,
+                }
+            ]),
             amount: supplyBigInt,
             tokenOwner: tokenOwnerPubkey,
         }).sendAndConfirm(umi);
