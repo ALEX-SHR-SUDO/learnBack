@@ -25,10 +25,19 @@ See [SOLSCAN_FIX.md](./SOLSCAN_FIX.md) and [CREATORS_FIELD_FIX.md](./CREATORS_FI
 
 - Create SPL tokens with metadata
 - **NEW:** Auto-generate Metaplex-compliant metadata for proper Solscan display
+- **NEW:** User wallet token creation (client signs transactions onchain)
 - Upload token logos to Pinata (IPFS)
 - Check wallet balance and SPL tokens
 - Revoke freeze authority
 - Revoke mint authority
+
+## Token Creation Methods
+
+### Method 1: Service Wallet (Backend Signs)
+Use this method when you want the backend to handle all signing. The service wallet pays for all fees.
+
+### Method 2: User Wallet (Client Signs) ⭐ NEW!
+Use this method when you want users to create tokens with their own wallet. The user signs the transaction and pays fees from their wallet.
 
 ## API Endpoints
 
@@ -51,7 +60,9 @@ See [SOLSCAN_FIX.md](./SOLSCAN_FIX.md) and [CREATORS_FIELD_FIX.md](./CREATORS_FI
   ```
   This endpoint ensures your token metadata is properly formatted for display on Solscan and other explorers.
 
-- `POST /api/create-token` - Create new SPL token with metadata
+#### Service Wallet Token Creation
+
+- `POST /api/create-token` - Create new SPL token with metadata (backend signs with service wallet)
   ```json
   {
     "name": "Token Name",
@@ -70,6 +81,46 @@ See [SOLSCAN_FIX.md](./SOLSCAN_FIX.md) and [CREATORS_FIELD_FIX.md](./CREATORS_FI
   - `revokeMintAuthority` (boolean) - If true, automatically revokes mint authority after token creation, making the supply fixed
   
   **Tip:** Use the `metadataUri` from `/api/generate-metadata` for the `uri` field to ensure proper Solscan display.
+
+#### User Wallet Token Creation ⭐ NEW!
+
+- `POST /api/create-unsigned-token` - Create unsigned token transaction for user wallet signing
+  ```json
+  {
+    "userPublicKey": "UserWalletPublicKeyHere",
+    "name": "Token Name",
+    "symbol": "SYMBOL",
+    "uri": "https://gateway.pinata.cloud/ipfs/...",
+    "supply": "1000000",
+    "decimals": "9"
+  }
+  ```
+  **Required fields:** `userPublicKey`, `name`, `symbol`, `uri`, `supply`, `decimals`
+  
+  **Returns:** Serialized unsigned transaction and mint keypair that the user must sign with their wallet
+  
+  **Workflow:**
+  1. Call `/api/generate-metadata` to create proper metadata
+  2. Call `/api/create-unsigned-token` with user's wallet public key
+  3. Sign the returned transaction with user's wallet (frontend)
+  4. Submit signed transaction to `/api/submit-signed-transaction`
+  
+  **Benefits:**
+  - User pays transaction fees from their own wallet
+  - Tokens are created onchain with user as authority
+  - User maintains full control over the token
+  - More decentralized approach
+
+- `POST /api/submit-signed-transaction` - Submit a user-signed transaction to the blockchain
+  ```json
+  {
+    "signedTransaction": "base64EncodedSignedTransaction",
+    "mintAddress": "OptionalMintAddressForResponseEnhancement"
+  }
+  ```
+  **Required fields:** `signedTransaction`
+  
+  **Returns:** Transaction signature and explorer links
 
 - `POST /api/upload-logo` - Upload token logo to Pinata (legacy endpoint)
 
