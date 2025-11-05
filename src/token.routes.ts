@@ -25,6 +25,12 @@ import {
 // ✅ НОВЫЙ ИМПОРТ: Функция для получения списка SPL-токенов
 import { getSplTokensForWallet } from "./token-account.service.js"; 
 
+// ✅ НОВЫЙ ИМПОРТ: Контроллеры для создания токенов с пользовательским кошельком
+import {
+    handleCreateUnsignedToken,
+    handleSubmitSignedTransaction
+} from "./user-wallet-token.controller.js"; 
+
 // ---------------------------------------------
 // --- Вспомогательная функция для получения баланса и токенов ---
 /**
@@ -100,5 +106,13 @@ router.post("/revoke-freeze-authority", handleRevokeFreezeAuthority);
 // ---------------------------------------------
 // --- 4. Revoke Mint Authority ---
 router.post("/revoke-mint-authority", handleRevokeMintAuthority);
+
+// ---------------------------------------------
+// --- 5. Create Unsigned Token Transaction (User Wallet) ---
+router.post("/create-unsigned-token", handleCreateUnsignedToken);
+
+// ---------------------------------------------
+// --- 6. Submit Signed Transaction (User Wallet) ---
+router.post("/submit-signed-transaction", handleSubmitSignedTransaction);
 
 export default router;

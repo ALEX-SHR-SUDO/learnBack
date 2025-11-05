@@ -1,0 +1,188 @@
+// src/user-wallet-token.service.ts
+// Service for creating tokens with user's wallet (client-side signing)
+
+import { 
+    createV1,
+    mintV1,
+    TokenStandard,
+    mplTokenMetadata
+} from "@metaplex-foundation/mpl-token-metadata";
+import { 
+    publicKey as umiPublicKey,
+    generateSigner, 
+    percentAmount,
+    TransactionBuilder,
+    Umi,
+    createNoopSigner,
+    transactionBuilder,
+} from "@metaplex-foundation/umi";
+
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { PublicKey } from "@solana/web3.js";
+import { getConnection } from './solana.service.js'; 
+import { toBigInt } from './utils.js';
+
+interface TokenDetails {
+    name: string;
+    symbol: string;
+    uri: string;
+    supply: string;
+    decimals: string;
+}
+
+function initializeUmi(): Umi {
+    const connection = getConnection();
+    const umi = createUmi(connection.rpcEndpoint); 
+    umi.use(mplTokenMetadata()); 
+    return umi;
+}
+
+/**
+ * Creates an unsigned transaction for token creation with metadata
+ * @param userPublicKey - The public key of the user's wallet (as base58 string)
+ * @param details - Token details (name, symbol, uri, supply, decimals)
+ * @returns Object containing the serialized unsigned transaction and mint address
+ */
+export async function createUnsignedTokenTransaction(
+    userPublicKey: string, 
+    details: TokenDetails
+): Promise<{ 
+    transaction: string, 
+    mintAddress: string,
+    mintKeypair: string,
+    message: string 
+}> {
+    const umi = initializeUmi();
+    
+    try {
+        // Validate user public key
+        new PublicKey(userPublicKey);
+        
+        const supplyBigInt = toBigInt(details.supply, Number.parseInt(details.decimals, 10));
+        const decimalsNumber = Number.parseInt(details.decimals, 10);
+
+        // Generate a new mint keypair - this needs to be sent back to the client
+        const mint = generateSigner(umi);
+        
+        // Convert user's public key to UMI format
+        const userPubkey = umiPublicKey(userPublicKey);
+        
+        // Create a noop signer for the user (won't sign here, will be signed on client)
+        const userSigner = createNoopSigner(userPubkey);
+
+        console.log(`🔨 Creating unsigned token transaction`);
+        console.log(`📊 Token parameters:`, {
+            name: details.name,
+            symbol: details.symbol,
+            uri: details.uri,
+            decimals: decimalsNumber,
+            supply: supplyBigInt.toString(),
+            tokenStandard: 'Fungible',
+            userWallet: userPublicKey,
+            mintAddress: mint.publicKey.toString()
+        });
+
+        // Build transaction in two steps: create metadata, then mint tokens
+        let builder = transactionBuilder();
+        
+        // Step 1: Create token with metadata
+        builder = builder.add(
+            createV1(umi, {
+                mint,
+                authority: userSigner,
+                name: details.name,
+                symbol: details.symbol,
+                uri: details.uri,
+                sellerFeeBasisPoints: percentAmount(0),
+                decimals: decimalsNumber,
+                tokenStandard: TokenStandard.Fungible,
+                isMutable: true,
+                updateAuthority: userPubkey,
+                payer: userSigner,
+            })
+        );
+        
+        // Step 2: Mint initial supply
+        builder = builder.add(
+            mintV1(umi, {
+                mint: mint.publicKey,
+                authority: userSigner,
+                amount: supplyBigInt,
+                tokenOwner: userPubkey,
+                tokenStandard: TokenStandard.Fungible,
+            })
+        );
+
+        // Build the transaction (without sending)
+        const builtTransaction = await builder.build(umi);
+        
+        // Serialize the transaction to base64
+        const serializedTx = Buffer.from(
+            umi.transactions.serialize(builtTransaction)
+        ).toString('base64');
+        
+        // Export mint keypair so client can sign with it
+        const mintSecretKey = Buffer.from(mint.secretKey).toString('base64');
+
+        console.log(`✅ Unsigned transaction created successfully`);
+        console.log(`📝 Mint address: ${mint.publicKey.toString()}`);
+        console.log(`📦 Transaction serialized (${serializedTx.length} chars)`);
+
+        return {
+            transaction: serializedTx,
+            mintAddress: mint.publicKey.toString(),
+            mintKeypair: mintSecretKey,
+            message: "Transaction created successfully. Sign with your wallet and submit."
+        };
+
+    } catch (error: any) {
+        console.error("❌ Error creating unsigned token transaction:", error);
+        throw new Error(`Failed to create unsigned transaction: ${error.message || error}`);
+    }
+}
+
+/**
+ * Submits a signed transaction to the blockchain
+ * @param signedTransaction - Base64 encoded signed transaction
+ * @returns Transaction signature
+ */
+export async function submitSignedTransaction(
+    signedTransaction: string
+): Promise<{ signature: string, message: string }> {
+    const umi = initializeUmi();
+    
+    try {
+        // Deserialize the signed transaction
+        const txBuffer = Buffer.from(signedTransaction, 'base64');
+        const transaction = umi.transactions.deserialize(txBuffer);
+
+        console.log(`📤 Submitting signed transaction...`);
+
+        // Send the signed transaction
+        const signature = await umi.rpc.sendTransaction(transaction);
+
+        console.log(`✅ Transaction submitted successfully`);
+        console.log(`📝 Signature: ${signature}`);
+
+        // Wait for confirmation
+        const confirmResult = await umi.rpc.confirmTransaction(signature, {
+            strategy: { type: 'blockhash', ...(transaction as any).message.recentBlockhash },
+            commitment: 'confirmed'
+        });
+
+        if (confirmResult.value.err) {
+            throw new Error(`Transaction failed: ${JSON.stringify(confirmResult.value.err)}`);
+        }
+
+        console.log(`✅ Transaction confirmed`);
+
+        return {
+            signature: signature.toString(),
+            message: "Transaction confirmed successfully"
+        };
+
+    } catch (error: any) {
+        console.error("❌ Error submitting signed transaction:", error);
+        throw new Error(`Failed to submit transaction: ${error.message || error}`);
+    }
+}

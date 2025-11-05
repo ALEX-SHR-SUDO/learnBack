@@ -32,7 +32,9 @@ app.get("/", (req, res) => {
       balance: "/api/balance",
       walletBalance: "/api/wallet-balance",
       generateMetadata: "POST /api/generate-metadata (NEW - Generates proper Metaplex metadata)",
-      createToken: "POST /api/create-token",
+      createToken: "POST /api/create-token (Service wallet - backend signs)",
+      createUnsignedToken: "POST /api/create-unsigned-token (NEW - User wallet - frontend signs)",
+      submitSignedTransaction: "POST /api/submit-signed-transaction (NEW - Submit user-signed transaction)",
       upload: "POST /api/upload-logo",
       revokeFreezeAuthority: "POST /api/revoke-freeze-authority",
       revokeMintAuthority: "POST /api/revoke-mint-authority"
