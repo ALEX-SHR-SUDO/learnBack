@@ -49,7 +49,47 @@ Use this method when you want users to create tokens with their own wallet. The 
 - `GET /api/wallet-balance` - Alternative endpoint for wallet balance
 
 ### Token Management
-- `POST /api/generate-metadata` - **NEW!** Generate proper Metaplex metadata for Solscan
+
+#### Metadata Generation
+
+**Option 1: Separated Upload (NEW - More Flexible)** ⭐
+
+1. **Upload Logo Only**
+   - `POST /api/upload-logo-only` - Upload logo to IPFS (Step 1)
+     ```bash
+     # Upload logo first
+     curl -X POST /api/upload-logo-only \
+       -F "file=@logo.png"
+     # Returns: { imageUri, ipfsHash, sessionId }
+     ```
+
+2. **Generate Metadata Only** 
+   - `POST /api/generate-metadata-only` - Generate metadata JSON with pre-uploaded logo (Step 2)
+     ```bash
+     # Generate metadata using imageUri from step 1
+     curl -X POST /api/generate-metadata-only \
+       -H "Content-Type: application/json" \
+       -d '{
+         "imageUri": "https://gateway.pinata.cloud/ipfs/...",
+         "name": "Token Name",
+         "symbol": "SYMBOL",
+         "description": "Token description",
+         "sessionId": "sess_xxx"
+       }'
+     # Returns: { metadataUri, metadataHash, sessionId }
+     ```
+   
+   **Benefits of separated upload:**
+   - Upload logo once, reuse for multiple tokens
+   - Better error handling and recovery
+   - More control over the process
+   - Show progress for each step in your UI
+   
+   See [SEPARATED_METADATA_UPLOAD.md](./SEPARATED_METADATA_UPLOAD.md) for detailed examples and integration guides.
+
+**Option 2: Combined Upload (Existing)**
+
+- `POST /api/generate-metadata` - Upload logo and generate metadata in one step
   ```bash
   # Upload logo and generate metadata in one step
   curl -X POST /api/generate-metadata \
