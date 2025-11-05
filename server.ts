@@ -5,6 +5,7 @@ import cors from "cors";
 import tokenRoutes from "./src/token.routes.js"; // Обязательно .js
 import pinataUploadRoute from "./src/pinata-upload.route.js";
 import metadataGeneratorRoute from "./src/metadata-generator.route.js";
+import metadataUploadRoute from "./src/metadata-upload.route.js"; // New: Separated upload routes
 // Импортируем solanaService, чтобы инициализировать кошелек при запуске
 // ✅ ИСПРАВЛЕНО: Обновлен путь импорта на .ts файл (с расширением .js для рантайма)
 import * as solanaService from "./src/solana.service.js";
@@ -31,11 +32,13 @@ app.get("/", (req, res) => {
       health: "/api/ping",
       balance: "/api/balance",
       walletBalance: "/api/wallet-balance",
-      generateMetadata: "POST /api/generate-metadata (NEW - Generates proper Metaplex metadata)",
+      uploadLogoOnly: "POST /api/upload-logo-only (NEW - Step 1: Upload logo to IPFS)",
+      generateMetadataOnly: "POST /api/generate-metadata-only (NEW - Step 2: Generate metadata JSON with pre-uploaded logo)",
+      generateMetadata: "POST /api/generate-metadata (Combined - Uploads logo and generates metadata in one step)",
       createToken: "POST /api/create-token (Service wallet pays, optional recipientWallet parameter)",
       createUnsignedToken: "POST /api/create-unsigned-token (NEW - User wallet - frontend signs)",
       submitSignedTransaction: "POST /api/submit-signed-transaction (NEW - Submit user-signed transaction)",
-      upload: "POST /api/upload-logo",
+      upload: "POST /api/upload-logo (Legacy)",
       revokeFreezeAuthority: "POST /api/revoke-freeze-authority",
       revokeMintAuthority: "POST /api/revoke-mint-authority"
     }
@@ -47,6 +50,7 @@ app.get("/", (req, res) => {
 app.use("/api", tokenRoutes);
 app.use("/api", pinataUploadRoute);
 app.use("/api", metadataGeneratorRoute);
+app.use("/api", metadataUploadRoute); // New: Separated upload routes
 
 // === Запуск сервера ===
 // Start server for traditional hosting (Render, local dev, etc.)
