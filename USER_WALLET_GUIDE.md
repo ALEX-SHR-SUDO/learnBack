@@ -45,13 +45,25 @@ Response:
 ```
 
 ### Step 2: Create Unsigned Transaction
-Create an unsigned transaction for token creation:
+
+**IMPORTANT:** Before calling this endpoint, you must generate a mint keypair on the client side. This is more secure than having the backend generate it.
+
+```javascript
+// Frontend: Generate mint keypair
+import { Keypair } from '@solana/web3.js';
+
+const mintKeypair = Keypair.generate();
+const mintPublicKey = mintKeypair.publicKey.toBase58();
+```
+
+Then create an unsigned transaction for token creation:
 
 ```bash
 curl -X POST http://localhost:3000/api/create-unsigned-token \
   -H "Content-Type: application/json" \
   -d '{
     "userPublicKey": "YourWalletPublicKeyHere",
+    "mintPublicKey": "GeneratedMintPublicKeyHere",
     "name": "My Token",
     "symbol": "MTK",
     "uri": "https://gateway.pinata.cloud/ipfs/QmXXX...",
@@ -66,11 +78,10 @@ Response:
   "success": true,
   "message": "Transaction created successfully. Sign with your wallet and submit.",
   "transaction": "base64EncodedUnsignedTransaction",
-  "mintAddress": "NewTokenMintAddress",
-  "mintKeypair": "base64EncodedMintSecretKey",
+  "mintAddress": "MintPublicKeyYouProvided",
   "instructions": [
-    "1. Decode the mintKeypair and use it as a signer for the transaction",
-    "2. Sign the transaction with your wallet",
+    "1. The mint keypair was generated on your client and must be used to sign this transaction",
+    "2. Sign the transaction with both the mint keypair and your user wallet",
     "3. Submit the signed transaction to /api/submit-signed-transaction",
     "4. The token will be created and minted to your wallet"
   ],
@@ -84,15 +95,13 @@ In your frontend application, sign the transaction:
 
 ```javascript
 import { Transaction, Connection, Keypair } from '@solana/web3.js';
-import bs58 from 'bs58';
 
 // Get the unsigned transaction from the API response
 const transactionBuffer = Buffer.from(response.transaction, 'base64');
 const transaction = Transaction.from(transactionBuffer);
 
-// Decode the mint keypair
-const mintSecretKey = Buffer.from(response.mintKeypair, 'base64');
-const mintKeypair = Keypair.fromSecretKey(new Uint8Array(mintSecretKey));
+// Use the mint keypair you generated in Step 2
+// (mintKeypair was already created before calling the API)
 
 // Sign with mint keypair
 transaction.partialSign(mintKeypair);
@@ -153,6 +162,10 @@ function CreateTokenButton() {
     }
 
     try {
+      // Step 0: Generate mint keypair on client
+      const mintKeypair = Keypair.generate();
+      const mintPublicKey = mintKeypair.publicKey.toBase58();
+
       // Step 1: Generate metadata (upload logo)
       const formData = new FormData();
       formData.append('file', logoFile);
@@ -171,6 +184,7 @@ function CreateTokenButton() {
         'http://localhost:3000/api/create-unsigned-token',
         {
           userPublicKey: publicKey.toBase58(),
+          mintPublicKey: mintPublicKey,
           name: 'My Token',
           symbol: 'MTK',
           uri: metadataUri,
@@ -183,9 +197,7 @@ function CreateTokenButton() {
       const txBuffer = Buffer.from(unsignedTxRes.data.transaction, 'base64');
       const transaction = Transaction.from(txBuffer);
 
-      // Sign with mint keypair
-      const mintSecretKey = Buffer.from(unsignedTxRes.data.mintKeypair, 'base64');
-      const mintKeypair = Keypair.fromSecretKey(new Uint8Array(mintSecretKey));
+      // Sign with mint keypair (generated on client)
       transaction.partialSign(mintKeypair);
 
       // Sign with user wallet
@@ -230,16 +242,25 @@ function CreateTokenButton() {
 
 ⚠️ **Important Security Considerations:**
 
-1. **Mint Keypair Transmission**: The mint keypair is sent from backend to frontend. This is necessary because the mint account must sign its own creation transaction. However:
-   - The keypair is only transmitted once during creation
-   - It's immediately used and should not be stored long-term
-   - Use HTTPS in production to encrypt the transmission
+1. **Mint Keypair Generation**: ✅ **SECURE APPROACH**
+   - The mint keypair is generated on the client side (your frontend)
+   - The private key never leaves your browser
+   - Only the public key is sent to the backend
+   - This is the most secure approach for decentralized applications
 
 2. **Transaction Signing**: The transaction must be signed by both:
    - The mint keypair (for mint account creation)
    - The user's wallet (as payer and authority)
 
 3. **Authority Control**: After creation, the user is the:
+   - Mint authority (can mint more tokens)
+   - Update authority (can update metadata)
+   - Initial token owner (receives the minted supply)
+
+4. **HTTPS in Production**: Always use HTTPS in production to:
+   - Encrypt API communications
+   - Protect transaction data in transit
+   - Prevent man-in-the-middle attacks
    - Mint authority (can mint more tokens)
    - Update authority (can update metadata)
    - Initial token owner (receives the minted supply)

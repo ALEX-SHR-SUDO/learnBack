@@ -88,6 +88,7 @@ Use this method when you want users to create tokens with their own wallet. The 
   ```json
   {
     "userPublicKey": "UserWalletPublicKeyHere",
+    "mintPublicKey": "MintKeypairPublicKeyGeneratedOnClient",
     "name": "Token Name",
     "symbol": "SYMBOL",
     "uri": "https://gateway.pinata.cloud/ipfs/...",
@@ -95,21 +96,25 @@ Use this method when you want users to create tokens with their own wallet. The 
     "decimals": "9"
   }
   ```
-  **Required fields:** `userPublicKey`, `name`, `symbol`, `uri`, `supply`, `decimals`
+  **Required fields:** `userPublicKey`, `mintPublicKey`, `name`, `symbol`, `uri`, `supply`, `decimals`
   
-  **Returns:** Serialized unsigned transaction and mint keypair that the user must sign with their wallet
+  **Returns:** Serialized unsigned transaction that the user must sign with their wallet
   
   **Workflow:**
-  1. Call `/api/generate-metadata` to create proper metadata
-  2. Call `/api/create-unsigned-token` with user's wallet public key
-  3. Sign the returned transaction with user's wallet (frontend)
-  4. Submit signed transaction to `/api/submit-signed-transaction`
+  1. Generate a mint keypair on the client (frontend) using `Keypair.generate()`
+  2. Call `/api/generate-metadata` to create proper metadata
+  3. Call `/api/create-unsigned-token` with user's wallet and mint public keys
+  4. Sign the transaction with both mint keypair and user's wallet (frontend)
+  5. Submit signed transaction to `/api/submit-signed-transaction`
   
   **Benefits:**
-  - User pays transaction fees from their own wallet
-  - Tokens are created onchain with user as authority
-  - User maintains full control over the token
-  - More decentralized approach
+  - 🔒 Secure: Mint private key never leaves the client
+  - 💰 User pays transaction fees from their own wallet
+  - ⛓️ Tokens are created onchain with user as authority
+  - 🎯 User maintains full control over the token
+  - ✅ More decentralized approach
+  
+  See [USER_WALLET_GUIDE.md](./USER_WALLET_GUIDE.md) for detailed integration examples.
 
 - `POST /api/submit-signed-transaction` - Submit a user-signed transaction to the blockchain
   ```json
