@@ -26,12 +26,7 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
         console.log("Req Body Received:", req.body);
 
         // Start or continue flow tracking
-        const sessionId = providedSessionId || flowTracker.generateSessionId();
-        let flow = flowTracker.getActiveFlow(sessionId);
-        
-        if (!flow) {
-            flowTracker.startMetadataFlow(sessionId);
-        }
+        const sessionId = flowTracker.startOrContinueFlow(providedSessionId);
         
         flowTracker.trackTokenCreationRequest(sessionId, {
             name,
@@ -145,8 +140,9 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
                 });
             } catch (error) {
                 const errorMsg = error instanceof Error ? error.message : String(error);
-                console.error(`❌ Failed to revoke freeze authority: ${errorMsg}`);
-                revocationErrors.push(`freeze: ${errorMsg}`);
+                const sanitizedError = errorMsg.slice(0, 200); // Limit error message length
+                console.error(`❌ Failed to revoke freeze authority: ${sanitizedError}`);
+                revocationErrors.push(`freeze: ${sanitizedError}`);
                 flowTracker.addFlowStep(sessionId, 'Freeze Authority Revocation Failed', 'error', {
                     error: errorMsg
                 });
@@ -166,8 +162,9 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
                 });
             } catch (error) {
                 const errorMsg = error instanceof Error ? error.message : String(error);
-                console.error(`❌ Failed to revoke mint authority: ${errorMsg}`);
-                revocationErrors.push(`mint: ${errorMsg}`);
+                const sanitizedError = errorMsg.slice(0, 200); // Limit error message length
+                console.error(`❌ Failed to revoke mint authority: ${sanitizedError}`);
+                revocationErrors.push(`mint: ${sanitizedError}`);
                 flowTracker.addFlowStep(sessionId, 'Mint Authority Revocation Failed', 'error', {
                     error: errorMsg
                 });

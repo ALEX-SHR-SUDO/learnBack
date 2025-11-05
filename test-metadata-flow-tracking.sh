@@ -2,6 +2,11 @@
 
 # Test script for metadata flow tracking system
 # Demonstrates how to use session IDs to track metadata through the entire flow
+# 
+# Dependencies:
+# - curl: for making HTTP requests
+# - jq: for parsing JSON responses
+# - ImageMagick (convert command): for creating test images if needed (optional)
 
 set -euo pipefail
 

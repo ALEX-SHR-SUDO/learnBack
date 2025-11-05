@@ -12,6 +12,34 @@
 
 import axios from 'axios';
 
+/**
+ * Metaplex metadata structure for validation
+ */
+interface MetaplexMetadata {
+    name: string;
+    symbol: string;
+    description?: string;
+    image?: string;
+    attributes?: Array<{ trait_type: string; value: string | number }>;
+    properties?: {
+        files?: Array<{
+            uri: string;
+            type: string;
+        }>;
+        category?: string;
+    };
+}
+
+/**
+ * Metadata account details structure
+ */
+interface MetadataAccountDetails {
+    updateAuthority: string;
+    mint: string;
+    tokenStandard: string;
+    isMutable: boolean;
+}
+
 export interface MetadataFlowStep {
     step: string;
     timestamp: Date;
@@ -170,7 +198,7 @@ export function trackImageUpload(sessionId: string, data: {
 /**
  * Track metadata JSON creation
  */
-export function trackMetadataJsonCreation(sessionId: string, metadata: any): void {
+export function trackMetadataJsonCreation(sessionId: string, metadata: MetaplexMetadata): void {
     addFlowStep(sessionId, 'Metadata JSON Created', 'success', {
         structure: {
             name: metadata.name,
@@ -243,12 +271,42 @@ export function trackTokenCreationRequest(sessionId: string, data: {
 
 /**
  * Track metadata URI validation
+ * Note: This function intentionally fetches user-provided URIs to validate them.
+ * This is a required validation step to check if metadata is accessible from the internet.
+ * Security measures:
+ * - 5 second timeout to prevent hanging
+ * - Used only for validation, not for executing code
+ * - Results are logged and returned to user for debugging
  */
 export async function trackMetadataUriValidation(sessionId: string, uri: string): Promise<void> {
     addFlowStep(sessionId, 'Validating Metadata URI', 'success', { uri });
     
+    // Basic URI validation to prevent malformed requests
     try {
-        const response = await axios.get(uri, { timeout: 5000 });
+        const url = new URL(uri);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+            addFlowStep(sessionId, 'Invalid URI Protocol', 'error', {
+                uri,
+                error: 'Only HTTP and HTTPS protocols are allowed',
+                impact: 'Metadata will not be accessible',
+            });
+            return;
+        }
+    } catch (error) {
+        addFlowStep(sessionId, 'Malformed URI', 'error', {
+            uri,
+            error: 'URI is not valid',
+            impact: 'Metadata will not be accessible',
+        });
+        return;
+    }
+    
+    try {
+        const response = await axios.get(uri, { 
+            timeout: 5000,
+            maxRedirects: 3,
+            validateStatus: (status) => status < 500 // Accept any status < 500 for validation
+        });
         const metadata = response.data;
         
         addFlowStep(sessionId, 'Metadata URI Accessible', 'success', {
@@ -329,7 +387,7 @@ export function trackOnChainCreation(sessionId: string, data: {
 /**
  * Track metadata account creation
  */
-export function trackMetadataAccountCreation(sessionId: string, details: any): void {
+export function trackMetadataAccountCreation(sessionId: string, details: MetadataAccountDetails): void {
     addFlowStep(sessionId, 'Metadata Account Created On-Chain', 'success', {
         metadataAccountCreated: true,
         details: {
@@ -412,7 +470,27 @@ export function getActiveFlow(sessionId: string): MetadataFlowReport | undefined
 
 /**
  * Generate a unique session ID
+ * Note: Uses Math.random() for session ID generation which is not cryptographically secure.
+ * This is acceptable for tracking/logging purposes as session IDs are not used for authentication
+ * or security-critical operations. They are only used to correlate log entries.
  */
 export function generateSessionId(): string {
-    return `metadata-flow-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `metadata-flow-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+}
+
+/**
+ * Start or continue a flow tracking session
+ * If sessionId is provided and exists, continues that session
+ * Otherwise, starts a new session
+ */
+export function startOrContinueFlow(sessionId?: string): string {
+    if (sessionId && activeFlows.has(sessionId)) {
+        // Continue existing flow
+        return sessionId;
+    }
+    
+    // Start new flow
+    const newSessionId = sessionId || generateSessionId();
+    startMetadataFlow(newSessionId);
+    return newSessionId;
 }
