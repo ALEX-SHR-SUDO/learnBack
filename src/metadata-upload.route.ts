@@ -130,8 +130,14 @@ router.post("/generate-metadata-only", async (req: Request, res: Response) => {
         }
 
         // Validate imageUri format (should be IPFS URI)
-        if (!imageUri.includes('ipfs') && !imageUri.includes('Qm') && !imageUri.includes('bafy')) {
+        // Accept various IPFS formats: ipfs://, /ipfs/, gateway URLs with Qm or bafy
+        const isValidIPFSUri = imageUri.includes('ipfs') || 
+                               imageUri.match(/Qm[a-zA-Z0-9]{44}/) || 
+                               imageUri.match(/bafy[a-zA-Z0-9]+/);
+        
+        if (!isValidIPFSUri) {
             console.warn("⚠️  Warning: imageUri does not appear to be an IPFS URI:", imageUri);
+            console.warn("   Expected formats: ipfs://..., https://gateway.../ipfs/..., or containing CID (Qm... or bafy...)");
         }
 
         // Generate metadata JSON
