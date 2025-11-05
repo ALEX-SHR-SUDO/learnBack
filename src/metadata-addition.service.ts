@@ -22,6 +22,7 @@ import { PublicKey as Web3JsPublicKey, PublicKey } from "@solana/web3.js";
 import { getServiceWallet, getConnection } from './solana.service.js'; 
 import { toBigInt } from './utils.js';
 import { formatSignature, solanaTxUrl, solscanTokenUrl } from './utils/solana-signature.js'; 
+import * as flowTracker from './metadata-flow-tracker.js'; 
 
 function findAssociatedTokenPda(_umi: any, { mint, owner }: { mint: any, owner: any }): [PublicKey] {
     const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
@@ -64,7 +65,7 @@ function getUmiSigner(umi: any): Signer {
 }
 
 // --- Create SPL token with proper Metaplex metadata for Solscan visibility ---
-export async function createTokenAndMetadata(details: TokenDetails): Promise<{ mintAddress: string, ata: string, mintTx: TransactionSignature }> {
+export async function createTokenAndMetadata(details: TokenDetails, sessionId?: string): Promise<{ mintAddress: string, ata: string, mintTx: TransactionSignature }> {
     const umi = initializeUmi();
     const payer = getUmiSigner(umi); 
     try {
@@ -108,6 +109,14 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             tokenOwner: tokenOwnerAddress,
             payer: payer.publicKey.toString()
         });
+        
+        if (sessionId) {
+            flowTracker.addFlowStep(sessionId, 'Starting On-Chain Token Creation', 'success', {
+                mintAddress: mint.publicKey.toString(),
+                tokenOwner: tokenOwnerAddress,
+                payer: payer.publicKey.toString(),
+            });
+        }
 
         // Create the token mint with metadata and mint initial supply in a single transaction
         // Using createAndMint to atomically create metadata and mint tokens for fungible SPL tokens
@@ -141,6 +150,21 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         });
 
         const mintPublicKey = mint.publicKey.toString();
+        
+        if (sessionId) {
+            flowTracker.trackOnChainCreation(sessionId, {
+                mintAddress: mintPublicKey,
+                ata: associatedTokenAccountPda[0].toString(),
+                transactionSignature: result.signature,
+            });
+            
+            flowTracker.trackMetadataAccountCreation(sessionId, {
+                updateAuthority: payer.publicKey.toString(),
+                mint: mintPublicKey,
+                tokenStandard: 'Fungible',
+                isMutable: true,
+            });
+        }
 
         return {
             mintAddress: mintPublicKey,
@@ -150,6 +174,11 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
 
     } catch (error: any) {
         console.error("❌ UMI SDK createTokenAndMetadata Error:", error);
+        if (sessionId) {
+            flowTracker.addFlowStep(sessionId, 'Token Creation Failed', 'error', {
+                error: error.message || error,
+            });
+        }
         throw new Error(`Failed to create token and metadata: ${error.message || error}`);
     }
 }

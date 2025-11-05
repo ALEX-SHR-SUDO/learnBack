@@ -2,6 +2,7 @@
 
 import axios from "axios";
 import FormData from "form-data";
+import * as flowTracker from './metadata-flow-tracker.js';
 
 // Validate Pinata API keys at module load time
 const PINATA_API_KEY = process.env.PINATA_API_KEY;
@@ -108,13 +109,29 @@ export async function generateAndUploadMetadata(params: {
     logoBuffer: Buffer;
     logoFilename: string;
     logoMimetype: string;
-}): Promise<{ metadataUri: string; imageUri: string }> {
+    sessionId?: string;
+}): Promise<{ metadataUri: string; imageUri: string; sessionId: string }> {
+    // Start tracking metadata flow
+    const sessionId = params.sessionId || flowTracker.generateSessionId();
+    flowTracker.startMetadataFlow(sessionId);
+    
+    flowTracker.trackMetadataGeneration(sessionId, {
+        fileName: params.logoFilename,
+        fileSize: params.logoBuffer.length,
+        mimeType: params.logoMimetype,
+        name: params.name,
+        symbol: params.symbol,
+        description: params.description,
+    });
+    
     try {
         // Step 1: Upload logo to IPFS
         console.log(`📤 Uploading logo (${params.logoFilename}) to IPFS...`);
         const imageHash = await uploadToPinata(params.logoBuffer, params.logoFilename);
         const imageUri = `https://gateway.pinata.cloud/ipfs/${imageHash}`;
         console.log(`✅ Logo uploaded: ${imageUri}`);
+        
+        flowTracker.trackImageUpload(sessionId, { ipfsHash: imageHash, imageUri });
 
         // Step 2: Create Metaplex-compliant metadata JSON for fungible SPL token
         // Use category "fungible" to ensure explorers display it as a token, not an NFT
@@ -136,6 +153,8 @@ export async function generateAndUploadMetadata(params: {
         };
 
         console.log(`📝 Generated metadata:`, JSON.stringify(metadata, null, 2));
+        
+        flowTracker.trackMetadataJsonCreation(sessionId, metadata);
 
         // Step 3: Upload metadata JSON to IPFS
         const metadataBuffer = Buffer.from(JSON.stringify(metadata), 'utf-8');
@@ -143,11 +162,19 @@ export async function generateAndUploadMetadata(params: {
         const metadataHash = await uploadToPinata(metadataBuffer, 'metadata.json');
         const metadataUri = `https://gateway.pinata.cloud/ipfs/${metadataHash}`;
         console.log(`✅ Metadata uploaded: ${metadataUri}`);
+        
+        flowTracker.trackMetadataUpload(sessionId, { ipfsHash: metadataHash, metadataUri });
+        
+        flowTracker.endMetadataFlow(sessionId);
 
-        return { metadataUri, imageUri };
+        return { metadataUri, imageUri, sessionId };
 
     } catch (error) {
         console.error("❌ Error generating and uploading metadata:", error);
+        flowTracker.addFlowStep(sessionId, 'Metadata Generation Failed', 'error', {
+            error: error instanceof Error ? error.message : String(error),
+        });
+        flowTracker.endMetadataFlow(sessionId);
         throw new Error(`Failed to generate metadata: ${error instanceof Error ? error.message : String(error)}`);
     }
 }

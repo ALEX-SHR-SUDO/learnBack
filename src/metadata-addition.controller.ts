@@ -6,6 +6,7 @@ import { solanaTxUrl, solscanTokenUrl, solscanTxUrl } from './utils/solana-signa
 import { validateMetadataUri, formatValidationWarnings } from './metadata-validator.js';
 import { revokeFreezeAuthority, revokeMintAuthority } from './token-authority.service.js';
 import { PublicKey } from '@solana/web3.js';
+import * as flowTracker from './metadata-flow-tracker.js';
 
 interface CreateTokenRequest {
     name: string;
@@ -16,14 +17,36 @@ interface CreateTokenRequest {
     recipientWallet?: string; // Optional: wallet address to receive the minted tokens
     revokeFreezeAuthority?: boolean;
     revokeMintAuthority?: boolean;
+    sessionId?: string; // Optional: session ID for flow tracking (from metadata generation)
 }
 
 export async function handleCreateTokenAndMetadata(req: Request<any, any, CreateTokenRequest>, res: Response) {
     try {
-        const { name, symbol, uri, supply, decimals, recipientWallet, revokeFreezeAuthority: shouldRevokeFreezeAuth, revokeMintAuthority: shouldRevokeMintAuth } = req.body;
+        const { name, symbol, uri, supply, decimals, recipientWallet, revokeFreezeAuthority: shouldRevokeFreezeAuth, revokeMintAuthority: shouldRevokeMintAuth, sessionId: providedSessionId } = req.body;
         console.log("Req Body Received:", req.body);
 
+        // Start or continue flow tracking
+        const sessionId = providedSessionId || flowTracker.generateSessionId();
+        let flow = flowTracker.getActiveFlow(sessionId);
+        
+        if (!flow) {
+            flowTracker.startMetadataFlow(sessionId);
+        }
+        
+        flowTracker.trackTokenCreationRequest(sessionId, {
+            name,
+            symbol,
+            uri,
+            supply,
+            decimals,
+            recipientWallet,
+        });
+
         if (!name || !symbol || !uri || !supply || !decimals) {
+            flowTracker.addFlowStep(sessionId, 'Token Creation Failed - Missing Fields', 'error', {
+                providedFields: { name: !!name, symbol: !!symbol, uri: !!uri, supply: !!supply, decimals: !!decimals }
+            });
+            flowTracker.endMetadataFlow(sessionId);
             return res.status(400).json({ error: "Missing required fields: name, symbol, uri, supply, or decimals." });
         }
 
@@ -32,7 +55,15 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
             try {
                 new PublicKey(recipientWallet);
                 console.log(`📬 Tokens will be minted to recipient wallet: ${recipientWallet}`);
+                flowTracker.addFlowStep(sessionId, 'Recipient Wallet Validated', 'success', {
+                    recipientWallet
+                });
             } catch (error) {
+                flowTracker.addFlowStep(sessionId, 'Invalid Recipient Wallet', 'error', {
+                    recipientWallet,
+                    error: 'Not a valid Solana public key'
+                });
+                flowTracker.endMetadataFlow(sessionId);
                 return res.status(400).json({ 
                     error: "Invalid recipientWallet address. Please provide a valid Solana public key." 
                 });
@@ -43,6 +74,8 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
 
         // Validate metadata before creating token
         console.log("🔍 Validating metadata from URI...");
+        await flowTracker.trackMetadataUriValidation(sessionId, uri);
+        
         const validationResult = await validateMetadataUri(uri, name, symbol);
         
         if (validationResult.warnings.length > 0) {
@@ -60,6 +93,10 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
             );
             
             if (hasCriticalErrors) {
+                flowTracker.addFlowStep(sessionId, 'Critical Metadata Validation Errors', 'error', {
+                    warnings: validationResult.warnings,
+                });
+                flowTracker.endMetadataFlow(sessionId);
                 return res.status(400).json({
                     error: "Metadata validation failed",
                     warnings: validationResult.warnings,
@@ -77,7 +114,7 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
         console.log("Начинаем ШАГ 1-4: createTokenAndMetadata (полный процесс)");
         
         // Mint + metadata (одна транзакция, без отдельного addTokenMetadata)
-        const result = await createTokenAndMetadata(tokenDetails);
+        const result = await createTokenAndMetadata(tokenDetails, sessionId);
         
         const response: any = {
             message: "Token and metadata successfully created.",
@@ -87,7 +124,8 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
             solscanTokenLink: solscanTokenUrl(result.mintAddress, 'devnet'),
             solscanTxLink: solscanTxUrl(result.mintTx, 'devnet'),
             ataAddress: result.ata,
-            recipientWallet: recipientWallet || "service wallet"
+            recipientWallet: recipientWallet || "service wallet",
+            sessionId: sessionId,
         };
         
         // Handle authority revocation if requested
@@ -102,10 +140,16 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
                 response.revokeFreezeAuthorityTx = freezeAuthSig;
                 response.revokeFreezeAuthorityLink = solanaTxUrl(freezeAuthSig, 'devnet');
                 console.log(`✅ Freeze authority revoked: ${freezeAuthSig}`);
+                flowTracker.addFlowStep(sessionId, 'Freeze Authority Revoked', 'success', {
+                    transactionSignature: freezeAuthSig
+                });
             } catch (error) {
                 const errorMsg = error instanceof Error ? error.message : String(error);
                 console.error(`❌ Failed to revoke freeze authority: ${errorMsg}`);
                 revocationErrors.push(`freeze: ${errorMsg}`);
+                flowTracker.addFlowStep(sessionId, 'Freeze Authority Revocation Failed', 'error', {
+                    error: errorMsg
+                });
             }
         }
         
@@ -117,10 +161,16 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
                 response.revokeMintAuthorityTx = mintAuthSig;
                 response.revokeMintAuthorityLink = solanaTxUrl(mintAuthSig, 'devnet');
                 console.log(`✅ Mint authority revoked: ${mintAuthSig}`);
+                flowTracker.addFlowStep(sessionId, 'Mint Authority Revoked', 'success', {
+                    transactionSignature: mintAuthSig
+                });
             } catch (error) {
                 const errorMsg = error instanceof Error ? error.message : String(error);
                 console.error(`❌ Failed to revoke mint authority: ${errorMsg}`);
                 revocationErrors.push(`mint: ${errorMsg}`);
+                flowTracker.addFlowStep(sessionId, 'Mint Authority Revocation Failed', 'error', {
+                    error: errorMsg
+                });
             }
         }
         
@@ -142,6 +192,12 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
         if (validationResult.warnings.length > 0) {
             response.warnings = validationResult.warnings;
             response.note = "Token created successfully, but metadata may not display properly on Solscan due to the warnings above. Consider using /api/generate-metadata endpoint for properly formatted metadata.";
+        }
+        
+        // End flow tracking
+        const finalFlow = flowTracker.endMetadataFlow(sessionId);
+        if (finalFlow) {
+            response.metadataFlowSummary = flowTracker.generateTroubleshootingReport(finalFlow);
         }
         
         res.status(200).json(response);
