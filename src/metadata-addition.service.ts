@@ -85,6 +85,16 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         // Determine the token owner (who receives the tokens)
         // If recipientWallet is provided, tokens go to that wallet, otherwise to the service wallet
         const tokenOwnerAddress = details.recipientWallet || payer.publicKey.toString();
+        
+        // Validate the recipient wallet address (defensive programming)
+        if (details.recipientWallet) {
+            try {
+                new PublicKey(details.recipientWallet);
+            } catch (error) {
+                throw new Error(`Invalid recipientWallet address: ${details.recipientWallet}. Must be a valid Solana public key.`);
+            }
+        }
+        
         const tokenOwnerPubkey = umiPublicKey(tokenOwnerAddress);
 
         console.log(`🔨 Creating SPL token with mint address: ${mint.publicKey.toString()}`);

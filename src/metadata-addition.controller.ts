@@ -5,6 +5,7 @@ import { createTokenAndMetadata } from './metadata-addition.service.js';
 import { solanaTxUrl, solscanTokenUrl, solscanTxUrl } from './utils/solana-signature.js';
 import { validateMetadataUri, formatValidationWarnings } from './metadata-validator.js';
 import { revokeFreezeAuthority, revokeMintAuthority } from './token-authority.service.js';
+import { PublicKey } from '@solana/web3.js';
 
 interface CreateTokenRequest {
     name: string;
@@ -29,8 +30,6 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
         // Validate recipientWallet if provided
         if (recipientWallet) {
             try {
-                // Import PublicKey to validate the address
-                const { PublicKey } = await import('@solana/web3.js');
                 new PublicKey(recipientWallet);
                 console.log(`📬 Tokens will be minted to recipient wallet: ${recipientWallet}`);
             } catch (error) {
