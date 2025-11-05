@@ -108,14 +108,6 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             isMutable: true,
             // Update authority can be set to the payer or a specific address
             updateAuthority: payer.publicKey,
-            // Explicitly set NFT-specific fields to none() for fungible tokens
-            // Using none() from UMI SDK instead of null ensures these fields are completely omitted
-            // This prevents the SDK from defaulting to include the authority as a creator
-            // Without explicit none(), the SDK includes creators field which breaks Solscan display
-            creators: none(),
-            collection: none(),
-            uses: none(),
-            // Mint parameters
             amount: supplyBigInt,
             tokenOwner: payer.publicKey,
         }).sendAndConfirm(umi);
