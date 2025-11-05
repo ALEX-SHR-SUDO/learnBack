@@ -10,7 +10,7 @@ import metadataGeneratorRoute from "./src/metadata-generator.route.js";
 import * as solanaService from "./src/solana.service.js";
 
 const app = express();
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 
 app.use((req, res, next) => {
   console.log("Запрос:", req.method, req.url);
