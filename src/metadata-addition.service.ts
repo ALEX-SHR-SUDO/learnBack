@@ -13,6 +13,7 @@ import {
     Signer,
     TransactionSignature,
     percentAmount,
+    publicKey as umiPublicKey,
 } from "@metaplex-foundation/umi";
 
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
@@ -44,6 +45,7 @@ interface TokenDetails {
     uri: string;
     supply: string;
     decimals: string;
+    recipientWallet?: string; // Optional: if provided, tokens will be minted to this wallet
 }
 
 function initializeUmi(): any {
@@ -80,6 +82,21 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         
         const mint = generateSigner(umi);
 
+        // Determine the token owner (who receives the tokens)
+        // If recipientWallet is provided, tokens go to that wallet, otherwise to the service wallet
+        const tokenOwnerAddress = details.recipientWallet || payer.publicKey.toString();
+        
+        // Validate the recipient wallet address (defensive programming)
+        if (details.recipientWallet) {
+            try {
+                new PublicKey(details.recipientWallet);
+            } catch (error) {
+                throw new Error(`Invalid recipientWallet address: ${details.recipientWallet}. Must be a valid Solana public key.`);
+            }
+        }
+        
+        const tokenOwnerPubkey = umiPublicKey(tokenOwnerAddress);
+
         console.log(`🔨 Creating SPL token with mint address: ${mint.publicKey.toString()}`);
         console.log(`📊 Token parameters:`, {
             name: details.name,
@@ -87,7 +104,9 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             uri: details.uri,
             decimals: decimalsNumber,
             supply: supplyBigInt.toString(),
-            tokenStandard: 'Fungible'
+            tokenStandard: 'Fungible',
+            tokenOwner: tokenOwnerAddress,
+            payer: payer.publicKey.toString()
         });
 
         // Create the token mint with metadata and mint initial supply in a single transaction
@@ -107,7 +126,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
             // Update authority can be set to the payer or a specific address
             updateAuthority: payer.publicKey,
             amount: supplyBigInt,
-            tokenOwner: payer.publicKey,
+            tokenOwner: tokenOwnerPubkey,
         }).sendAndConfirm(umi);
 
         console.log(`✅ Token mint, metadata created and tokens minted: ${mint.publicKey.toString()}`);
@@ -118,7 +137,7 @@ export async function createTokenAndMetadata(details: TokenDetails): Promise<{ m
         // Calculate the associated token account address for the return value
         const associatedTokenAccountPda = findAssociatedTokenPda(umi, {
             mint: mint.publicKey,
-            owner: payer.publicKey,
+            owner: tokenOwnerPubkey,
         });
 
         const mintPublicKey = mint.publicKey.toString();
