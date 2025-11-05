@@ -12,17 +12,34 @@ interface CreateTokenRequest {
     uri: string;
     supply: string;
     decimals: string;
+    recipientWallet?: string; // Optional: wallet address to receive the minted tokens
     revokeFreezeAuthority?: boolean;
     revokeMintAuthority?: boolean;
 }
 
 export async function handleCreateTokenAndMetadata(req: Request<any, any, CreateTokenRequest>, res: Response) {
     try {
-        const { name, symbol, uri, supply, decimals, revokeFreezeAuthority: shouldRevokeFreezeAuth, revokeMintAuthority: shouldRevokeMintAuth } = req.body;
+        const { name, symbol, uri, supply, decimals, recipientWallet, revokeFreezeAuthority: shouldRevokeFreezeAuth, revokeMintAuthority: shouldRevokeMintAuth } = req.body;
         console.log("Req Body Received:", req.body);
 
         if (!name || !symbol || !uri || !supply || !decimals) {
             return res.status(400).json({ error: "Missing required fields: name, symbol, uri, supply, or decimals." });
+        }
+
+        // Validate recipientWallet if provided
+        if (recipientWallet) {
+            try {
+                // Import PublicKey to validate the address
+                const { PublicKey } = await import('@solana/web3.js');
+                new PublicKey(recipientWallet);
+                console.log(`📬 Tokens will be minted to recipient wallet: ${recipientWallet}`);
+            } catch (error) {
+                return res.status(400).json({ 
+                    error: "Invalid recipientWallet address. Please provide a valid Solana public key." 
+                });
+            }
+        } else {
+            console.log(`📬 Tokens will be minted to service wallet (default behavior)`);
         }
 
         // Validate metadata before creating token
@@ -57,7 +74,7 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
             console.log("✅ Metadata validation passed");
         }
 
-        const tokenDetails = { name, symbol, uri, supply, decimals };
+        const tokenDetails = { name, symbol, uri, supply, decimals, recipientWallet };
         console.log("Начинаем ШАГ 1-4: createTokenAndMetadata (полный процесс)");
         
         // Mint + metadata (одна транзакция, без отдельного addTokenMetadata)
@@ -70,7 +87,8 @@ export async function handleCreateTokenAndMetadata(req: Request<any, any, Create
             explorerLinkCreate: solanaTxUrl(result.mintTx, 'devnet'),
             solscanTokenLink: solscanTokenUrl(result.mintAddress, 'devnet'),
             solscanTxLink: solscanTxUrl(result.mintTx, 'devnet'),
-            ataAddress: result.ata
+            ataAddress: result.ata,
+            recipientWallet: recipientWallet || "service wallet"
         };
         
         // Handle authority revocation if requested
