@@ -13,7 +13,6 @@ import {
     Signer,
     TransactionSignature,
     percentAmount,
-    none,
 } from "@metaplex-foundation/umi";
 
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
