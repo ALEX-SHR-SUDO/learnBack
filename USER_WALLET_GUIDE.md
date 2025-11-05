@@ -261,9 +261,6 @@ function CreateTokenButton() {
    - Encrypt API communications
    - Protect transaction data in transit
    - Prevent man-in-the-middle attacks
-   - Mint authority (can mint more tokens)
-   - Update authority (can update metadata)
-   - Initial token owner (receives the minted supply)
 
 ## Troubleshooting
 

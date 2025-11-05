@@ -134,7 +134,7 @@ export async function createUnsignedTokenTransaction(
 
     } catch (error: any) {
         console.error("❌ Error creating unsigned token transaction:", error);
-        throw new Error(`Failed to create unsigned transaction: ${error.message || error}`);
+        throw new Error("Failed to create unsigned transaction. Please check your inputs and try again.");
     }
 }
 
@@ -185,6 +185,6 @@ export async function submitSignedTransaction(
 
     } catch (error: any) {
         console.error("❌ Error submitting signed transaction:", error);
-        throw new Error(`Failed to submit transaction: ${error.message || error}`);
+        throw new Error("Failed to submit transaction. Please ensure the transaction is properly signed.");
     }
 }

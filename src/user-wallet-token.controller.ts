@@ -108,8 +108,8 @@ export async function handleCreateUnsignedToken(
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        // Log error without including potentially sensitive user input
-        console.error(`❌ Error creating unsigned token transaction:`, error);
+        // Log error type without sensitive details
+        console.error(`❌ Error creating unsigned token transaction: ${error instanceof Error ? error.constructor.name : 'Unknown'}`);
         res.status(500).json({ 
             error: errorMessage, 
             details: "An error occurred during unsigned transaction creation." 
@@ -157,8 +157,8 @@ export async function handleSubmitSignedTransaction(
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        // Log error without including potentially sensitive user input
-        console.error(`❌ Error submitting signed transaction:`, error);
+        // Log error type without sensitive details
+        console.error(`❌ Error submitting signed transaction: ${error instanceof Error ? error.constructor.name : 'Unknown'}`);
         res.status(500).json({ 
             error: errorMessage, 
             details: "An error occurred while submitting the signed transaction." 
